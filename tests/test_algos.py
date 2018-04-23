@@ -1,27 +1,27 @@
 import os
 
-from rllab.algos.cem import CEM
-from rllab.algos.cma_es import CMAES
-from rllab.algos.erwr import ERWR
+from rllab_maml.algos.cem import CEM
+from rllab_maml.algos.cma_es import CMAES
+from rllab_maml.algos.erwr import ERWR
 
 os.environ['THEANO_FLAGS'] = 'device=cpu,mode=FAST_COMPILE,optimizer=None'
 
-from rllab.algos.vpg import VPG
-from rllab.algos.tnpg import TNPG
-from rllab.algos.ppo import PPO
-from rllab.algos.trpo import TRPO
-from rllab.algos.reps import REPS
-from rllab.algos.ddpg import DDPG
-from rllab.envs.grid_world_env import GridWorldEnv
-from rllab.envs.box2d.cartpole_env import CartpoleEnv
-from rllab.policies.categorical_mlp_policy import CategoricalMLPPolicy
-from rllab.policies.categorical_gru_policy import CategoricalGRUPolicy
-from rllab.policies.gaussian_mlp_policy import GaussianMLPPolicy
-from rllab.policies.gaussian_gru_policy import GaussianGRUPolicy
-from rllab.policies.deterministic_mlp_policy import DeterministicMLPPolicy
-from rllab.q_functions.continuous_mlp_q_function import ContinuousMLPQFunction
-from rllab.exploration_strategies.ou_strategy import OUStrategy
-from rllab.baselines.zero_baseline import ZeroBaseline
+from rllab_maml.algos.vpg import VPG
+from rllab_maml.algos.tnpg import TNPG
+from rllab_maml.algos.ppo import PPO
+from rllab_maml.algos.trpo import TRPO
+from rllab_maml.algos.reps import REPS
+from rllab_maml.algos.ddpg import DDPG
+from rllab_maml.envs.grid_world_env import GridWorldEnv
+from rllab_maml.envs.box2d.cartpole_env import CartpoleEnv
+from rllab_maml.policies.categorical_mlp_policy import CategoricalMLPPolicy
+from rllab_maml.policies.categorical_gru_policy import CategoricalGRUPolicy
+from rllab_maml.policies.gaussian_mlp_policy import GaussianMLPPolicy
+from rllab_maml.policies.gaussian_gru_policy import GaussianGRUPolicy
+from rllab_maml.policies.deterministic_mlp_policy import DeterministicMLPPolicy
+from rllab_maml.q_functions.continuous_mlp_q_function import ContinuousMLPQFunction
+from rllab_maml.exploration_strategies.ou_strategy import OUStrategy
+from rllab_maml.baselines.zero_baseline import ZeroBaseline
 from nose2 import tools
 import numpy as np
 

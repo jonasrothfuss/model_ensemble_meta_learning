@@ -1,15 +1,15 @@
-from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
-from rllab.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
-from rllab.envs.mujoco.half_cheetah_env_rand import HalfCheetahEnvRand
-from rllab.envs.mujoco.half_cheetah_env_rand_direc import HalfCheetahEnvRandDirec
-from rllab.envs.mujoco.half_cheetah_env_direc_oracle import HalfCheetahEnvDirecOracle
-from rllab.envs.mujoco.half_cheetah_env_rand import HalfCheetahEnvRand
-from rllab.envs.mujoco.half_cheetah_env_oracle import HalfCheetahEnvOracle
-from rllab.envs.normalized_env import normalize
-from rllab.misc.instrument import stub, run_experiment_lite, variant, VariantGenerator
-from sandbox.rocky.tf.algos.trpo import TRPO
-from sandbox.rocky.tf.policies.minimal_gauss_mlp_policy import GaussianMLPPolicy
-from sandbox.rocky.tf.envs.base import TfEnv
+from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
+from rllab_maml.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
+from rllab_maml.envs.mujoco.half_cheetah_env_rand import HalfCheetahEnvRand
+from rllab_maml.envs.mujoco.half_cheetah_env_rand_direc import HalfCheetahEnvRandDirec
+from rllab_maml.envs.mujoco.half_cheetah_env_direc_oracle import HalfCheetahEnvDirecOracle
+from rllab_maml.envs.mujoco.half_cheetah_env_rand import HalfCheetahEnvRand
+from rllab_maml.envs.mujoco.half_cheetah_env_oracle import HalfCheetahEnvOracle
+from rllab_maml.envs.normalized_env import normalize
+from rllab_maml.misc.instrument import stub, run_experiment_lite, variant, VariantGenerator
+from sandbox_maml.rocky.tf.algos.trpo import TRPO
+from sandbox_maml.rocky.tf.policies.minimal_gauss_mlp_policy import GaussianMLPPolicy
+from sandbox_maml.rocky.tf.envs.base import TfEnv
 
 import tensorflow as tf
 import sys

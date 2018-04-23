@@ -1,12 +1,12 @@
-from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
-from rllab.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
-from rllab.baselines.zero_baseline import ZeroBaseline
-from rllab.envs.grid_world_env_rand import GridWorldEnvRand
-from rllab.envs.normalized_env import normalize
-from rllab.misc.instrument import stub, run_experiment_lite
-from sandbox.rocky.tf.algos.maml_trpo import MAMLTRPO
-from sandbox.rocky.tf.policies.maml_minimal_categorical_mlp_policy import MAMLCategoricalMLPPolicy
-from sandbox.rocky.tf.envs.base import TfEnv
+from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
+from rllab_maml.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
+from rllab_maml.baselines.zero_baseline import ZeroBaseline
+from rllab_maml.envs.grid_world_env_rand import GridWorldEnvRand
+from rllab_maml.envs.normalized_env import normalize
+from rllab_maml.misc.instrument import stub, run_experiment_lite
+from sandbox_maml.rocky.tf.algos.maml_trpo import MAMLTRPO
+from sandbox_maml.rocky.tf.policies.maml_minimal_categorical_mlp_policy import MAMLCategoricalMLPPolicy
+from sandbox_maml.rocky.tf.envs.base import TfEnv
 
 import tensorflow as tf
 import sys

@@ -4,16 +4,16 @@ pprint.pprint(sys.path)
 
 
 
-from sandbox.rocky.tf.algos.maml_trpo import MAMLTRPO
-from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
-from rllab.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
-from rllab.baselines.zero_baseline import ZeroBaseline
+from sandbox_maml.rocky.tf.algos.maml_trpo import MAMLTRPO
+from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
+from rllab_maml.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
+from rllab_maml.baselines.zero_baseline import ZeroBaseline
 from maml_examples.point_env_randgoal import PointEnvRandGoal
 from maml_examples.point_env_randgoal_oracle import PointEnvRandGoalOracle
-from rllab.envs.normalized_env import normalize
-from rllab.misc.instrument import stub, run_experiment_lite
-from sandbox.rocky.tf.policies.maml_minimal_gauss_mlp_policy import MAMLGaussianMLPPolicy
-from sandbox.rocky.tf.envs.base import TfEnv
+from rllab_maml.envs.normalized_env import normalize
+from rllab_maml.misc.instrument import stub, run_experiment_lite
+from sandbox_maml.rocky.tf.policies.maml_minimal_gauss_mlp_policy import MAMLGaussianMLPPolicy
+from sandbox_maml.rocky.tf.envs.base import TfEnv
 
 import tensorflow as tf
 

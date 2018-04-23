@@ -1,7 +1,7 @@
 def test_gru_network():
-    from rllab.core.network import GRUNetwork
+    from rllab_maml.core.network import GRUNetwork
     import lasagne.layers as L
-    from rllab.misc import ext
+    from rllab_maml.misc import ext
     import numpy as np
     network = GRUNetwork(
         input_shape=(2, 3),

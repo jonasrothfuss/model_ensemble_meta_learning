@@ -1,7 +1,7 @@
 import tensorflow as tf
 
-from rllab.core.serializable import Serializable
-from sandbox.rocky.tf.core.parameterized import Parameterized, suppress_params_loading
+from rllab_maml.core.serializable import Serializable
+from sandbox_maml.rocky.tf.core.parameterized import Parameterized, suppress_params_loading
 
 
 class Simple(Parameterized, Serializable):

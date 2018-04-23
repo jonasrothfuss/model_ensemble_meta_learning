@@ -1,20 +1,20 @@
-from sandbox.rocky.tf.algos.maml_trpo import MAMLTRPO
-from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
-from rllab.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
-from rllab.envs.mujoco.ant_env_rand import AntEnvRand
-from rllab.envs.mujoco.ant_env_rand_goal import AntEnvRandGoal
-from rllab.envs.mujoco.ant_env_rand_direc import AntEnvRandDirec
-from rllab.envs.normalized_env import normalize
-from rllab.misc.instrument import stub, run_experiment_lite
-from sandbox.rocky.tf.policies.maml_minimal_gauss_mlp_policy import MAMLGaussianMLPPolicy
-from sandbox.rocky.tf.envs.base import TfEnv
+from sandbox_maml.rocky.tf.algos.maml_trpo import MAMLTRPO
+from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
+from rllab_maml.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
+from rllab_maml.envs.mujoco.ant_env_rand import AntEnvRand
+from rllab_maml.envs.mujoco.ant_env_rand_goal import AntEnvRandGoal
+from rllab_maml.envs.mujoco.ant_env_rand_direc import AntEnvRandDirec
+from rllab_maml.envs.normalized_env import normalize
+from rllab_maml.misc.instrument import stub, run_experiment_lite
+from sandbox_maml.rocky.tf.policies.maml_minimal_gauss_mlp_policy import MAMLGaussianMLPPolicy
+from sandbox_maml.rocky.tf.envs.base import TfEnv
 
 import tensorflow as tf
 import sys
 
 stub(globals())
 
-from rllab.misc.instrument import VariantGenerator, variant
+from rllab_maml.misc.instrument import VariantGenerator, variant
 
 
 class VG(VariantGenerator):

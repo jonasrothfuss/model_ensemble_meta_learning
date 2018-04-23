@@ -1,7 +1,7 @@
 
 
 
-from rllab.misc import instrument
+from rllab_maml.misc import instrument
 from nose2.tools import such
 
 

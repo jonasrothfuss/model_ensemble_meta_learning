@@ -1,5 +1,5 @@
 
-from rllab.spaces import Product, Discrete, Box
+from rllab_maml.spaces import Product, Discrete, Box
 import numpy as np
 
 

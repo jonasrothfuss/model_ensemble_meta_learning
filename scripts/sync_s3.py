@@ -1,6 +1,6 @@
 import sys
 sys.path.append('.')
-from rllab import config
+from rllab_maml import config
 import os
 import argparse
 import ast

@@ -1,12 +1,12 @@
-from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
-from rllab.envs.mujoco.ant_env_rand import AntEnvRand
-from rllab.envs.mujoco.ant_env_oracle import AntEnvOracle
-from rllab.envs.normalized_env import normalize
-from rllab.misc.instrument import stub, run_experiment_lite
-from sandbox.rocky.tf.algos.vpg import VPG
-from sandbox.rocky.tf.algos.trpo import TRPO
-from sandbox.rocky.tf.policies.minimal_gauss_mlp_policy import GaussianMLPPolicy
-from sandbox.rocky.tf.envs.base import TfEnv
+from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
+from rllab_maml.envs.mujoco.ant_env_rand import AntEnvRand
+from rllab_maml.envs.mujoco.ant_env_oracle import AntEnvOracle
+from rllab_maml.envs.normalized_env import normalize
+from rllab_maml.misc.instrument import stub, run_experiment_lite
+from sandbox_maml.rocky.tf.algos.vpg import VPG
+from sandbox_maml.rocky.tf.algos.trpo import TRPO
+from sandbox_maml.rocky.tf.policies.minimal_gauss_mlp_policy import GaussianMLPPolicy
+from sandbox_maml.rocky.tf.envs.base import TfEnv
 
 import csv
 import joblib

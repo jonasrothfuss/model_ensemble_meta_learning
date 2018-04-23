@@ -4,7 +4,7 @@ import argparse
 import os
 import os.path as osp
 import gym
-from rllab.viskit.core import load_params
+from rllab_maml.viskit.core import load_params
 
 if __name__ == "__main__":
     # rl_gym.api_key = 'g8JOpnNVmcjMShBiFtyji2VWX3P2uCzc'

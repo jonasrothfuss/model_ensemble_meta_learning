@@ -1,9 +1,9 @@
-from rllab.algos.trpo import TRPO
-from rllab.algos.tnpg import TNPG
-from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
-from rllab.envs.box2d.cartpole_env import CartpoleEnv
-from rllab.envs.normalized_env import normalize
-from rllab.policies.gaussian_mlp_policy import GaussianMLPPolicy
+from rllab_maml.algos.trpo import TRPO
+from rllab_maml.algos.tnpg import TNPG
+from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
+from rllab_maml.envs.box2d.cartpole_env import CartpoleEnv
+from rllab_maml.envs.normalized_env import normalize
+from rllab_maml.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from contrib.alexbeloi.is_sampler import ISSampler
 
 """

@@ -1,10 +1,10 @@
 
 
-from rllab.envs.base import Env, Step
-from rllab.policies.gaussian_mlp_policy import GaussianMLPPolicy
-from rllab.baselines.zero_baseline import ZeroBaseline
-from rllab.algos.trpo import TRPO
-from rllab.spaces.box import Box
+from rllab_maml.envs.base import Env, Step
+from rllab_maml.policies.gaussian_mlp_policy import GaussianMLPPolicy
+from rllab_maml.baselines.zero_baseline import ZeroBaseline
+from rllab_maml.algos.trpo import TRPO
+from rllab_maml.spaces.box import Box
 import lasagne.nonlinearities
 import numpy as np
 import theano.tensor as TT

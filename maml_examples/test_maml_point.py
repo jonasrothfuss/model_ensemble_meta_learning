@@ -1,13 +1,13 @@
 from maml_examples.point_env_randgoal import PointEnvRandGoal
 from maml_examples.point_env_randgoal_oracle import PointEnvRandGoalOracle
-from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
-from rllab.envs.mujoco.walker2d_env import Walker2DEnv
-from rllab.envs.normalized_env import normalize
-from rllab.misc.instrument import stub, run_experiment_lite
-from sandbox.rocky.tf.algos.vpg import VPG
-from sandbox.rocky.tf.algos.trpo import TRPO
-from sandbox.rocky.tf.policies.minimal_gauss_mlp_policy import GaussianMLPPolicy
-from sandbox.rocky.tf.envs.base import TfEnv
+from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
+from rllab_maml.envs.mujoco.walker2d_env import Walker2DEnv
+from rllab_maml.envs.normalized_env import normalize
+from rllab_maml.misc.instrument import stub, run_experiment_lite
+from sandbox_maml.rocky.tf.algos.vpg import VPG
+from sandbox_maml.rocky.tf.algos.trpo import TRPO
+from sandbox_maml.rocky.tf.policies.minimal_gauss_mlp_policy import GaussianMLPPolicy
+from sandbox_maml.rocky.tf.envs.base import TfEnv
 
 import csv
 import joblib

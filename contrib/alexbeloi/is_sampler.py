@@ -1,4 +1,4 @@
-from rllab.algos.batch_polopt import BatchSampler
+from rllab_maml.algos.batch_polopt import BatchSampler
 from math import exp, log
 from numpy import var
 import random

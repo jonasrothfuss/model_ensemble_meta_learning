@@ -2,7 +2,7 @@
 from setuptools import setup
 
 setup(
-    name='rllab',
+    name='rllab_maml',
     version='0.1.0',
-    packages=['rllab'],
+    packages=['rllab_maml'],
 )
