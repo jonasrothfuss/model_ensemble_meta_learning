@@ -1,14 +1,11 @@
-# Model-Agnostic Meta-Learning
+# Model-Ensemble Meta-Learning
 
-This repo contains code accompaning the paper, 	[Model-Agnostic Meta-Learning for Fast Adaptation of Deep Networks (Finn et al., ICML 2017)](https://arxiv.org/abs/1703.03400). It includes code for running the few-shot reinforcement learning experiments. 
-
-For the experiments in the supervised domain, see  [this codebase](https://github.com/cbfinn/maml).
+This project is currently in the depelopment phase.
 
 
 ### Dependencies
-This code is based off of the rllab code repository and can be installed in the same way (see below). This codebase is not necessarily backwards compatible with rllab.
-
-The MAML code uses the TensorFlow rllab version, so be sure to install TensorFlow v1.0+.
+This code is based off of the rllab code repository as well as the maml_rl repository and can be installed in the same way (see below).
+This codebase is not necessarily backwards compatible with rllab. The MAML code uses the TensorFlow rllab version, so be sure to install TensorFlow v1.0+.
 
 ### Usage
 Scripts for running the experiments found in the paper are located in `maml_examples/`.
