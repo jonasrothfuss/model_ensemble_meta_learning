@@ -298,7 +298,7 @@ class MAMLCategoricalMLPPolicy(StochasticPolicy, Serializable):
         if tags.get('trainable', False):
             params = tf.trainable_variables()
         else:
-            params = tf.all_variables()
+            params = tf.global_variables()
 
         # TODO - this is hacky...
         params = [p for p in params if p.name.startswith('prob_network')]
