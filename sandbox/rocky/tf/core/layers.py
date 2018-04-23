@@ -1158,7 +1158,7 @@ class TfGRULayer(Layer):
             gru(input_dummy, hidden_dummy, scope=vs)
             vs.reuse_variables()
             self.scope = vs
-            all_vars = [v for v in tf.all_variables() if v.name.startswith(vs.name)]
+            all_vars = [v for v in tf.variables_initializer() if v.name.startswith(vs.name)]
             trainable_vars = [v for v in tf.trainable_variables() if v.name.startswith(vs.name)]
 
         for var in trainable_vars:
@@ -1597,7 +1597,7 @@ class TfBasicLSTMLayer(Layer):
             lstm(input_dummy, (cell_dummy, hidden_dummy), scope=vs)
             vs.reuse_variables()
             self.scope = vs
-            all_vars = [v for v in tf.all_variables() if v.name.startswith(vs.name)]
+            all_vars = [v for v in tf.variables_initializer() if v.name.startswith(vs.name)]
             trainable_vars = [v for v in tf.trainable_variables() if v.name.startswith(vs.name)]
 
         for var in trainable_vars:
