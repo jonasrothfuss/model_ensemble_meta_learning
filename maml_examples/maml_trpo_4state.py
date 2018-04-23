@@ -9,6 +9,7 @@ from sandbox.rocky.tf.policies.maml_minimal_categorical_mlp_policy import MAMLCa
 from sandbox.rocky.tf.envs.base import TfEnv
 
 import tensorflow as tf
+import sys
 
 fast_learning_rates = [0.1]
 baselines = ['linear']
@@ -55,6 +56,7 @@ for fast_learning_rate in fast_learning_rates:
             algo.train(),
             n_parallel=4,
             snapshot_mode="last",
+            python_command=sys.executable,
             seed=1,
             exp_prefix='trpo_maml_4state',
             exp_name='trpo_maml'+str(int(use_maml))+'_fbs'+str(fast_batch_size)+'_mbs'+str(meta_batch_size)+'_flr_' + str(fast_learning_rate) + 'metalr_' + str(meta_step_size) +'_step1'+str(num_grad_updates),

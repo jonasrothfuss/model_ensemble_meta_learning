@@ -10,6 +10,7 @@ from sandbox.rocky.tf.policies.maml_minimal_gauss_mlp_policy import MAMLGaussian
 from sandbox.rocky.tf.envs.base import TfEnv
 
 import tensorflow as tf
+import sys
 
 stub(globals())
 
@@ -97,6 +98,7 @@ for v in variants:
         snapshot_mode="gap",
         snapshot_gap=25,
         sync_s3_pkl=True,
+        python_command=sys.executable,
         # Specifies the seed for the experiment. If this is not provided, a random seed
         # will be used
         seed=v["seed"],
