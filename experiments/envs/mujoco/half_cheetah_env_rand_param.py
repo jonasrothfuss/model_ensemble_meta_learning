@@ -12,25 +12,18 @@ class HalfCheetahEnvRandParams(MujocoEnv, Serializable):
 
     FILE = 'half_cheetah.xml'
 
-    def __init__(self, *args, log_scale_limit=2.0, fixed_params=False, random_seed=None, **kwargs):
+    def __init__(self, *args, log_scale_limit=2.0, fix_params=False, random_seed=None, **kwargs):
         """
         Hald Cheeta with randomized mujoco parameters
         :param log_scale_limit: lower / upper limit for uniform sampling in logspace of base 2
-        :param fixed_params: (boolean) if true, a set of parameters is sampled and fixed
         :param random_seed: random seed for samling the mujoco model params
         """
         self.log_scale_limit = log_scale_limit
         self.random_state = np.random.RandomState(random_seed)
+        self.fixed_params = False # can be changed by calling the fix_mujoco_parameters method
 
         super(HalfCheetahEnvRandParams, self).__init__(*args, **kwargs)
         Serializable.__init__(self, *args, **kwargs)
-
-        if fixed_params: # sample params and fix them
-            param_dict = self.sample_env_params(1)[0]
-            self.fix_mujoco_parameters(param_dict)
-        else:
-            self.fixed_params = False
-
 
     def sample_env_params(self, num_param_sets, log_scale_limit=None):
         """
@@ -138,6 +131,11 @@ class HalfCheetahEnvRandParams(MujocoEnv, Serializable):
             assert param_variable.shape == param_val.shape, 'shapes of new parameter value and old one must match'
             setattr(self.model, param, param_val)
 
-    def fix_mujoco_parameters(self, param_dict):
+    def fix_parameters(self, param_dict):
         self.reset_mujoco_parameters(param_dict)
         self.fixed_params = True
+
+    def sample_and_fix_parameters(self):
+        param_dict = self.sample_env_params(1)[0]
+        self.fix_parameters(param_dict)
+        return self
