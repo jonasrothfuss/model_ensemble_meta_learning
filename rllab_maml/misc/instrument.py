@@ -342,7 +342,7 @@ def run_experiment_lite(
         exp_prefix="experiment",
         exp_name=None,
         log_dir=None,
-        script="scripts/run_experiment_lite.py",
+        script="scripts_maml/run_experiment_lite.py",
         python_command="python",
         mode="local",
         dry=False,

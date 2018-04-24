@@ -1,8 +1,8 @@
 
 
 
-from rllab_maml.sampler.utils import rollout
-from rllab_maml.algos.batch_polopt import BatchPolopt
+from rllab.sampler.utils import rollout
+from rllab.algos.batch_polopt import BatchPolopt
 import argparse
 import joblib
 import uuid
@@ -11,8 +11,8 @@ import random
 import numpy as np
 import json
 import subprocess
-from rllab_maml.misc import logger
-from rllab_maml.misc.instrument import to_local_command
+from rllab.misc import logger
+from rllab.misc.instrument import to_local_command
 
 filename = str(uuid.uuid4())
 

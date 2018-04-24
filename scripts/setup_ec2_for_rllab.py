@@ -4,8 +4,8 @@ import sys
 import json
 import botocore
 import os
-from rllab_maml.misc import console
-from rllab_maml import config
+from rllab.misc import console
+from rllab import config
 from string import Template
 
 ACCESS_KEY = os.environ["AWS_ACCESS_KEY"]
@@ -32,14 +32,23 @@ else:
 
 DOCKER_LOG_DIR = "/tmp/expt"
 
-AWS_S3_PATH = "s3://$s3_bucket_name/rllab_maml/experiments"
+AWS_S3_PATH = "s3://$s3_bucket_name/rllab/experiments"
 
-AWS_CODE_SYNC_S3_PATH = "s3://$s3_bucket_name/rllab_maml/code"
+AWS_CODE_SYNC_S3_PATH = "s3://$s3_bucket_name/rllab/code"
 
 ALL_REGION_AWS_IMAGE_IDS = {
-    "us-west-1": "ami-ad81c8cd",
-    "us-west-2": "ami-7ea27a1e",
-    "us-east-1": "ami-6b99d57c"
+    "ap-northeast-1": "ami-002f0167",
+    "ap-northeast-2": "ami-590bd937",
+    "ap-south-1": "ami-77314318",
+    "ap-southeast-1": "ami-1610a975",
+    "ap-southeast-2": "ami-9dd4ddfe",
+    "eu-central-1": "ami-63af720c",
+    "eu-west-1": "ami-41484f27",
+    "sa-east-1": "ami-b7234edb",
+    "us-east-1": "ami-83f26195",
+    "us-east-2": "ami-66614603",
+    "us-west-1": "ami-576f4b37",
+    "us-west-2": "ami-b8b62bd8"
 }
 
 AWS_IMAGE_ID = ALL_REGION_AWS_IMAGE_IDS[AWS_REGION_NAME]
@@ -61,9 +70,9 @@ AWS_ACCESS_KEY = os.environ.get("AWS_ACCESS_KEY", None)
 
 AWS_ACCESS_SECRET = os.environ.get("AWS_ACCESS_SECRET", None)
 
-AWS_IAM_INSTANCE_PROFILE_NAME = "rllab_maml"
+AWS_IAM_INSTANCE_PROFILE_NAME = "rllab"
 
-AWS_SECURITY_GROUPS = ["rllab_maml-sg"]
+AWS_SECURITY_GROUPS = ["rllab-sg"]
 
 ALL_REGION_AWS_SECURITY_GROUP_IDS = $all_region_aws_security_group_ids
 
@@ -107,11 +116,11 @@ def setup_iam():
 
     # delete existing role if it exists
     try:
-        existing_role = iam.Role('rllab_maml')
+        existing_role = iam.Role('rllab')
         existing_role.load()
         # if role exists, delete and recreate
         if not query_yes_no(
-                "There is an existing role named rllab_maml. Proceed to delete everything rllab_maml-related and recreate?",
+                "There is an existing role named rllab. Proceed to delete everything rllab-related and recreate?",
                 default="no"):
             sys.exit()
         print("Listing instance profiles...")
@@ -136,15 +145,15 @@ def setup_iam():
         else:
             raise e
 
-    print("Creating role rllab_maml")
+    print("Creating role rllab")
     iam_client.create_role(
         Path='/',
-        RoleName='rllab_maml',
+        RoleName='rllab',
         AssumeRolePolicyDocument=json.dumps({'Version': '2012-10-17', 'Statement': [
             {'Action': 'sts:AssumeRole', 'Effect': 'Allow', 'Principal': {'Service': 'ec2.amazonaws.com'}}]})
     )
 
-    role = iam.Role('rllab_maml')
+    role = iam.Role('rllab')
     print("Attaching policies")
     role.attach_policy(PolicyArn='arn:aws:iam::aws:policy/AmazonS3FullAccess')
     role.attach_policy(PolicyArn='arn:aws:iam::aws:policy/ResourceGroupsandTagEditorFullAccess')
@@ -184,15 +193,15 @@ def setup_iam():
         })
     )
 
-    print("Creating instance profile rllab_maml")
+    print("Creating instance profile rllab")
     iam_client.create_instance_profile(
-        InstanceProfileName='rllab_maml',
+        InstanceProfileName='rllab',
         Path='/'
     )
-    print("Adding role rllab_maml to instance profile rllab_maml")
+    print("Adding role rllab to instance profile rllab")
     iam_client.add_role_to_instance_profile(
-        InstanceProfileName='rllab_maml',
-        RoleName='rllab_maml'
+        InstanceProfileName='rllab',
+        RoleName='rllab'
     )
 
 
@@ -203,16 +212,14 @@ def setup_s3():
         aws_access_key_id=ACCESS_KEY,
         aws_secret_access_key=ACCESS_SECRET,
     )
-    import pdb; pdb.set_trace()
     try:
         s3_client.create_bucket(
             ACL='private',
             Bucket=S3_BUCKET_NAME,
-            CreateBucketConfiguration={'LocationConstraint':'us-west-1'}
         )
     except botocore.exceptions.ClientError as e:
         if e.response['Error']['Code'] == 'BucketAlreadyExists':
-            raise ValueError("Bucket %s already exists. Please reconfigure S3_BUCKET_NAME" % S3_BUCKET_NAME)
+            raise ValueError("Bucket %s already exists. Please reconfigure S3_BUCKET_NAME" % S3_BUCKET_NAME) from e
         elif e.response['Error']['Code'] == 'BucketAlreadyOwnedByYou':
             print("Bucket already created by you")
         else:
@@ -221,8 +228,7 @@ def setup_s3():
 
 
 def setup_ec2():
-    #for region in ["us-east-1", "us-west-1", "us-west-2"]:
-    for region in ["us-west-1"]:
+    for region in ["us-east-1", "us-west-1", "us-west-2"]:
         print("Setting up region %s" % region)
 
         ec2 = boto3.resource(
@@ -243,20 +249,18 @@ def setup_ec2():
         print("Creating security group in VPC %s" % str(vpc.id))
         try:
             security_group = vpc.create_security_group(
-                GroupName='rllab_maml-sg', Description='Security group for rllab_maml'
+                GroupName='rllab-sg', Description='Security group for rllab'
             )
         except botocore.exceptions.ClientError as e:
             if e.response['Error']['Code'] == 'InvalidGroup.Duplicate':
-                sgs = list(vpc.security_groups.filter(GroupNames=['rllab_maml-sg']))
+                sgs = list(vpc.security_groups.filter(GroupNames=['rllab-sg']))
                 security_group = sgs[0]
             else:
                 raise e
 
         ALL_REGION_AWS_SECURITY_GROUP_IDS[region] = [security_group.id]
 
-        import pdb; pdb.set_trace()
-
-        ec2_client.create_tags(Resources=[security_group.id], Tags=[{'Key': 'Name', 'Value': 'rllab_maml-sg'}])
+        ec2_client.create_tags(Resources=[security_group.id], Tags=[{'Key': 'Name', 'Value': 'rllab-sg'}])
         try:
             security_group.authorize_ingress(FromPort=22, ToPort=22, IpProtocol='tcp', CidrIp='0.0.0.0/0')
         except botocore.exceptions.ClientError as e:
@@ -266,7 +270,7 @@ def setup_ec2():
                 raise e
         print("Security group created with id %s" % str(security_group.id))
 
-        key_name = 'rllab_maml-%s' % region
+        key_name = 'rllab-%s' % region
         try:
             print("Trying to create key pair with name %s" % key_name)
             key_pair = ec2_client.create_key_pair(KeyName=key_name)
@@ -302,9 +306,9 @@ def write_config():
         all_region_aws_security_group_ids=json.dumps(ALL_REGION_AWS_SECURITY_GROUP_IDS, indent=4),
         s3_bucket_name=S3_BUCKET_NAME,
     )
-    config_personal_file = os.path.join(config.PROJECT_PATH, "rllab_maml/config_personal.py")
+    config_personal_file = os.path.join(config.PROJECT_PATH, "rllab/config_personal.py")
     if os.path.exists(config_personal_file):
-        if not query_yes_no("rllab_maml/config_personal.py exists. Override?", "no"):
+        if not query_yes_no("rllab/config_personal.py exists. Override?", "no"):
             sys.exit()
     with open(config_personal_file, "wb") as f:
         f.write(content.encode("utf-8"))

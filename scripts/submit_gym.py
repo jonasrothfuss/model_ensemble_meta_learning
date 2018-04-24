@@ -4,7 +4,7 @@ import argparse
 import os
 import os.path as osp
 import gym
-from rllab_maml.viskit.core import load_params
+from rllab.viskit.core import load_params
 
 if __name__ == "__main__":
     # rl_gym.api_key = 'g8JOpnNVmcjMShBiFtyji2VWX3P2uCzc'
@@ -19,5 +19,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     snapshot_dir = osp.abspath(osp.join(args.log_dir, ".."))
     params_file_path = osp.join(snapshot_dir, "params.json")
-    params_json = load_params(params_file_path)
     gym.upload(args.log_dir, algorithm_id=args.algorithm_id)

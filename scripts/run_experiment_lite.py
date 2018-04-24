@@ -2,10 +2,10 @@ import sys
 
 sys.path.append(".")
 
-from rllab_maml.misc.ext import is_iterable, set_seed
-from rllab_maml.misc.instrument import concretize
-from rllab_maml import config
-import rllab_maml.misc.logger as logger
+from rllab.misc.ext import is_iterable, set_seed
+from rllab.misc.instrument import concretize
+from rllab import config
+import rllab.misc.logger as logger
 import argparse
 import os.path as osp
 import datetime
@@ -38,7 +38,8 @@ def run_experiment(argv):
     parser.add_argument('--snapshot_mode', type=str, default='all',
                         help='Mode to save the snapshot. Can be either "all" '
                              '(all iterations will be saved), "last" (only '
-                             'the last iteration will be saved), or "none" '
+                             'the last iteration will be saved), "gap" (every'
+                             '`snapshot_gap` iterations are saved), or "none" '
                              '(do not save snapshots)')
     parser.add_argument('--snapshot_gap', type=int, default=1,
                         help='Gap between snapshot iterations.')
@@ -70,13 +71,13 @@ def run_experiment(argv):
         set_seed(args.seed)
 
     if args.n_parallel > 0:
-        from rllab_maml.sampler import parallel_sampler
+        from rllab.sampler import parallel_sampler
         parallel_sampler.initialize(n_parallel=args.n_parallel)
         if args.seed is not None:
             parallel_sampler.set_seed(args.seed)
 
     if args.plot:
-        from rllab_maml.plotter import plotter
+        from rllab.plotter import plotter
         plotter.init_worker()
 
     if args.log_dir is None:
