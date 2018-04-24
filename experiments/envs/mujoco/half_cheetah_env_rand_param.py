@@ -121,12 +121,3 @@ class HalfCheetahEnvRandParams(MujocoEnv, Serializable):
             param_variable = getattr(self.model, param)
             assert param_variable.shape == param_val.shape, 'shapes of new parameter value and old one must match'
             setattr(self.model, param, param_val)
-
-if __name__ == "__main__":
-    env = HalfCheetahEnvRandParams(log_scale_limit=2.0)
-
-    env_params = env.sample_env_params(num_param_sets=1)[0]
-    env.reset(reset_args=None)
-    for _ in range(1000):
-        env.render()
-        env.step(env.action_space.sample())
