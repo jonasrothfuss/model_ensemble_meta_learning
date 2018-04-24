@@ -57,7 +57,6 @@ class BatchPolopt(RLAlgorithm):
         :param positive_adv: Whether to shift the advantages so that they are always positive. When used in
         conjunction with center_adv the advantages will be standardized before shifting.
         :param store_paths: Whether to save all paths data to the snapshot.
-        :return:
         """
         self.env = env
         self.policy = policy
@@ -103,8 +102,9 @@ class BatchPolopt(RLAlgorithm):
         if sess is None:
             sess = tf.Session()
             sess.__enter__()
-            
-        sess.run(tf.global_variables_initializer())
+
+        self.initialize_unitialized_variables(sess)
+
         self.start_worker()
         start_time = time.time()
         for itr in range(self.start_itr, self.n_itr):
@@ -158,3 +158,13 @@ class BatchPolopt(RLAlgorithm):
     def optimize_policy(self, itr, samples_data):
         raise NotImplementedError
 
+    def initialize_unitialized_variables(self, sess):
+        uninit_variables = []
+        for var in tf.global_variables():
+            # note - this is hacky, may be better way to do this in newer TF.
+            try:
+                sess.run(var)
+            except tf.errors.FailedPreconditionError:
+                uninit_variables.append(var)
+
+        sess.run(tf.variables_initializer(uninit_variables))

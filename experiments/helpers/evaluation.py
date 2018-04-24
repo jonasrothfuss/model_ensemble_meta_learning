@@ -105,6 +105,6 @@ def load_policy_and_baseline(variant_dict):
     baseline = loaded_data["baseline"]
     return policy, baseline, sess
 
-def get_exp_log_dir(logdir, exp_prefix, exp_name):
+def get_local_exp_log_dir(exp_prefix, exp_name):
     ''' determines log path of experiment'''
-    return os.path.join(logdir, exp_prefix, exp_name)
+    return os.path.join(config.LOG_DIR, 'local', exp_prefix, exp_name)
