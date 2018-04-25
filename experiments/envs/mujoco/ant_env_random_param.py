@@ -1,14 +1,9 @@
 from rllab.envs.mujoco.ant_env import AntEnv
 from rllab.core.serializable import Serializable
-from rllab.envs.base import Step
-from rllab.misc.overrides import overrides
-from rllab.misc import logger
-from base_env_rand_param import BaseEnvRandParams
+from experiments.envs.mujoco.base_env_rand_param import BaseEnvRandParams
 
-from rllab.envs.mujoco.mujoco_env import q_mult, q_inv
 import numpy as np
-import math
-import warnings
+
 
 
 class AntEnvRandParams(BaseEnvRandParams, AntEnv, Serializable):

@@ -1,13 +1,9 @@
-import numpy as np
-import warnings
-
 from rllab.envs.mujoco.hopper_env import HopperEnv
 from rllab.core.serializable import Serializable
-from rllab.envs.base import Step
-from rllab.envs.mujoco.mujoco_env import MujocoEnv
-from rllab.misc import logger
-from rllab.misc.overrides import overrides
-from base_env_rand_param import BaseEnvRandParams
+from experiments.envs.mujoco.base_env_rand_param import BaseEnvRandParams
+
+import numpy as np
+
 
 
 class HopperEnvRandParams(BaseEnvRandParams, HopperEnv, Serializable):
