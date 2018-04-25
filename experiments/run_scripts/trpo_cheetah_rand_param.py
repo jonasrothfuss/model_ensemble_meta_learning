@@ -18,7 +18,7 @@ class VG(VariantGenerator):
 
     @variant
     def log_scale_limit(self):
-        return [0.01, 0.1, 1.0, 2.0]
+        return [0.001, 0.01, 0.1, 1.0, 2.0]
 
     @variant
     def step_size(self):
@@ -46,7 +46,7 @@ def run_train_task(vv):
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=1000,
+        batch_size=5000,
         max_path_length=100,
         n_itr=500,
         discount=0.99,
@@ -69,7 +69,7 @@ def run_eval_task(vv):
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=1000,
+        batch_size=5000,
         max_path_length=100,
         n_itr=20,
         discount=0.99,
