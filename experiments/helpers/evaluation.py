@@ -1,9 +1,8 @@
 from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.envs.base import TfEnv
-from sandbox.rocky.tf.algos.trpo import TRPO
-from experiments.envs.mujoco.half_cheetah_env_rand_param import HalfCheetahEnvRandParams
 from rllab.misc.instrument import run_experiment_lite
 import rllab.config as config
+from rllab.envs.proxy_env import ProxyEnv
 
 import tensorflow as tf
 import joblib
@@ -13,54 +12,54 @@ import os
 import json
 import copy
 import sys
+import glob
 
-def evaluate_policy_transfer(eval_task_fun, results_dir_path, num_samped_envs=5):
+def prepare_evaluation_runs(exp_prefix_dir, num_sampled_envs=5):
     """
-    evaluates a trained policy by performing further (fine-tuning) gradient steps on envs with sampled model parameters
-    :param eval_task_fun: function that takes variant_dict as only arguments and runs evaluation experiments
-    :param results_dir_path: path with params.pkl and variant.json file
-    :param num_samped_envs: number or environments with samples environments
+    Given a directory of train runs, the method loads the provided data and creates
+    variant configurations for evaluation runs
+    :param exp_prefix_dir: directory with train run logging directories
+    :param num_sampled_envs: number or environments with samples parameters
+    :return: eval_task_list - a list that contains ordered pairs like (eval_exp_name, eval_variant_dict)
     """
-    params_pickle_file, vv = extract_files_from_dir(results_dir_path)
-    experiment_name = experiment_name_from_path(results_dir_path)
-    experiment_prefix = experiment_prefix_from_path(results_dir_path)
 
-    # create different seeds for sampling the env parameters
-    env_param_seeds = np.random.RandomState(vv["seed"]).randint(0, 1000, size=(num_samped_envs,))
+    assert os.path.isdir(exp_prefix_dir), "exp_prefix_dir must be directory"
 
-    # add infomatio to variant dict
-    vv["params_pickle_file"] = params_pickle_file
+    exp_dirs = glob.glob(os.path.join(exp_prefix_dir, '*/'))
 
-    for env_seed in env_param_seeds:
-        env_seed = int(env_seed) # make sure that env seed is python integer to be JSON serializable
-        varian_dict = copy.deepcopy(vv)
-        varian_dict['env_param_seed'] = env_seed
+    eval_task_list = [] #list that contains ordered pairs like (eval_exp_name, variant_dict)
 
-        run_experiment_lite(
-            eval_task_fun,
-            exp_prefix=experiment_prefix +"_eval",
-            exp_name=experiment_name + "_eval_%i"%env_seed,
-            # Number of parallel workers for sampling
-            n_parallel=1,
-            # Only keep the snapshot parameters for the last iteration
-            snapshot_mode="last",
-            # Specifies the seed for the experiment. If this is not provided, a random seed
-            # will be used
-            seed=varian_dict["seed"],
-            python_command=sys.executable,
-            mode="local",
-            use_cloudpickle=True,
-            # mode="ec2",
-            variant=varian_dict,
-            # plot=True,
-            # terminate_machine=False,
-        )
+    for exp_dir in exp_dirs:
+        # get variant dir with additional params_pickle_file entry
+        variant_dict = extract_files_from_dir(exp_dir)
+
+        # generate num_sampled_envs seeds for sampling the environment params
+        env_param_seeds = np.random.RandomState(variant_dict["seed"]).randint(0, 1000, size=(num_sampled_envs,))
+
+        for env_seed in env_param_seeds:
+            env_seed = int(env_seed)  # make sure that env seed is python integer to be JSON serializable
+
+            # make copy of variant dict and add env_seed to it
+            v = copy.deepcopy(variant_dict)
+            v['env_param_seed'] = env_seed
+
+            train_exp_name = os.path.dirname(exp_dir).split('/')[-1]
+            if 'train' in train_exp_name:
+                eval_exp_name = train_exp_name.replace('train', 'eval') + '_env_seed_%i'%env_seed
+            else:
+                eval_exp_name = train_exp_name + '_eval_env_seed_%i'%env_seed
+
+            eval_task_list.append((eval_exp_name, v))
+
+    assert len(eval_task_list) == len(exp_dirs) * num_sampled_envs
+    return eval_task_list
+
 
 def extract_files_from_dir(results_dir_path):
     """
-    Checks whether the directory contains a params.pkl and variant.json file otherwise throws assertion error
+    Checks if existent an then extracts relevant files (params.pkl, variant.json) from results_dir_path
     :param results_dir_path: directory which shall be evaluated
-    :return: params_pickle_file,
+    :return: variant_dict with additional entries 'params_pickle_file'
     """
     assert os.path.isdir(results_dir_path)
 
@@ -72,7 +71,9 @@ def extract_files_from_dir(results_dir_path):
     with open(variant_json_path, 'r') as f:
         variant_dict = json.load(f)
 
-    return params_pickle_file, variant_dict
+    variant_dict["params_pickle_file"] = params_pickle_file
+
+    return variant_dict
 
 def experiment_name_from_path(results_dir_path):
     return os.path.basename(results_dir_path)
@@ -89,13 +90,13 @@ def create_fixed_envs(env_class, num_sampled_envs, random_seed, **kwargs):
         envs.append(env)
     return envs
 
-def load_policy_and_baseline(variant_dict):
+def load_saved_objects(variant_dict):
     """
-    Loads policy and baseline object from pickle which is specified in the variant_dict
+    Loads policy, baseline and environment object from pickle which is specified in the variant_dict
     Warning: resets the tf graph
 
     :param variant_dict that must contain the params_pickle_file
-    :return: loaded policy, baseline and a tensoflow session that is associated with the policy/baseline
+    :return: loaded policy, baseline, environment a tensoflow session that is associated with the policy/baseline
     """
     tf.reset_default_graph()
     sess = tf.Session()
@@ -103,8 +104,14 @@ def load_policy_and_baseline(variant_dict):
     loaded_data = joblib.load(variant_dict['params_pickle_file'])
     policy = loaded_data["policy"]
     baseline = loaded_data["baseline"]
-    return policy, baseline, sess
+    env = loaded_data["env"]
+    return policy, baseline, env, sess
 
 def get_local_exp_log_dir(exp_prefix, exp_name):
     ''' determines log path of experiment'''
     return os.path.join(config.LOG_DIR, 'local', exp_prefix, exp_name)
+
+def get_env_class(env):
+    while isinstance(env, ProxyEnv):
+        env = env.wrapped_env
+    return env.__class__
