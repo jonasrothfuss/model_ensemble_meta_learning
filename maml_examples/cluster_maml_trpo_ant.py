@@ -93,11 +93,11 @@ for v in variants:
         exp_prefix='posticml_trpo_maml_ant' + task_var + '_' + str(max_path_length),
         exp_name='maml'+str(int(use_maml))+'_fbs'+str(v['fast_batch_size'])+'_mbs'+str(v['meta_batch_size'])+'_flr_' + str(v['fast_lr'])  + '_mlr' + str(v['meta_step_size']),
         # Number of parallel workers for sampling
-        n_parallel=8,
+        n_parallel=1,
         # Only keep the snapshot parameters for the last iteration
         snapshot_mode="gap",
         snapshot_gap=25,
-        sync_s3_pkl=True,
+        sync_s3_pkl=False,
         python_command=sys.executable,
         # Specifies the seed for the experiment. If this is not provided, a random seed
         # will be used

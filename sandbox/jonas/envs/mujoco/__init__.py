@@ -1,0 +1,3 @@
+from .half_cheetah_env_rand_param import HalfCheetahEnvRandParams
+from .ant_env_random_param import AntEnvRandParams
+from .hopper_env_random_param import HopperEnvRandParams

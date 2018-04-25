@@ -1,13 +1,14 @@
-from rllab.envs.mujoco.half_cheetah_env import HalfCheetahEnv
+from rllab.envs.mujoco.hopper_env import HopperEnv
 from rllab.core.serializable import Serializable
-from experiments.envs.mujoco.base_env_rand_param import BaseEnvRandParams
+from sandbox.jonas.envs.mujoco.base_env_rand_param import BaseEnvRandParams
 
 import numpy as np
 
 
-class HalfCheetahEnvRandParams(BaseEnvRandParams, HalfCheetahEnv, Serializable):
 
-    FILE = 'half_cheetah.xml'
+class HopperEnvRandParams(BaseEnvRandParams, HopperEnv, Serializable):
+
+    FILE = 'hopper.xml'
 
     def __init__(self, *args, log_scale_limit=2.0, random_seed=None, **kwargs):
         """
@@ -19,5 +20,16 @@ class HalfCheetahEnvRandParams(BaseEnvRandParams, HalfCheetahEnv, Serializable):
         self.random_state = np.random.RandomState(random_seed)
         self.fixed_params = False # can be changed by calling the fix_mujoco_parameters method
 
-        super(HalfCheetahEnvRandParams, self).__init__(*args, **kwargs)
+        super(HopperEnvRandParams, self).__init__(*args, **kwargs)
         Serializable.__init__(self, *args, **kwargs)
+
+
+
+if __name__ == "__main__":
+
+    env = HopperEnvRandParams()
+    env.reset()
+    print(env.model.body_mass)
+    for _ in range(1000):
+        env.render()
+        env.step(env.action_space.sample())  # take a random action

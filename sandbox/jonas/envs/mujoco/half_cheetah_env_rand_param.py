@@ -1,19 +1,17 @@
-from rllab.envs.mujoco.ant_env import AntEnv
+from rllab.envs.mujoco.half_cheetah_env import HalfCheetahEnv
 from rllab.core.serializable import Serializable
-from experiments.envs.mujoco.base_env_rand_param import BaseEnvRandParams
+from sandbox.jonas.envs.mujoco.base_env_rand_param import BaseEnvRandParams
 
 import numpy as np
 
 
+class HalfCheetahEnvRandParams(BaseEnvRandParams, HalfCheetahEnv, Serializable):
 
-class AntEnvRandParams(BaseEnvRandParams, AntEnv, Serializable):
+    FILE = 'half_cheetah.xml'
 
-    FILE = 'ant.xml'
-    ORI_IND = 3
-
-    def __init__(self, log_scale_limit=2.0, random_seed=None, *args, **kwargs):
+    def __init__(self, *args, log_scale_limit=2.0, random_seed=None, **kwargs):
         """
-        Ant environment with randomized mujoco parameters
+        Half-Cheetah environment with randomized mujoco parameters
         :param log_scale_limit: lower / upper limit for uniform sampling in logspace of base 2
         :param random_seed: random seed for sampling the mujoco model params
         """
@@ -21,5 +19,5 @@ class AntEnvRandParams(BaseEnvRandParams, AntEnv, Serializable):
         self.random_state = np.random.RandomState(random_seed)
         self.fixed_params = False # can be changed by calling the fix_mujoco_parameters method
 
-        super(AntEnvRandParams, self).__init__(*args, **kwargs)
+        super(HalfCheetahEnvRandParams, self).__init__(*args, **kwargs)
         Serializable.__init__(self, *args, **kwargs)
