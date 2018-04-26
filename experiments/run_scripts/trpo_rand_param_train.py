@@ -5,8 +5,8 @@ from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from sandbox.rocky.tf.algos.trpo import TRPO
 from rllab.misc.instrument import run_experiment_lite
 from sandbox.jonas.envs.mujoco import HalfCheetahEnvRandParams, AntEnvRandParams, HopperEnvRandParams
-import experiments.helpers.evaluation as eval
-from rllab.misc.instrument import VariantGenerator, variant
+from rllab.misc.instrument import VariantGenerator
+from rllab import config
 
 import tensorflow as tf
 import sys
@@ -15,7 +15,19 @@ import random
 
 EXP_PREFIX = 'trpo-and-param-env-baselines'
 
-from pprint import pprint
+ec2_instance = 'm4.4xlarge'
+
+# configure instan
+
+subnets = [
+    'us-east-2a',
+    'us-east-2b',
+    'us-east-2c',
+]
+
+info = config.INSTANCE_TYPE_INFO[ec2_instance]
+config.AWS_INSTANCE_TYPE = ec2_instance
+config.AWS_SPOT_PRICE = str(info["price"])
 
 
 def run_train_task(vv):
@@ -49,11 +61,8 @@ def run_experiment(argv):
     parser.add_argument('--mode', type=str, default='local',
                         help='Mode for running the experiments - local: runs on local machine, '
                              'ec2: runs on AWS ec2 cluster (requires a proper configuration file)')
-    parser.add_argument('--n_parallel', type=int, default=1,
-                        help='Number of parallel workers to perform rollouts. 0 => don\'t start any workers')
 
     args = parser.parse_args(argv[1:])
-
 
     # -------------------- Define Variants -----------------------------------
 
@@ -61,7 +70,7 @@ def run_experiment(argv):
     vg.add('env', ['HalfCheetahEnvRandParams'])
     vg.add('n_itr', [500])
     vg.add('log_scale_limit', [0.001, 0.01, 0.1, 1.0, 2.0])
-    vg.add('step_size', [0.01, 0.05, 0.1]),
+    vg.add('step_size', [0.01,0.05, 0.1]),
     vg.add('seed', [1, 11, 21, 31, 41])
     vg.add('discount', [0.99])
     vg.add('n_iter', [500])
@@ -71,6 +80,20 @@ def run_experiment(argv):
     vg.add('hidden_sizes', [(64, 64)])
 
     variants = vg.variants()
+    from pprint import pprint
+    pprint(variants)
+
+    # ----------------------- AWS conficuration ---------------------------------
+    if args.mode == 'ec2':
+        n_parallel = int(info["vCPU"] / 2)  # make the default 4 if not using ec2
+    else:
+        n_parallel = 12
+
+    if args.mode == 'ecs':
+        print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format('TRPO', len(variants)))
+        print('Running on type {}, with price {}, parallel {} on the subnets: '.format(config.AWS_INSTANCE_TYPE,
+                                                                                       config.AWS_SPOT_PRICE,
+                                                                                       n_parallel), *subnets)
 
     # ----------------------- TRAINING ---------------------------------------
     exp_ids = random.sample(range(1, 1000), len(variants))
@@ -78,23 +101,42 @@ def run_experiment(argv):
         exp_name = "trpo_train_env_%s_%.3f_%.3f_%i_id_%i" % (v['env'], v['log_scale_limit'], v['step_size'], v['seed'], exp_id)
         v = instantiate_class_stings(v)
 
+        subnet = random.choice(subnets)
+        config.AWS_REGION_NAME = subnet[:-1]
+        config.AWS_KEY_NAME = config.ALL_REGION_AWS_KEY_NAMES[
+            config.AWS_REGION_NAME]
+        config.AWS_IMAGE_ID = config.ALL_REGION_AWS_IMAGE_IDS[
+            config.AWS_REGION_NAME]
+        config.AWS_SECURITY_GROUP_IDS = \
+            config.ALL_REGION_AWS_SECURITY_GROUP_IDS[
+                config.AWS_REGION_NAME]
+        # config.AWS_NETWORK_INTERFACES = [
+        #     dict(
+        #         SubnetId=config.ALL_SUBNET_INFO[subnet]["SubnetID"],
+        #         Groups=config.AWS_SECURITY_GROUP_IDS,
+        #         DeviceIndex=0,
+        #         AssociatePublicIpAddress=True,
+        #     )
+        #]
+
         run_experiment_lite(
             run_train_task,
             exp_prefix=EXP_PREFIX,
             exp_name=exp_name,
             # Number of parallel workers for sampling
-            n_parallel=args.n_parallel,
+            n_parallel=n_parallel,
             # Only keep the snapshot parameters for the last iteration
             snapshot_mode="last",
+            sync_s3_pkl=True,
+            periodic_sync=True,
             # Specifies the seed for the experiment. If this is not provided, a random seed
             # will be used
             seed=v["seed"],
-            python_command=sys.executable,
+            #sync_all_data_node_to_s3=True,
+            python_command="python3", #sys.executable,
             mode=args.mode,
             use_cloudpickle=True,
             variant=v,
-            # plot=True,
-            # terminate_machine=False,
         )
 
 
