@@ -61,7 +61,7 @@ class BatchMAMLPolopt(RLAlgorithm):
         simultaneously, each using different environments and policies
         :param n_itr: Number of iterations.
         :param start_itr: Starting iteration.
-        :param batch_size: Number of samples per iteration.  #
+        :param batch_size: Number of trajectories for grad update
         :param max_path_length: Maximum length of a single rollout.
         :param meta_batch_size: Number of tasks sampled per meta-update
         :param num_grad_updates: Number of fast gradient updates
@@ -154,20 +154,25 @@ class BatchMAMLPolopt(RLAlgorithm):
                 with logger.prefix('itr #%d | ' % itr):
                     logger.log("Sampling set of tasks/goals for this meta-batch...")
 
+                    # sample environment configuration
                     env = self.env
-                    while 'sample_goals' not in dir(env):
-                        env = env.wrapped_env
-                    learner_env_goals = env.sample_goals(self.meta_batch_size)
+                    while not ('sample_env_params' in dir(env) or 'sample_goals' in dir(env)):
+                        env = env._wrapped_env
+                    if 'sample_goals' in dir(env):
+                        learner_env_params = env.sample_goals(self.meta_batch_size)
+                    elif 'sample_env_params':
+                        learner_env_params = env.sample_env_params(self.meta_batch_size)
+
 
                     self.policy.switch_to_init_dist()  # Switch to pre-update policy
 
                     all_samples_data, all_paths = [], []
-                    for step in range(self.num_grad_updates+1):
+                    for step in range(self.num_grad_updates+1): #TODO: why is here a +1 ?
                         #if step > 0:
                         #    import pdb; pdb.set_trace() # test param_vals functions.
                         logger.log('** Step ' + str(step) + ' **')
                         logger.log("Obtaining samples...")
-                        paths = self.obtain_samples(itr, reset_args=learner_env_goals, log_prefix=str(step))
+                        paths = self.obtain_samples(itr, reset_args=learner_env_params, log_prefix=str(step))
                         all_paths.append(paths)
                         logger.log("Processing samples...")
                         samples_data = {}
@@ -175,7 +180,7 @@ class BatchMAMLPolopt(RLAlgorithm):
                             # don't log because this will spam the consol with every task.
                             samples_data[key] = self.process_samples(itr, paths[key], log=False)
                         all_samples_data.append(samples_data)
-                        # for logging purposes only
+                        # for logging purposes
                         self.process_samples(itr, flatten_list(paths.values()), prefix=str(step), log=True)
                         logger.log("Logging diagnostics...")
                         self.log_diagnostics(flatten_list(paths.values()), prefix=str(step))
@@ -204,7 +209,7 @@ class BatchMAMLPolopt(RLAlgorithm):
                         logger.log("Saving visualization of paths")
                         for ind in range(min(5, self.meta_batch_size)):
                             plt.clf()
-                            plt.plot(learner_env_goals[ind][0], learner_env_goals[ind][1], 'k*', markersize=10)
+                            plt.plot(learner_env_params[ind][0], learner_env_params[ind][1], 'k*', markersize=10)
                             plt.hold(True)
 
                             preupdate_paths = all_paths[0]
@@ -234,7 +239,7 @@ class BatchMAMLPolopt(RLAlgorithm):
                         logger.log("Saving visualization of paths")
                         for ind in range(min(5, self.meta_batch_size)):
                             plt.clf()
-                            goal_vel = learner_env_goals[ind]
+                            goal_vel = learner_env_params[ind]
                             plt.title('Swimmer paths, goal vel='+str(goal_vel))
                             plt.hold(True)
 
