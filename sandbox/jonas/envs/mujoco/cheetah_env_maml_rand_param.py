@@ -7,7 +7,7 @@ from rllab_maml.misc.overrides import overrides
 import numpy as np
 
 
-class HalfCheetahEnvRandParams(BaseEnvRandParams, HalfCheetahEnv, Serializable):
+class HalfCheetahMAMLEnvRandParams(BaseEnvRandParams, HalfCheetahEnv, Serializable):
 
     FILE = 'half_cheetah.xml'
 

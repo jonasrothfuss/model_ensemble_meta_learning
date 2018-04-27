@@ -7,7 +7,7 @@ from rllab_maml.misc.overrides import overrides
 import numpy as np
 
 
-class HopperEnvRandParams(BaseEnvRandParams, HopperEnv, Serializable):
+class HopperEnvMAMLRandParams(BaseEnvRandParams, HopperEnv, Serializable):
 
     FILE = 'hopper.xml'
 
