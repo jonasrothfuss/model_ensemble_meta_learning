@@ -23,9 +23,9 @@ class AntEnvMAMLRandParams(BaseEnvRandParams, AntEnv, Serializable):
         """
 
         args_all, kwargs_all = get_all_function_arguments(self.__init__, locals())
-        BaseEnvRandParams.__init__(self, *args_all, **kwargs_all)
+        BaseEnvRandParams.__init__(*args_all, **kwargs_all)
         AntEnv.__init__(self, *args, **kwargs)
-        Serializable.__init__(self, *args_all, **kwargs_all)
+        Serializable.__init__(*args_all, **kwargs_all)
 
     @overrides
     def log_diagnostics(self, paths, prefix=''):
