@@ -2,6 +2,7 @@ from rllab.misc.overrides import overrides
 from rllab.envs.mujoco.mujoco_env import MujocoEnv
 from rllab_maml.envs.mujoco.mujoco_env import MujocoEnv as MujocoEnvMAML
 
+from rllab.core.serializable import Serializable
 import numpy as np
 import warnings
 
@@ -15,6 +16,22 @@ class BaseEnvRandParams:
         - damping coeff at the joints
     """
 
+    RAND_PARAMS = ['body_mass', 'dof_damping', 'body_inertia']
+
+    def __init__(self, *args, log_scale_limit=2.0, rand_params=RAND_PARAMS, random_seed=None, **kwargs):
+        """
+        Half-Cheetah environment with randomized mujoco parameters
+        :param log_scale_limit: lower / upper limit for uniform sampling in logspace of base 2
+        :param random_seed: random seed for sampling the mujoco model params
+        :param rand_params: mujoco model parameters to sample
+        """
+        assert set(rand_params) <= set(self.RAND_PARAMS), "rand_params must be a subset of " + str(self.RAND_PARAMS)
+
+        self.log_scale_limit = log_scale_limit
+        self.random_state = np.random.RandomState(random_seed)
+        self.fixed_params = False  # can be changed by calling the fix_mujoco_parameters method
+        self.rand_params = rand_params
+
     @overrides
     def reset(self, init_state=None, reset_args=None, **kwargs):
         """
@@ -25,7 +42,6 @@ class BaseEnvRandParams:
         :return: initial observation
         """
         assert reset_args is None or type(reset_args) == dict, "reset_args must be a dict containing mujoco model params"
-
 
         if self.fixed_params and reset_args is not None:
             warnings.warn("Environment parameters are fixed - reset_ars does not have any effect", UserWarning)
@@ -75,22 +91,28 @@ class BaseEnvRandParams:
             log_scale_limit = self.log_scale_limit
 
         param_sets = []
+
         for _ in range(num_param_sets):
             # body mass -> one multiplier for all body parts
-            body_mass_multiplyer = np.array(2.0)**self.random_state.uniform(-log_scale_limit, log_scale_limit)
-            new_body_mass = self.model.body_mass * body_mass_multiplyer
 
-            # body_inertia ->
-            body_inertia_multiplyer = np.array(2.0)**self.random_state.uniform(-log_scale_limit, log_scale_limit)
-            new_body_inertia = body_inertia_multiplyer * self.model.body_inertia
+            new_params = {}
+
+            if 'body_mass' in self.rand_params:
+                body_mass_multiplyer = np.array(2.0)**self.random_state.uniform(-log_scale_limit, log_scale_limit)
+                new_params['body_mass'] = self.model.body_mass * body_mass_multiplyer
+
+
+            # body_inertia
+            if 'body_inertia' in self.rand_params:
+                body_inertia_multiplyer = np.array(2.0)**self.random_state.uniform(-log_scale_limit, log_scale_limit)
+                new_params['body_inertia'] = body_inertia_multiplyer * self.model.body_inertia
 
             # damping -> different multiplier for different dofs/joints
-            dof_damping_multipliers = np.array(2.0)**self.random_state.uniform(-log_scale_limit, log_scale_limit,
-                                                                       size=self.model.dof_damping.shape)
-            new_dof_damping = np.multiply(self.model.dof_damping, dof_damping_multipliers)
+            if 'dof_damping' in self.rand_params:
+                dof_damping_multipliers = np.array(2.0)**self.random_state.uniform(-log_scale_limit, log_scale_limit,
+                                                                           size=self.model.dof_damping.shape)
+                new_params['dof_damping'] = np.multiply(self.model.dof_damping, dof_damping_multipliers)
 
-            param_sets.append({'body_mass': new_body_mass,
-                               'body_inertia': new_body_inertia,
-                               'dof_damping': new_dof_damping,})
+            param_sets.append(new_params)
 
         return param_sets

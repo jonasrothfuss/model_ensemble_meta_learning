@@ -1,6 +1,7 @@
 from rllab.envs.mujoco.ant_env import AntEnv
 from rllab.core.serializable import Serializable
 from sandbox.jonas.envs.mujoco.base_env_rand_param import BaseEnvRandParams
+from sandbox.jonas.envs.helpers import get_all_function_arguments
 
 import numpy as np
 
@@ -11,15 +12,23 @@ class AntEnvRandParams(BaseEnvRandParams, AntEnv, Serializable):
     FILE = 'ant.xml'
     ORI_IND = 3
 
-    def __init__(self, log_scale_limit=2.0, random_seed=None, *args, **kwargs):
+    def __init__(self, *args, log_scale_limit=2.0, rand_params=BaseEnvRandParams.RAND_PARAMS, random_seed=None, **kwargs):
         """
         Ant environment with randomized mujoco parameters
         :param log_scale_limit: lower / upper limit for uniform sampling in logspace of base 2
         :param random_seed: random seed for sampling the mujoco model params
+        :param rand_params: mujoco model parameters to sample
         """
-        self.log_scale_limit = log_scale_limit
-        self.random_state = np.random.RandomState(random_seed)
-        self.fixed_params = False # can be changed by calling the fix_mujoco_parameters method
 
-        super(AntEnvRandParams, self).__init__(*args, **kwargs)
-        Serializable.__init__(self, *args, **kwargs)
+        args_all, kwargs_all = get_all_function_arguments(self.__init__, locals())
+        BaseEnvRandParams.__init__(self, *args_all, **kwargs_all)
+        AntEnv.__init__(self, *args, **kwargs)
+        Serializable.__init__(self, *args_all, **kwargs_all)
+
+if __name__ == "__main__":
+    env = AntEnvRandParams()
+    env.reset()
+    print(env.model.body_mass)
+    for _ in range(1000):
+        env.render()
+        env.step(env.action_space.sample())  # take a random action

@@ -1,6 +1,7 @@
 from rllab.envs.mujoco.hopper_env import HopperEnv
 from rllab.core.serializable import Serializable
 from sandbox.jonas.envs.mujoco.base_env_rand_param import BaseEnvRandParams
+from sandbox.jonas.envs.helpers import get_all_function_arguments
 
 import numpy as np
 
@@ -10,18 +11,18 @@ class HopperEnvRandParams(BaseEnvRandParams, HopperEnv, Serializable):
 
     FILE = 'hopper.xml'
 
-    def __init__(self, *args, log_scale_limit=2.0, random_seed=None, **kwargs):
+    def __init__(self, *args, log_scale_limit=2.0, rand_params=BaseEnvRandParams.RAND_PARAMS, random_seed=None, **kwargs):
         """
-        Half-Cheetah environment with randomized mujoco parameters
+        HalfCheetah environment with randomized mujoco parameters
         :param log_scale_limit: lower / upper limit for uniform sampling in logspace of base 2
         :param random_seed: random seed for sampling the mujoco model params
+        :param rand_params: mujoco model parameters to sample
         """
-        self.log_scale_limit = log_scale_limit
-        self.random_state = np.random.RandomState(random_seed)
-        self.fixed_params = False # can be changed by calling the fix_mujoco_parameters method
 
-        super(HopperEnvRandParams, self).__init__(*args, **kwargs)
-        Serializable.__init__(self, *args, **kwargs)
+        args_all, kwargs_all = get_all_function_arguments(self.__init__, locals())
+        BaseEnvRandParams.__init__(self, *args_all, **kwargs_all)
+        HopperEnv.__init__(self, *args, **kwargs)
+        Serializable.__init__(self, *args_all, **kwargs_all)
 
 
 
