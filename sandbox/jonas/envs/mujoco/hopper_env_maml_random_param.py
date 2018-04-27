@@ -21,7 +21,7 @@ class HopperEnvMAMLRandParams(BaseEnvRandParams, HopperEnv, Serializable):
         self.random_state = np.random.RandomState(random_seed)
         self.fixed_params = False # can be changed by calling the fix_mujoco_parameters method
 
-        super(HopperEnvRandParams, self).__init__(*args, **kwargs)
+        super(HopperEnvMAMLRandParams, self).__init__(*args, **kwargs)
         Serializable.__init__(self, *args, **kwargs)
 
     @overrides
