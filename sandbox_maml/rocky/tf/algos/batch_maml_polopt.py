@@ -167,7 +167,7 @@ class BatchMAMLPolopt(RLAlgorithm):
                     self.policy.switch_to_init_dist()  # Switch to pre-update policy
 
                     all_samples_data, all_paths = [], []
-                    for step in range(self.num_grad_updates+1): #TODO: why is here a +1 ?
+                    for step in range(self.num_grad_updates+1):
                         #if step > 0:
                         #    import pdb; pdb.set_trace() # test param_vals functions.
                         logger.log('** Step ' + str(step) + ' **')
