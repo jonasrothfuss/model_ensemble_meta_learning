@@ -1,20 +1,21 @@
-from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.envs.base import TfEnv
-from rllab.misc.instrument import run_experiment_lite
+from rllab.envs.normalized_env import normalize
 import rllab.config as config
 from rllab.envs.proxy_env import ProxyEnv
 
 import tensorflow as tf
 import joblib
 import numpy as np
-import glob
 import os
 import json
 import copy
-import sys
 import glob
+import subprocess
 
-def prepare_evaluation_runs(exp_prefix_dir, num_sampled_envs=5):
+def get_log_dir(exp_prefix, exp_name):
+    return config.LOG_DIR + "/local/" + exp_prefix.replace("_", "-") + "/" + exp_name
+
+def prepare_evaluation_runs(exp_prefix_dir, eval_exp_prefix, num_sampled_envs=5):
     """
     Given a directory of train runs, the method loads the provided data and creates
     variant configurations for evaluation runs
@@ -24,6 +25,8 @@ def prepare_evaluation_runs(exp_prefix_dir, num_sampled_envs=5):
     """
 
     assert os.path.isdir(exp_prefix_dir), "exp_prefix_dir must be directory"
+    exp_prefix = os.path.basename(exp_prefix_dir)
+    base_log_dir = os.path.dirname(exp_prefix_dir)
 
     exp_dirs = glob.glob(os.path.join(exp_prefix_dir, '*/'))
 
@@ -44,14 +47,22 @@ def prepare_evaluation_runs(exp_prefix_dir, num_sampled_envs=5):
             v['env_param_seed'] = env_seed
 
             train_exp_name = os.path.dirname(exp_dir).split('/')[-1]
+
+            v['exp_prefix'] = exp_prefix
+            v['train_exp_name'] = train_exp_name
+
             if 'train' in train_exp_name:
                 eval_exp_name = train_exp_name.replace('train', 'eval') + '_env_seed_%i'%env_seed
             else:
                 eval_exp_name = train_exp_name + '_eval_env_seed_%i'%env_seed
 
-            eval_task_list.append((eval_exp_name, v))
+            # check whether eval experiment has already been conducted
+            eval_exp_log_path = os.path.join(base_log_dir, eval_exp_prefix, eval_exp_name)
+            if os.path.isdir(eval_exp_log_path):
+                print("Eval experiment {} already conducted --> skip".format(eval_exp_name))
+            else:
+                eval_task_list.append((eval_exp_name, v))
 
-    assert len(eval_task_list) == len(exp_dirs) * num_sampled_envs
     return eval_task_list
 
 
@@ -74,6 +85,14 @@ def extract_files_from_dir(results_dir_path):
     variant_dict["params_pickle_file"] = params_pickle_file
 
     return variant_dict
+
+def download_experiement_files(exp_prefix, exp_name):
+    remote_log_path = os.path.join(config.AWS_S3_PATH, exp_prefix.replace("_", "-"), exp_name)
+    local_log_path = config.LOG_DIR + "/s3b/" + exp_prefix.replace("_", "-") + "/" + exp_name
+
+    p = subprocess.Popen(['/bin/bash', '-c', "aws s3 cp --recursive {} {}".format(remote_log_path, local_log_path)])
+    p.wait() # wait for the downloads to finish
+    return local_log_path
 
 def experiment_name_from_path(results_dir_path):
     return os.path.basename(results_dir_path)
@@ -98,10 +117,19 @@ def load_saved_objects(variant_dict):
     :param variant_dict that must contain the params_pickle_file
     :return: loaded policy, baseline, environment a tensoflow session that is associated with the policy/baseline
     """
+
+    # check if file exists -> if not try to download them from s3
+    params_pickle_file = variant_dict['params_pickle_file']
+    if not os.path.isfile(params_pickle_file):
+        print("Cannot find params.pkl file locally - try to get it from aws s3")
+        local_log_path = download_experiement_files(variant_dict['exp_prefix'], variant_dict['train_exp_name'])
+        params_pickle_file = os.path.join(local_log_path, "params.pkl")
+        assert os.path.isfile(params_pickle_file), "Could not get params_pickle_file"
+
     tf.reset_default_graph()
     sess = tf.Session()
     sess.__enter__()
-    loaded_data = joblib.load(variant_dict['params_pickle_file'])
+    loaded_data = joblib.load(params_pickle_file)
     policy = loaded_data["policy"]
     baseline = loaded_data["baseline"]
     env = loaded_data["env"]
