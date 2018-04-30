@@ -1,13 +1,14 @@
 from rllab.misc.overrides import overrides
 from rllab.envs.mujoco.mujoco_env import MujocoEnv
 from rllab_maml.envs.mujoco.mujoco_env import MujocoEnv as MujocoEnvMAML
+from sandbox.jonas.envs.helpers import get_all_function_arguments
 
 from rllab.core.serializable import Serializable
 import numpy as np
 import warnings
 
 
-class BaseEnvRandParams:
+class BaseEnvRandParams(Serializable):
     """
     This class provides functionality for randomizing the physical parameters of a mujoco model
     The following parameters are changed:
@@ -18,19 +19,25 @@ class BaseEnvRandParams:
 
     RAND_PARAMS = ['body_mass', 'dof_damping', 'body_inertia']
 
-    def __init__(self, *args, log_scale_limit=2.0, rand_params=RAND_PARAMS, random_seed=None, **kwargs):
+    def __init__(self, *args, log_scale_limit=2.0, fix_params=False, rand_params=RAND_PARAMS, random_seed=None, **kwargs):
         """
         Half-Cheetah environment with randomized mujoco parameters
         :param log_scale_limit: lower / upper limit for uniform sampling in logspace of base 2
         :param random_seed: random seed for sampling the mujoco model params
+        :param fix_params: boolean indicating whether the mujoco parameters shall be fixed
         :param rand_params: mujoco model parameters to sample
         """
         assert set(rand_params) <= set(self.RAND_PARAMS), "rand_params must be a subset of " + str(self.RAND_PARAMS)
 
         self.log_scale_limit = log_scale_limit
+        self.random_seed = random_seed
         self.random_state = np.random.RandomState(random_seed)
-        self.fixed_params = False  # can be changed by calling the fix_mujoco_parameters method
+        self.fix_params = fix_params  # can be changed by calling the fix_mujoco_parameters method
         self.rand_params = rand_params
+        self.parameters_already_fixed = False
+
+        args_all, kwargs_all = get_all_function_arguments(self.__init__, locals())
+        Serializable.__init__(*args_all, **kwargs_all)
 
     @overrides
     def reset(self, init_state=None, reset_args=None, **kwargs):
@@ -43,13 +50,17 @@ class BaseEnvRandParams:
         """
         assert reset_args is None or type(reset_args) == dict, "reset_args must be a dict containing mujoco model params"
 
-        if self.fixed_params and reset_args is not None:
+        # The first time reset is called -> sample and fix the mujoco parameters
+        if self.fix_params and not self.parameters_already_fixed:
+            self.sample_and_fix_parameters()
+
+        if self.fix_params and reset_args is not None:
             warnings.warn("Environment parameters are fixed - reset_ars does not have any effect", UserWarning)
 
         # set mujoco model parameters
-        elif (not self.fixed_params) and (reset_args is not None):
+        elif (not self.fix_params) and (reset_args is not None):
             self.reset_mujoco_parameters(reset_args)
-        elif not self.fixed_params:
+        elif not self.fix_params:
             # sample parameter set
             reset_args = self.sample_env_params(1)[0]
             self.reset_mujoco_parameters(reset_args)
@@ -69,11 +80,13 @@ class BaseEnvRandParams:
             setattr(self.model, param, param_val)
 
     def fix_parameters(self, param_dict):
+        assert self.fix_params, "requires sample_and_fix_parameters to be True"
+        self.parameters_already_fixed = True
         self.reset_mujoco_parameters(param_dict)
-        self.fixed_params = True
 
     def sample_and_fix_parameters(self):
         assert hasattr(self, 'sample_env_params'), "class must implement the sample_env_params method"
+        assert self.fix_params, "requires sample_and_fix_parameters to be True"
         param_dict = self.sample_env_params(1)[0]
         self.fix_parameters(param_dict)
         return self

@@ -11,11 +11,12 @@ class HopperEnvRandParams(BaseEnvRandParams, HopperEnv, Serializable):
 
     FILE = 'hopper.xml'
 
-    def __init__(self, *args, log_scale_limit=2.0, rand_params=BaseEnvRandParams.RAND_PARAMS, random_seed=None, **kwargs):
+    def __init__(self, *args, log_scale_limit=2.0, fix_params=False, rand_params=BaseEnvRandParams.RAND_PARAMS, random_seed=None, **kwargs):
         """
-        HalfCheetah environment with randomized mujoco parameters
+        Half-Cheetah environment with randomized mujoco parameters
         :param log_scale_limit: lower / upper limit for uniform sampling in logspace of base 2
         :param random_seed: random seed for sampling the mujoco model params
+        :param fix_params: boolean indicating whether the mujoco parameters shall be fixed
         :param rand_params: mujoco model parameters to sample
         """
 
