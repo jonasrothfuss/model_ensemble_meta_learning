@@ -72,7 +72,7 @@ def run_evaluation(argv):
 
     # ----------------------- AWS conficuration ---------------------------------
     if args.mode == 'ec2':
-        subnets = cheapest_subnets(ec2_instance, num_subnets=10)
+        subnets = cheapest_subnets(ec2_instance, num_subnets=3)
         info = config.INSTANCE_TYPE_INFO[ec2_instance]
         config.AWS_INSTANCE_TYPE = ec2_instance
         config.AWS_SPOT_PRICE = str(info["price"])
@@ -108,6 +108,7 @@ def run_evaluation(argv):
             python_command='python3',
             mode=args.mode,
             use_cloudpickle=True,
+            periodic_sync=True,
             variant=v,
             # plot=True,
             # terminate_machine=False,
