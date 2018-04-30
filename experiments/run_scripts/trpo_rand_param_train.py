@@ -5,6 +5,7 @@ from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from sandbox.rocky.tf.algos.trpo import TRPO
 from rllab.misc.instrument import run_experiment_lite
 from sandbox.jonas.envs.mujoco import HalfCheetahEnvRandParams, AntEnvRandParams, HopperEnvRandParams
+from rllab.envs.mujoco.half_cheetah_env import HalfCheetahEnv
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
 
@@ -13,7 +14,7 @@ import sys
 import argparse
 import random
 
-EXP_PREFIX = 'trpo-and-param-env-baselines'
+EXP_PREFIX = 'trpo-rand-param-env-baselines'
 
 ec2_instance = 'm4.4xlarge'
 
@@ -69,15 +70,15 @@ def run_experiment(argv):
     vg = VariantGenerator()
     vg.add('env', ['HalfCheetahEnvRandParams'])
     vg.add('n_itr', [500])
-    vg.add('log_scale_limit', [0.001, 0.01, 0.1, 1.0, 2.0])
-    vg.add('step_size', [0.01,0.05, 0.1]),
+    vg.add('log_scale_limit', [0.01, 0.05, 0.1, 0.5])
+    vg.add('step_size', [0.01,0.05, 0.1])
     vg.add('seed', [1, 11, 21, 31, 41])
     vg.add('discount', [0.99])
-    vg.add('n_iter', [500])
+    vg.add('n_iter', [800])
     vg.add('path_length', [100])
     vg.add('batch_size', [20000])
-    vg.add('hidden_nonlinearity', ['relu'])
-    vg.add('hidden_sizes', [(64, 64)])
+    vg.add('hidden_nonlinearity', ['relu', 'tanh'])
+    vg.add('hidden_sizes', [(32, 32)])
 
     variants = vg.variants()
     from pprint import pprint
@@ -87,7 +88,7 @@ def run_experiment(argv):
     if args.mode == 'ec2':
         n_parallel = int(info["vCPU"] / 2)  # make the default 4 if not using ec2
     else:
-        n_parallel = 12
+        n_parallel = 6
 
     if args.mode == 'ecs':
         print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format('TRPO', len(variants)))
@@ -110,14 +111,7 @@ def run_experiment(argv):
         config.AWS_SECURITY_GROUP_IDS = \
             config.ALL_REGION_AWS_SECURITY_GROUP_IDS[
                 config.AWS_REGION_NAME]
-        # config.AWS_NETWORK_INTERFACES = [
-        #     dict(
-        #         SubnetId=config.ALL_SUBNET_INFO[subnet]["SubnetID"],
-        #         Groups=config.AWS_SECURITY_GROUP_IDS,
-        #         DeviceIndex=0,
-        #         AssociatePublicIpAddress=True,
-        #     )
-        #]
+
 
         run_experiment_lite(
             run_train_task,
