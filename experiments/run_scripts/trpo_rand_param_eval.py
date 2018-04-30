@@ -31,7 +31,7 @@ def run_eval_task(vv):
     # fix the mujoco parameters
     env_class = eval.get_env_class(env)
 
-    env = TfEnv(normalize(env_class(vv["log_scale_limit"], fix_params=True,
+    env = TfEnv(normalize(env_class(log_scale_limit=vv["log_scale_limit"], fix_params=True,
                                              random_seed=vv['env_param_seed'])))
     # TODO: maybe adjust log_scale limit of environment
 
@@ -68,7 +68,7 @@ def run_evaluation(argv):
 
     exp_prefix = os.path.basename(args.exp_prefix_dir)
     eval_exp_prefix = exp_prefix + '-eval'
-    evaluation_runs = eval.prepare_evaluation_runs(args.exp_prefix_dir, EXP_PREFIX)
+    evaluation_runs = eval.prepare_evaluation_runs(args.exp_prefix_dir, EXP_PREFIX, num_sampled_envs=args.num_sampled_envs)
 
     # ----------------------- AWS conficuration ---------------------------------
     if args.mode == 'ec2':
