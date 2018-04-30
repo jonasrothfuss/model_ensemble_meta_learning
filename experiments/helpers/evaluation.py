@@ -2,6 +2,7 @@ from sandbox.rocky.tf.envs.base import TfEnv
 from rllab.envs.normalized_env import normalize
 import rllab.config as config
 from rllab.envs.proxy_env import ProxyEnv
+from rllab_maml.envs.proxy_env import ProxyEnv as ProxyEnvMAML
 
 import tensorflow as tf
 import joblib
@@ -140,6 +141,9 @@ def get_local_exp_log_dir(exp_prefix, exp_name):
     return os.path.join(config.LOG_DIR, 'local', exp_prefix, exp_name)
 
 def get_env_class(env):
-    while isinstance(env, ProxyEnv):
-        env = env.wrapped_env
+    while isinstance(env, ProxyEnv) or isinstance(env, ProxyEnvMAML):
+        if hasattr(env, 'wrapped_env'):
+            env = env.wrapped_env
+        elif hasattr(env, '_wrapped_env'):
+            env = env._wrapped_env
     return env.__class__
