@@ -68,7 +68,7 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['HalfCheetahEnvRandParams'])
+    vg.add('env', ['AntEnvRandParams']) # HalfCheetahEnvRandParams
     vg.add('n_itr', [500])
     vg.add('log_scale_limit', [0.01, 0.05, 0.1, 0.5])
     vg.add('step_size', [0.01,0.05, 0.1])
@@ -121,8 +121,9 @@ def run_experiment(argv):
             n_parallel=n_parallel,
             # Only keep the snapshot parameters for the last iteration
             snapshot_mode="last",
-            sync_s3_pkl=True,
             periodic_sync=True,
+            sync_s3_pkl=True,
+            sync_s3_log=True,
             # Specifies the seed for the experiment. If this is not provided, a random seed
             # will be used
             seed=v["seed"],
