@@ -183,33 +183,43 @@ class MAMLGaussianMLPPolicy(StochasticPolicy, Serializable):
 
         # To do a second update, replace self.all_params below with the params that were used to collect the policy.
         init_param_values = None
-        if self.all_param_vals is not None:
+        if self.all_param_vals is not None: # skip this in first iteration
             init_param_values = self.get_variable_values(self.all_params)
 
         step_size = self.step_size
         for i in range(num_tasks):
-            if self.all_param_vals is not None:
+            if self.all_param_vals is not None: # skip this in first iteration
                 self.assign_params(self.all_params, self.all_param_vals[i])
 
-        if 'all_fast_params_tensor' not in dir(self):
+        if 'all_fast_params_tensor' not in dir(self): # only enter if first iteration
             # make computation graph once
             self.all_fast_params_tensor = []
+            # compute gradients for a current task (symbolic)
             for i in range(num_tasks):
-                gradients = dict(zip(update_param_keys, tf.gradients(self.surr_objs[i], [self.all_params[key] for key in update_param_keys])))
-                fast_params_tensor = OrderedDict(zip(update_param_keys, [self.all_params[key] - step_size*gradients[key] for key in update_param_keys]))
+                # compute gradients for a current task (symbolic)
+                gradients = dict(zip(update_param_keys, tf.gradients(self.surr_objs[i],
+                                                                     [self.all_params[key] for key in update_param_keys])))
+
+                # gradient update for params of current task (symbolic)
+                fast_params_tensor = OrderedDict(zip(update_param_keys,
+                                                     [self.all_params[key] - step_size*gradients[key] for key in update_param_keys]))
+
+                # undo gradient update for no_update_params (symbolic)
                 for k in no_update_param_keys:
                     fast_params_tensor[k] = self.all_params[k]
+
+                # tensors that represent the updated params for all of the tasks (symbolic)
                 self.all_fast_params_tensor.append(fast_params_tensor)
 
         # pull new param vals out of tensorflow, so gradient computation only done once ## first is the vars, second the values
         # these are the updated values of the params after the gradient step
+
         self.all_param_vals = sess.run(self.all_fast_params_tensor, feed_dict=dict(list(zip(self.input_list_for_grad, inputs))))
 
-        if init_param_values is not None:
+        if init_param_values is not None: # skip this in first iteration
             self.assign_params(self.all_params, init_param_values)
 
         outputs = []
-        self._cur_f_dist_i = {}
         inputs = tf.split(self.input_tensor, num_tasks, 0)
         for i in range(num_tasks):
             # TODO - use a placeholder to feed in the params, so that we don't have to recompile every time.
