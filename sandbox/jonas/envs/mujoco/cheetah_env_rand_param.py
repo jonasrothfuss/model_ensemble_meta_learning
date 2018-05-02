@@ -2,6 +2,9 @@ from rllab.envs.mujoco.half_cheetah_env import HalfCheetahEnv
 from rllab.core.serializable import Serializable
 from sandbox.jonas.envs.mujoco.base_env_rand_param import BaseEnvRandParams
 from sandbox.jonas.envs.helpers import get_all_function_arguments
+from rllab.envs.base import Step
+from rllab.misc.overrides import overrides
+from rllab_maml.envs.base import Step
 
 import numpy as np
 
@@ -22,6 +25,18 @@ class HalfCheetahEnvRandParams(BaseEnvRandParams, HalfCheetahEnv, Serializable):
         BaseEnvRandParams.__init__(*args_all, **kwargs_all)
         HalfCheetahEnv.__init__(self, *args, **kwargs)
         Serializable.__init__(*args_all, **kwargs_all)
+
+    @overrides
+    def step(self, action):
+        self.forward_dynamics(action)
+        next_obs = self.get_current_obs()
+        action = np.clip(action, *self.action_bounds)
+        ctrl_cost = 1e-1 * 0.5 * np.sum(np.square(action))
+        run_cost = -1 * self.get_body_comvel("torso")[0]
+        cost = ctrl_cost + run_cost
+        reward = -cost
+        done = False
+        return Step(next_obs, reward, done)
 
 
 if __name__ == "__main__":

@@ -2,6 +2,8 @@ from rllab.envs.mujoco.hopper_env import HopperEnv
 from rllab.core.serializable import Serializable
 from sandbox.jonas.envs.mujoco.base_env_rand_param import BaseEnvRandParams
 from sandbox.jonas.envs.helpers import get_all_function_arguments
+from rllab.misc.overrides import overrides
+from rllab_maml.envs.base import Step
 
 import numpy as np
 
@@ -25,6 +27,21 @@ class HopperEnvRandParams(BaseEnvRandParams, HopperEnv, Serializable):
         HopperEnv.__init__(self, *args, **kwargs)
         Serializable.__init__(*args_all, **kwargs_all)
 
+    @overrides
+    def step(self, action):
+        self.forward_dynamics(action)
+        next_obs = self.get_current_obs()
+        lb, ub = self.action_bounds
+        scaling = (ub - lb) * 0.5
+        vel = self.get_body_comvel("torso")[0]
+        reward = vel + self.alive_coeff - \
+            0.5 * self.ctrl_cost_coeff * np.sum(np.square(action / scaling))
+        state = self._state
+        notdone = np.isfinite(state).all() and \
+            (np.abs(state[3:]) < 100).all() and (state[0] > .7) and \
+            (abs(state[2]) < .2)
+        done = not notdone
+        return Step(next_obs, reward, done)
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ from sandbox.jonas.envs.mujoco.base_env_rand_param import BaseEnvRandParams
 from rllab_maml.misc import logger
 from rllab_maml.misc.overrides import overrides
 from sandbox.jonas.envs.helpers import get_all_function_arguments
+from rllab_maml.envs.base import Step
 
 import numpy as np
 
@@ -36,6 +37,18 @@ class HalfCheetahMAMLEnvRandParams(BaseEnvRandParams, HalfCheetahEnv, Serializab
         logger.record_tabular(prefix+'MaxForwardProgress', np.max(progs))
         logger.record_tabular(prefix+'MinForwardProgress', np.min(progs))
         logger.record_tabular(prefix+'StdForwardProgress', np.std(progs))
+
+    @overrides
+    def step(self, action):
+        self.forward_dynamics(action)
+        next_obs = self.get_current_obs()
+        action = np.clip(action, *self.action_bounds)
+        ctrl_cost = 1e-1 * 0.5 * np.sum(np.square(action))
+        run_cost = -1 * self.get_body_comvel("torso")[0]
+        cost = ctrl_cost + run_cost
+        reward = -cost
+        done = False
+        return Step(next_obs, reward, done)
 
 if __name__ == "__main__":
     env = HalfCheetahMAMLEnvRandParams()
