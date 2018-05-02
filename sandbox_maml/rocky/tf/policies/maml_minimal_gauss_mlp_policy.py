@@ -216,9 +216,11 @@ class MAMLGaussianMLPPolicy(StochasticPolicy, Serializable):
 
         self.all_param_vals = sess.run(self.all_fast_params_tensor, feed_dict=dict(list(zip(self.input_list_for_grad, inputs))))
 
+        # reset parameters to original ones
         if init_param_values is not None: # skip this in first iteration
             self.assign_params(self.all_params, init_param_values)
 
+        # compile the _cur_f_dist with updated params
         outputs = []
         inputs = tf.split(self.input_tensor, num_tasks, 0)
         for i in range(num_tasks):

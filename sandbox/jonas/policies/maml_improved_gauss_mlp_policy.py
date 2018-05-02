@@ -43,6 +43,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
             std_network=None,
             std_parametrization='exp',
             grad_step_size=1.0,
+            adaptive_step_size=False,
             stop_grad=False,
     ):
         """
@@ -63,8 +64,8 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
             - exp: the logarithm of the std will be stored, and applied a exponential transformation
             - softplus: the std will be computed as log(1+exp(x))
         :param grad_step_size: the step size taken in the learner's gradient update, sample uniformly if it is a range e.g. [0.1,1]
+        :param adaptive_step_size: (boolean) indicates whether the step_size should be a trainable variable or fixed
         :param stop_grad: whether or not to stop the gradient through the gradient.
-        :return:
         """
         Serializable.quick_init(self, locals())
         assert isinstance(env_spec.action_space, Box)
@@ -75,10 +76,9 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         self.hidden_nonlinearity = hidden_nonlinearity
         self.output_nonlinearity = output_nonlinearity
         self.input_shape = (None, obs_dim,)
-        self.step_size = grad_step_size
         self.stop_grad = stop_grad
-        if type(self.step_size) == list:
-            raise NotImplementedError('removing this since it didnt work well')
+        self.adaptive_step_size = adaptive_step_size
+        assert adaptive_step_size == False, "trainable stepsize does not work yet" #TODO
 
         # create network
         if mean_network is None:
@@ -114,6 +114,11 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
                     trainable=learn_std,
                 )
                 forward_std = lambda x, params: forward_param_layer(x, params['std_param'])
+
+            # step size
+            self.step_size = tf.Variable(grad_step_size, name='step_size', trainable=adaptive_step_size)
+            # TODO trainable doesn't work
+
             self.all_param_vals = None
 
             # unify forward mean and forward std into a single function
@@ -320,7 +325,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
             grads = [tf.stop_gradient(grad) for grad in grads]
 
         gradients = dict(zip(update_param_keys, grads))
-        params_dict = dict(zip(update_param_keys, [old_params_dict[key] - step_size*gradients[key] for key in update_param_keys]))
+        params_dict = dict(zip(update_param_keys, [old_params_dict[key] - step_size * gradients[key] for key in update_param_keys]))
         for k in no_update_param_keys:
             params_dict[k] = old_params_dict[k]
 
