@@ -1,7 +1,8 @@
 from sandbox.jonas.envs.mujoco import AntEnvMAMLRandParams, HalfCheetahMAMLEnvRandParams, HopperEnvMAMLRandParams
+
+from rllab_maml.envs.mujoco.half_cheetah_env import HalfCheetahEnv
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
-
 from sandbox_maml.rocky.tf.algos.maml_trpo import MAMLTRPO
 from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab_maml.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
@@ -9,23 +10,21 @@ from rllab_maml.envs.normalized_env import normalize
 from rllab_maml.misc.instrument import stub, run_experiment_lite
 from sandbox_maml.rocky.tf.policies.maml_minimal_gauss_mlp_policy import MAMLGaussianMLPPolicy
 from sandbox_maml.rocky.tf.envs.base import TfEnv
+from experiments.helpers.ec2_helpers import cheapest_subnets
 
 import tensorflow as tf
 import sys
 import argparse
 import random
 
-EXP_PREFIX = 'trpo-and-param-env-baselines'
 
-ec2_instance = 'm4.4xlarge' #TODO: maybe choose a more performant instance
+EXP_PREFIX = 'trpo-maml-rand-param-env'
 
-# configure instan
+ec2_instance = 'c4.2xlarge'
 
-subnets = [
-    'us-east-2a',
-    'us-east-2b',
-    'us-east-2c',
-]
+# configure instance
+
+subnets = cheapest_subnets(ec2_instance, num_subnets=3)
 
 info = config.INSTANCE_TYPE_INFO[ec2_instance]
 config.AWS_INSTANCE_TYPE = ec2_instance
@@ -72,12 +71,11 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['AntEnvMAMLRandParams'])
-    vg.add('n_itr', [500])
-    vg.add('log_scale_limit', [0.001, 0.01, 0.1, 1.0])
-
+    vg.add('env', ['HalfCheetahMAMLEnvRandParams'])
+    vg.add('n_itr', [800])
+    vg.add('log_scale_limit', [0.05, 0.1, 0.5, 1.0, 1.5])
     vg.add('fast_lr', [0.1])
-    vg.add('meta_batch_size', [50])
+    vg.add('meta_batch_size', [40])
     vg.add('num_grad_updates', [1])
     vg.add('meta_step_size', [0.01, 0.02])
     vg.add('fast_batch_size', [20])
@@ -85,26 +83,21 @@ def run_experiment(argv):
     vg.add('discount', [0.99])
     vg.add('n_iter', [500])
     vg.add('path_length', [100])
-    vg.add('batch_size', [50000])
-    vg.add('hidden_nonlinearity', ['relu'])
-    vg.add('hidden_sizes', [(32, 32)])
+    vg.add('hidden_nonlinearity', ['relu', 'tanh'])
+    vg.add('hidden_sizes', [(30, 30), (100, 100)])
+    vg.add('policy', ['MAMLGaussianMLPPolicy'])
 
     variants = vg.variants()
-    from pprint import pprint
-    pprint(variants)
 
     # ----------------------- AWS conficuration ---------------------------------
     if args.mode == 'ec2':
-        n_parallel = int(info["vCPU"] / 2)  # make the default 4 if not using ec2
-    else:
-        n_parallel = 6
-
-    if args.mode == 'ecs':
         print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format('TRPO', len(variants)))
-        print('Running on type {}, with price {}, parallel {} on the subnets: '.format(config.AWS_INSTANCE_TYPE,
-                                                                                       config.AWS_SPOT_PRICE,
-                                                                                       n_parallel), *subnets)
-
+        print('Running on type {}, with price {}, on the subnets: '.format(config.AWS_INSTANCE_TYPE,
+                                                                                       config.AWS_SPOT_PRICE,), str(subnets))
+    if args.mode == 'ec2':
+        n_parallel = 4  # make the default 4 if not using ec2
+    else:
+        n_parallel = 1 # for MAML use smaller number of parallel worker since parallelization is also done over the meta batch size
     # ----------------------- TRAINING ---------------------------------------
     exp_ids = random.sample(range(1, 1000), len(variants))
     for v, exp_id in zip(variants, exp_ids):
@@ -129,12 +122,12 @@ def run_experiment(argv):
             n_parallel=n_parallel,
             # Only keep the snapshot parameters for the last iteration
             snapshot_mode="last",
-            sync_s3_pkl=True,
             periodic_sync=True,
+            sync_s3_pkl=True,
+            sync_s3_log=True,
             # Specifies the seed for the experiment. If this is not provided, a random seed
             # will be used
             seed=v["seed"],
-            #sync_all_data_node_to_s3=True,
             python_command="python3",
             mode=args.mode,
             use_cloudpickle=True,
