@@ -20,7 +20,7 @@ import random
 
 EXP_PREFIX = 'trpo-maml-rand-param-env'
 
-ec2_instance = 'c4.2xlarge'
+ec2_instance = 'm4.2xlarge'
 
 # configure instance
 
