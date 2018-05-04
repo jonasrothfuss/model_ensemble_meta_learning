@@ -17,7 +17,7 @@ import itertools
 import time
 
 import tensorflow as tf
-from tensorflow.contrib.layers.python import layers as tf_layers
+from sandbox_maml.rocky.tf.misc.xavier_init import xavier_initializer
 from sandbox_maml.rocky.tf.core.utils import make_input, _create_param, add_param, make_dense_layer, forward_dense_layer, make_param_layer, forward_param_layer
 
 load_params = True
@@ -359,8 +359,8 @@ class MAMLGaussianMLPPolicy(StochasticPolicy, Serializable):
 
     # This makes all of the parameters.
     def create_MLP(self, name, output_dim, hidden_sizes,
-                   hidden_W_init=tf_layers.xavier_initializer(), hidden_b_init=tf.zeros_initializer(),
-                   output_W_init=tf_layers.xavier_initializer(), output_b_init=tf.zeros_initializer(),
+                   hidden_W_init=xavier_initializer(), hidden_b_init=tf.zeros_initializer(),
+                   output_W_init=xavier_initializer(), output_b_init=tf.zeros_initializer(),
                    weight_normalization=False,
                    ):
         all_params = OrderedDict()
