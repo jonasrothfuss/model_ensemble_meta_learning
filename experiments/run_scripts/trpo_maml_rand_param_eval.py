@@ -41,7 +41,7 @@ def run_eval_task(vv):
             load_policy=None,
             baseline=baseline,
             batch_size=20000,
-            max_path_length=200,
+            max_path_length=100,
             n_itr=5,
             optimizer_args={'init_learning_rate': step_size, 'tf_optimizer_args': {'learning_rate': step_size}, 'tf_optimizer_cls': tf.train.GradientDescentOptimizer}
         )
