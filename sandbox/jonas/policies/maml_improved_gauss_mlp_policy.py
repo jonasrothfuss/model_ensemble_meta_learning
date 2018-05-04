@@ -12,6 +12,7 @@ from rllab_maml.misc.overrides import overrides
 from rllab_maml.misc import logger
 from rllab_maml.misc.tensor_utils import flatten_tensors, unflatten_tensors
 from sandbox_maml.rocky.tf.misc import tensor_utils
+from sandbox.jonas.core.utils import make_dense_layer_with_bias_transform, forward_dense_bias_transform
 
 import itertools
 import time
@@ -33,6 +34,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
             learn_std=True,
             init_std=1.0,
             adaptive_std=False,
+            bias_transform=False,
             std_share_network=False,
             std_hidden_sizes=(32, 32),
             min_std=1e-6,
@@ -43,7 +45,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
             std_network=None,
             std_parametrization='exp',
             grad_step_size=0.1,
-            trainable_step_size=False,
+            trainable_step_size=True,
             stop_grad=False,
     ):
         """
@@ -51,7 +53,8 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         :param hidden_sizes: list of sizes for the fully-connected hidden layers
         :param learn_std: Is std trainable
         :param init_std: Initial std
-        :param adaptive_std:
+        :param adaptive_std: boolean indicating whether std shall be a trainable variable
+        :param bias_transform: boolean indicating whether bias transformation shall be added to the MLP
         :param std_share_network:
         :param std_hidden_sizes: list of sizes for the fully-connected layers for std
         :param min_std: whether to make sure that the std is at least some threshold value, to avoid numerical issues
@@ -85,12 +88,14 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
                 name="mean_network",
                 output_dim=self.action_dim,
                 hidden_sizes=hidden_sizes,
+                bias_transform=bias_transform
             )
             self.input_tensor, _ = self.forward_MLP('mean_network', self.all_params,
-                reuse=None # Need to run this for batch norm
+                                                    reuse=None, # Need to run this for batch norm
+                                                    bias_transform=bias_transform
             )
             forward_mean = lambda x, params, is_train: self.forward_MLP('mean_network', params,
-                input_tensor=x, is_training=is_train)[1]
+                    input_tensor=x, is_training=is_train, bias_transform=bias_transform)[1]
         else:
             raise NotImplementedError('Not supported.')
 
@@ -364,38 +369,69 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
     def create_MLP(self, name, output_dim, hidden_sizes,
                    hidden_W_init=xavier_initializer(), hidden_b_init=tf.zeros_initializer(),
                    output_W_init=xavier_initializer(), output_b_init=tf.zeros_initializer(),
-                   weight_normalization=False,
-                   ):
+                   weight_normalization=False, bias_transform=False):
+
         all_params = OrderedDict()
 
         cur_shape = self.input_shape
         with tf.variable_scope(name):
-            for idx, hidden_size in enumerate(hidden_sizes):
-                W, b, cur_shape = make_dense_layer(
+            if bias_transform:
+                for idx, hidden_size in enumerate(hidden_sizes):
+                    # hidden layers
+                    W, b, bias_transform, cur_shape = make_dense_layer_with_bias_transform(
+                        cur_shape,
+                        num_units=hidden_size,
+                        name="hidden_%d" % idx,
+                        W=hidden_W_init,
+                        b=hidden_b_init,
+                        bias_transform=hidden_b_init,
+                        weight_norm=weight_normalization,
+                    )
+                    all_params['W' + str(idx)] = W
+                    all_params['b' + str(idx)] = b
+                    all_params['bias_transform' + str(idx)] = bias_transform
+
+                #output layer
+                W, b, bias_transform, _ = make_dense_layer_with_bias_transform(
                     cur_shape,
-                    num_units=hidden_size,
-                    name="hidden_%d" % idx,
+                    num_units=output_dim,
+                    name='output',
                     W=hidden_W_init,
                     b=hidden_b_init,
+                    bias_transform=hidden_b_init,
                     weight_norm=weight_normalization,
                 )
-                all_params['W' + str(idx)] = W
-                all_params['b' + str(idx)] = b
-            W, b, _ = make_dense_layer(
-                cur_shape,
-                num_units=output_dim,
-                name='output',
-                W=output_W_init,
-                b=output_b_init,
-                weight_norm=weight_normalization,
-            )
-            all_params['W' + str(len(hidden_sizes))] = W
-            all_params['b'+str(len(hidden_sizes))] = b
+                all_params['W' + str(len(hidden_sizes))] = W
+                all_params['b' + str(len(hidden_sizes))] = b
+                all_params['bias_transform' + str(len(hidden_sizes))] = bias_transform
+
+            else:
+                for idx, hidden_size in enumerate(hidden_sizes):
+                    W, b, cur_shape = make_dense_layer(
+                        cur_shape,
+                        num_units=hidden_size,
+                        name="hidden_%d" % idx,
+                        W=hidden_W_init,
+                        b=hidden_b_init,
+                        weight_norm=weight_normalization,
+                    )
+                    all_params['W' + str(idx)] = W
+                    all_params['b' + str(idx)] = b
+                W, b, _ = make_dense_layer(
+                    cur_shape,
+                    num_units=output_dim,
+                    name='output',
+                    W=output_W_init,
+                    b=output_b_init,
+                    weight_norm=weight_normalization,
+                )
+                all_params['W' + str(len(hidden_sizes))] = W
+                all_params['b'+str(len(hidden_sizes))] = b
 
         return all_params
 
     def forward_MLP(self, name, all_params, input_tensor=None,
-                    batch_normalization=False, reuse=True, is_training=False):
+                    batch_normalization=False, reuse=True, is_training=False, bias_transform=False):
         # is_training and reuse are for batch norm, irrelevant if batch_norm set to False
         # set reuse to False if the first time this func is called.
         with tf.variable_scope(name):
@@ -406,15 +442,20 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
 
             l_hid = l_in
 
+
             for idx in range(self.n_hidden):
-                l_hid = forward_dense_layer(l_hid, all_params['W'+str(idx)], all_params['b'+str(idx)],
+                bias_transform_ = all_params['bias_transform'+str(idx)] if bias_transform else None
+                l_hid = forward_dense_bias_transform(l_hid, all_params['W'+str(idx)], all_params['b'+str(idx)],
+                                            bias_transform=bias_transform_,
                                             batch_norm=batch_normalization,
                                             nonlinearity=self.hidden_nonlinearity,
                                             scope=str(idx), reuse=reuse,
                                             is_training=is_training
                                             )
-            output = forward_dense_layer(l_hid, all_params['W'+str(self.n_hidden)], all_params['b'+str(self.n_hidden)],
-                                         batch_norm=False, nonlinearity=self.output_nonlinearity,
+
+            bias_transform = all_params['bias_transform' + str(self.n_hidden)] if bias_transform else None
+            output = forward_dense_bias_transform(l_hid, all_params['W'+str(self.n_hidden)], all_params['b'+str(self.n_hidden)],
+                                         bias_transform=bias_transform, batch_norm=False, nonlinearity=self.output_nonlinearity,
                                          )
             return l_in, output
 
