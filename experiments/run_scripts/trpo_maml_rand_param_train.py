@@ -9,6 +9,7 @@ from rllab_maml.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
 from rllab_maml.envs.normalized_env import normalize
 from rllab_maml.misc.instrument import stub, run_experiment_lite
 from sandbox_maml.rocky.tf.policies.maml_minimal_gauss_mlp_policy import MAMLGaussianMLPPolicy
+from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
 from sandbox_maml.rocky.tf.envs.base import TfEnv
 from experiments.helpers.ec2_helpers import cheapest_subnets
 
@@ -18,7 +19,7 @@ import argparse
 import random
 
 
-EXP_PREFIX = 'trpo-maml-rand-param-env'
+EXP_PREFIX = 'trpo-maml-rand-param-env-improved-policy'
 
 ec2_instance = 'm4.2xlarge'
 
@@ -34,12 +35,14 @@ config.AWS_SPOT_PRICE = str(info["price"])
 def run_train_task(vv):
     env = TfEnv(normalize(vv['env'](log_scale_limit=vv["log_scale_limit"])))
 
-    policy = MAMLGaussianMLPPolicy(
+    policy = MAMLImprovedGaussianMLPPolicy(
         name="policy",
         env_spec=env.spec,
         hidden_sizes=vv['hidden_sizes'],
         grad_step_size=vv['fast_lr'],
-        hidden_nonlinearity=vv['hidden_nonlinearity']
+        hidden_nonlinearity=vv['hidden_nonlinearity'],
+        trainable_step_size=vv['trainable_step_size'],
+        bias_transform=vv['bias_transform']
     )
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
@@ -72,8 +75,8 @@ def run_experiment(argv):
 
     vg = VariantGenerator()
     vg.add('env', ['HalfCheetahMAMLEnvRandParams'])
-    vg.add('n_itr', [800])
-    vg.add('log_scale_limit', [0.1, 0.5, 1.0, 1.5])
+    vg.add('n_itr', [500])
+    vg.add('log_scale_limit', [0.1, 0.5, 1.0, 1.5]) #TODO reset to [0.1, 0.5, 1.0, 1.5]
     vg.add('fast_lr', [0.1])
     vg.add('meta_batch_size', [40])
     vg.add('num_grad_updates', [1])
@@ -85,7 +88,9 @@ def run_experiment(argv):
     vg.add('path_length', [100])
     vg.add('hidden_nonlinearity', ['tanh'])
     vg.add('hidden_sizes', [(100, 100)])
-    vg.add('policy', ['MAMLGaussianMLPPolicy'])
+    vg.add('trainable_step_size', [True, False])
+    vg.add('bias_transform', [True, False])
+    vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
 
     variants = vg.variants()
 
