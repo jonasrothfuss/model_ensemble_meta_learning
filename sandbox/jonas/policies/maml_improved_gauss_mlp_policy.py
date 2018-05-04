@@ -17,7 +17,7 @@ import itertools
 import time
 
 import tensorflow as tf
-from tensorflow.contrib.layers.python import layers as tf_layers
+from sandbox_maml.rocky.tf.misc.xavier_init import xavier_initializer
 from sandbox_maml.rocky.tf.core.utils import make_input, _create_param, add_param, make_dense_layer, forward_dense_layer, make_param_layer, forward_param_layer
 
 load_params = True
@@ -42,8 +42,8 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
             mean_network=None,
             std_network=None,
             std_parametrization='exp',
-            grad_step_size=1.0,
-            adaptive_step_size=False,
+            grad_step_size=0.1,
+            trainable_step_size=False,
             stop_grad=False,
     ):
         """
@@ -63,9 +63,10 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         :param std_parametrization: how the std should be parametrized. There are a few options:
             - exp: the logarithm of the std will be stored, and applied a exponential transformation
             - softplus: the std will be computed as log(1+exp(x))
-        :param grad_step_size: the step size taken in the learner's gradient update, sample uniformly if it is a range e.g. [0.1,1]
-        :param adaptive_step_size: (boolean) indicates whether the step_size should be a trainable variable or fixed
+        :param grad_step_size: (float) the step size taken in the learner's gradient update
+        :param trainable_step_size: boolean indicating whether the inner grad_step_size shall be trainable
         :param stop_grad: whether or not to stop the gradient through the gradient.
+        :return:
         """
         Serializable.quick_init(self, locals())
         assert isinstance(env_spec.action_space, Box)
@@ -77,8 +78,6 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         self.output_nonlinearity = output_nonlinearity
         self.input_shape = (None, obs_dim,)
         self.stop_grad = stop_grad
-        self.adaptive_step_size = adaptive_step_size
-        assert adaptive_step_size == False, "trainable stepsize does not work yet" #TODO
 
         # create network
         if mean_network is None:
@@ -114,11 +113,6 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
                     trainable=learn_std,
                 )
                 forward_std = lambda x, params: forward_param_layer(x, params['std_param'])
-
-            # step size
-            self.step_size = tf.Variable(grad_step_size, name='step_size', trainable=adaptive_step_size)
-            # TODO trainable doesn't work
-
             self.all_param_vals = None
 
             # unify forward mean and forward std into a single function
@@ -153,6 +147,13 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
             )
             self._cur_f_dist = self._init_f_dist
 
+            #stepsize for each parameter
+            self.param_step_sizes = {}
+            with tf.variable_scope("mean_network", reuse=True):
+                for key, param in self.all_params.items():
+                    shape = param.get_shape().as_list()
+                    init_stepsize = np.ones(shape, dtype=np.float32) * grad_step_size
+                    self.param_step_sizes[key] = tf.Variable(initial_value=init_stepsize, name='step_size_%s'%key, dtype=tf.float32, trainable=trainable_step_size)
 
     @property
     def vectorized(self):
@@ -188,57 +189,41 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
 
         # To do a second update, replace self.all_params below with the params that were used to collect the policy.
         init_param_values = None
-
-        # save original parameters in init_param_values
-        if self.all_param_vals is not None:
+        if self.all_param_vals is not None: # skip this in first iteration
             init_param_values = self.get_variable_values(self.all_params)
 
-        step_size = self.step_size
-        if 'all_fast_params_tensor' not in dir(self):
+        for i in range(num_tasks):
+            if self.all_param_vals is not None: # skip this in first iteration
+                self.assign_params(self.all_params, self.all_param_vals[i])
+
+        if 'all_fast_params_tensor' not in dir(self): # only enter if first iteration
             # make computation graph once
             self.all_fast_params_tensor = []
+            # compute gradients for a current task (symbolic)
             for i in range(num_tasks):
                 # compute gradients for a current task (symbolic)
-                gradients = dict(zip(update_param_keys, tf.gradients(self.surr_objs[i], [self.all_params[key] for key in
-                                                                                         update_param_keys])))
+                gradients = dict(zip(update_param_keys, tf.gradients(self.surr_objs[i],
+                                                                     [self.all_params[key] for key in update_param_keys])))
+
                 # gradient update for params of current task (symbolic)
                 fast_params_tensor = OrderedDict(zip(update_param_keys,
-                                                     [self.all_params[key] - step_size * gradients[key] for key in
-                                                      update_param_keys]))
+                                                     [self.all_params[key] - tf.multiply(self.param_step_sizes[key], gradients[key]) for key in update_param_keys]))
 
                 # undo gradient update for no_update_params (symbolic)
                 for k in no_update_param_keys:
                     fast_params_tensor[k] = self.all_params[k]
 
-                # tensors that represent the updated params for all of the tasks
+                # tensors that represent the updated params for all of the tasks (symbolic)
                 self.all_fast_params_tensor.append(fast_params_tensor)
 
-        self.all_param_vals_temp = [None for _ in range(num_tasks)]
+        # pull new param vals out of tensorflow, so gradient computation only done once ## first is the vars, second the values
+        # these are the updated values of the params after the gradient step
 
-        for i in range(num_tasks):
-            if self.all_param_vals is not None: # skip this in first iteration
-
-                #assign parameters of nn to new param set w.r.t specific task
-                self.assign_params(self.all_params, self.all_param_vals[i])
-
-            # pull new param vals out of tensorflow, so gradient computation only done once ## first is the vars, second the values
-            # these are the updated values of the params after the gradient step
-
-            if init_param_values is not None: # skip this in first iteration
-                self.all_param_vals_temp[i] = sess.run(self.all_fast_params_tensor[i],
-                                               feed_dict=dict(list(zip(self.input_list_for_grad, inputs))))
-            else:
-                self.all_param_vals = sess.run(self.all_fast_params_tensor,
-                                               feed_dict=dict(list(zip(self.input_list_for_grad, inputs))))
-
-
-        if init_param_values is not None: # skip this in first iteration
-            self.all_param_vals = self.all_param_vals_temp
+        self.all_param_vals = sess.run(self.all_fast_params_tensor, feed_dict=dict(list(zip(self.input_list_for_grad, inputs))))
 
         # reset parameters to original ones
-        if init_param_values is not None:
+        if init_param_values is not None: # skip this in first iteration
             self.assign_params(self.all_params, init_param_values)
-
 
         # compile the _cur_f_dist with updated params
         outputs = []
@@ -280,6 +265,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
     def switch_to_init_dist(self):
         # switch cur policy distribution to pre-update policy
         self._cur_f_dist = self._init_f_dist
+        self._cur_f_dist_i = None
         self.all_param_vals = None
 
     def dist_info_sym(self, obs_var, state_info_vars=None, all_params=None, is_training=True):
@@ -312,8 +298,6 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         """
         old_params_dict = params_dict
 
-        step_size = self.step_size
-
         if old_params_dict == None:
             old_params_dict = self.all_params
         param_keys = self.all_params.keys()
@@ -325,7 +309,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
             grads = [tf.stop_gradient(grad) for grad in grads]
 
         gradients = dict(zip(update_param_keys, grads))
-        params_dict = dict(zip(update_param_keys, [old_params_dict[key] - step_size * gradients[key] for key in update_param_keys]))
+        params_dict = dict(zip(update_param_keys, [old_params_dict[key] - tf.multiply(self.param_step_sizes[key], gradients[key]) for key in update_param_keys]))
         for k in no_update_param_keys:
             params_dict[k] = old_params_dict[k]
 
@@ -370,7 +354,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         else:
             params = tf.global_variables()
 
-        params = [p for p in params if p.name.startswith('mean_network') or p.name.startswith('output_std_param')]
+        #params = [p for p in params if p.name.startswith('mean_network') or p.name.startswith('output_std_param')]
         params = [p for p in params if 'Adam' not in p.name]
 
         return params
@@ -378,8 +362,8 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
 
     # This makes all of the parameters.
     def create_MLP(self, name, output_dim, hidden_sizes,
-                   hidden_W_init=tf_layers.xavier_initializer(), hidden_b_init=tf.zeros_initializer(),
-                   output_W_init=tf_layers.xavier_initializer(), output_b_init=tf.zeros_initializer(),
+                   hidden_W_init=xavier_initializer(), hidden_b_init=tf.zeros_initializer(),
+                   output_W_init=xavier_initializer(), output_b_init=tf.zeros_initializer(),
                    weight_normalization=False,
                    ):
         all_params = OrderedDict()
