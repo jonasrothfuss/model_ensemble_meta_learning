@@ -158,7 +158,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
                 for key, param in self.all_params.items():
                     shape = param.get_shape().as_list()
                     init_stepsize = np.ones(shape, dtype=np.float32) * grad_step_size
-                    self.param_step_sizes[key] = tf.Variable(initial_value=init_stepsize, name='step_size_%s'%key, dtype=tf.float32, trainable=trainable_step_size)
+                    self.param_step_sizes[key + "_step_size"] = tf.Variable(initial_value=init_stepsize, name='step_size_%s'%key, dtype=tf.float32, trainable=trainable_step_size)
 
     @property
     def vectorized(self):
@@ -212,7 +212,11 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
 
                 # gradient update for params of current task (symbolic)
                 fast_params_tensor = OrderedDict(zip(update_param_keys,
-                                                     [self.all_params[key] - tf.multiply(self.param_step_sizes[key], gradients[key]) for key in update_param_keys]))
+                                                     [self.all_params[key] - tf.multiply(self.param_step_sizes[key + "_step_size"], gradients[key]) for key in update_param_keys]))
+
+                # add step sizes to fast_params_tensor
+                fast_params_tensor.update(self.param_step_sizes)
+
 
                 # undo gradient update for no_update_params (symbolic)
                 for k in no_update_param_keys:
@@ -314,7 +318,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
             grads = [tf.stop_gradient(grad) for grad in grads]
 
         gradients = dict(zip(update_param_keys, grads))
-        params_dict = dict(zip(update_param_keys, [old_params_dict[key] - tf.multiply(self.param_step_sizes[key], gradients[key]) for key in update_param_keys]))
+        params_dict = dict(zip(update_param_keys, [old_params_dict[key] - tf.multiply(self.param_step_sizes[key + "_step_size"], gradients[key]) for key in update_param_keys]))
         for k in no_update_param_keys:
             params_dict[k] = old_params_dict[k]
 
