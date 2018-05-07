@@ -45,6 +45,12 @@ class HalfCheetahEnv(MujocoEnv, Serializable):
         done = False
         return Step(next_obs, reward, done)
 
+    def reward_np(self, obs, act, n_obs):
+        return np.zeros((obs.shape[0]))
+
+    def is_done(self, obs):
+        return np.zeros((obs.shape[0]))
+
     @overrides
     def log_diagnostics(self, paths):
         progs = [

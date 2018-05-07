@@ -131,7 +131,7 @@ class MLPDynamicsModel(LayersPowered, Serializable):
         assert obs.ndim == 2 and act.ndim == 2, "inputs must have two dimensions"
         assert obs.shape[0] == act.shape[0]
 
-        pred = np.array(self.f_next_obs_pred(obs, act))
+        pred = np.array(self.f_next_obs_pred(obs, act))[0]
         batch_size = obs.shape[0]
 
         if pred_type == 'rand':

@@ -4,7 +4,7 @@ import rllab.misc.logger as logger
 from sandbox.rocky.tf.policies.base import Policy
 import tensorflow as tf
 from sandbox.rocky.tf.samplers.batch_sampler import BatchSampler
-from sandbox.rocky.tf.samplers.vectorized_sampler import VectorizedSampler
+from sandbox.ignasi.samplers.model_vectorized_sampler import ModelVectorizedSampler
 from rllab.sampler.utils import rollout
 import numpy as np
 from sandbox.ignasi.utils import DataBuffer
@@ -28,7 +28,9 @@ class BatchPolopt(RLAlgorithm):
             n_itr=500,
             start_itr=0,
             num_paths=1,
+            num_branches=2,
             max_path_length=500,
+            model_max_path_length=200,
             discount=0.99,
             gae_lambda=1,
             plot=False,
@@ -63,7 +65,7 @@ class BatchPolopt(RLAlgorithm):
         conjunction with center_adv the advantages will be standardized before shifting.
         :param store_paths: Whether to save all paths data to the snapshot.
         """
-        self.real_env = real_env
+        self.env = self.real_env = real_env
         self.model_env = model_env
         self.policy = policy
         self.baseline = baseline
@@ -75,7 +77,9 @@ class BatchPolopt(RLAlgorithm):
         self.start_itr = start_itr
         self.batch_size = num_paths * max_path_length
         self.num_paths = num_paths
+        self.num_branches = num_branches
         self.max_path_length = max_path_length
+        self.model_max_path_length = model_max_path_length
         self.discount = discount
         self.gae_lambda = gae_lambda
         self.plot = plot
@@ -86,35 +90,22 @@ class BatchPolopt(RLAlgorithm):
         self.whole_paths = whole_paths
         self.fixed_horizon = fixed_horizon
         self.data_buffer = DataBuffer(dict(
-            observations=np.zeros(real_env.observation_space.n, dtype=np.float32),
-            actions=np.zeros( real_env.action_space.n, dtype=np.float32),
-            next_observations=np.zeros(real_env.observation_space.n, dtype=np.float32),
+            observations=np.zeros(real_env.observation_space.flat_dim, dtype=np.float32),
+            actions=np.zeros(real_env.action_dim, dtype=np.float32),
+            next_observations=np.zeros(real_env.observation_space.flat_dim, dtype=np.float32),
         ))
 
-        if sampler_cls is None:
-            if self.policy.vectorized and not force_batch_sampler:
-                sampler_cls = VectorizedSampler
-            else:
-                sampler_cls = BatchSampler
-        if sampler_args is None:
-            sampler_args = dict()
-        self.sampler = sampler_cls(self, **sampler_args)
-        self.model_sampler = VectorizedSampler(self)
+        self.model_sampler = ModelVectorizedSampler(self)
         self.real_sampler = BatchSampler(self) # TODO: I don't know if this is the correct thing to do
         self.init_opt()
 
     def start_worker(self):
-        self.sampler.start_worker()
         self.model_sampler.start_worker()
         self.real_sampler.start_worker()
 
     def shutdown_worker(self):
-        self.sampler.shutdown_worker()
         self.model_sampler.shutdown_worker()
         self.real_sampler.shutdown_worker()
-
-    def obtain_samples(self, itr):
-        return self.sampler.obtain_samples(itr)
 
     def obtain_real_samples(self, itr):
         return self.real_sampler.obtain_samples(itr)
@@ -123,7 +114,7 @@ class BatchPolopt(RLAlgorithm):
         return self.model_sampler.obtain_samples(itr, real_paths)
 
     def process_samples(self, itr, paths):
-        return self.sampler.process_samples(itr, paths)
+        return self.real_sampler.process_samples(itr, paths)
 
     def train(self, sess=None):
         created_session = True if (sess is None) else False

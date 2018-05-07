@@ -1,11 +1,8 @@
-
-
-
 from rllab.misc import ext
 from rllab.misc.overrides import overrides
 import rllab.misc.logger as logger
 from sandbox.rocky.tf.optimizers.penalty_lbfgs_optimizer import PenaltyLbfgsOptimizer
-from sandbox.rocky.tf.algos.batch_polopt import BatchPolopt
+from sandbox.ignasi.algos.batch_polopt import BatchPolopt
 from sandbox.rocky.tf.misc import tensor_utils
 import tensorflow as tf
 
@@ -32,11 +29,11 @@ class NPO(BatchPolopt):
     @overrides
     def init_opt(self):
         is_recurrent = int(self.policy.recurrent)
-        obs_var = self.env.observation_space.new_tensor_variable(
+        obs_var = self.real_env.observation_space.new_tensor_variable(
             'obs',
             extra_dims=1 + is_recurrent,
         )
-        action_var = self.env.action_space.new_tensor_variable(
+        action_var = self.real_env.action_space.new_tensor_variable(
             'action',
             extra_dims=1 + is_recurrent,
         )
@@ -126,5 +123,6 @@ class NPO(BatchPolopt):
             itr=itr,
             policy=self.policy,
             baseline=self.baseline,
-            env=self.env,
+            real_env=self.real_env,
+            model_env=self.model_env,
         )

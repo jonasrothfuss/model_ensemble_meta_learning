@@ -13,6 +13,8 @@ class ModelEnv(Env, Serializable):
         self.reward_fn = self._env.reward_np
         self.is_done = self._env.is_done
         self.current_obs = None
+        super(ModelEnv, self).__init__()
+        Serializable.__init__(self)
 
     def step(self, actions):
         next_obs = self.dynamics_model.predict(self.current_obs, actions)
@@ -28,13 +30,12 @@ class ModelEnv(Env, Serializable):
             assert len(init_pos.shape) == 2
             self.current_obs = init_pos
 
-    @property
     def action_space(self):
         """
         Returns a Space object
         :rtype: rllab.spaces.base.Space
         """
-        raise self._env.action_space
+        return self._env.action_space
 
     @property
     def observation_space(self):
@@ -42,7 +43,7 @@ class ModelEnv(Env, Serializable):
         Returns a Space object
         :rtype: rllab.spaces.base.Space
         """
-        raise self._env.observation_space
+        return self._env.spec.observation_space
 
     @property
     def action_dim(self):

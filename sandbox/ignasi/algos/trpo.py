@@ -1,10 +1,8 @@
-
-
-from sandbox.rocky.tf.algos.npo import NPO
+from sandbox.ignasi.algos.npo import NPO
 from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer
 
 
-class TRPO(NPO):
+class VINETRPO(NPO):
     """
     Trust Region Policy Optimization
     """
@@ -18,4 +16,4 @@ class TRPO(NPO):
             if optimizer_args is None:
                 optimizer_args = dict()
             optimizer = ConjugateGradientOptimizer(**optimizer_args)
-        super(TRPO, self).__init__(optimizer=optimizer, **kwargs)
+        super(VINETRPO, self).__init__(optimizer=optimizer, **kwargs)
