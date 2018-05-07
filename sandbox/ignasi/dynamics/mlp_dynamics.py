@@ -18,6 +18,7 @@ class MLPDynamicsModel(LayersPowered, Serializable):
     def __init__(self,
                  name,
                  env,
+                 num_models=1,
                  hidden_sizes=(512, 512),
                  hidden_nonlinearity=tf.nn.relu,
                  output_nonlinearity=None,
@@ -34,6 +35,7 @@ class MLPDynamicsModel(LayersPowered, Serializable):
         with tf.variable_scope(name):
             self.batch_size = batch_size
             self.step_size = step_size
+            self.num_models = num_models
 
             # determine dimensionality of state and action space
             obs_space_dims = env.observation_space.shape[0]
@@ -51,27 +53,34 @@ class MLPDynamicsModel(LayersPowered, Serializable):
             # TODO: Create the normlazation variables
 
             # create MLP
-            mlp = MLP(name,
-                      obs_space_dims,
-                      hidden_sizes,
-                      hidden_nonlinearity,
-                      output_nonlinearity,
-                      input_var=self.nn_input,
-                      input_shape = (obs_space_dims+action_space_dims,),
-                      batch_normalization=batch_normalization,
-                      weight_normalization=weight_normalization)
+            mlps = []
+            self.delta_pred = []
+            self.obs_next_pred = []
+            for i in range(num_models):
+                with tf.variable_scope('model_{}'.format(i)):
+                    mlp = MLP(name,
+                              obs_space_dims,
+                              hidden_sizes,
+                              hidden_nonlinearity,
+                              output_nonlinearity,
+                              input_var=self.nn_input,
+                              input_shape = (obs_space_dims+action_space_dims,),
+                              batch_normalization=batch_normalization,
+                              weight_normalization=weight_normalization)
+                    mlps.append(mlp)
 
-            self.delta_pred = mlp.output
-            self.obs_next_pred = self.obs_ph + self.delta_pred
+                self.delta_pred.append(mlp.output)
+            self.obs_next_pred.append(self.obs_ph + self.delta_pred)
 
             # define loss and train_op
-            self.loss = tf.nn.l2_loss(self.delta_target - self.delta_pred)
+            self.loss = tf.reduce_mean([tf.nn.l2_loss(self.delta_target - delta_pred)
+                                        for delta_pred in self.delta_pred])
             self.train_op = tf.train.AdamOptimizer(self.step_size).minimize(self.loss)
 
             # tensor_utils
             self.f_next_obs_pred = tensor_utils.compile_function([self.obs_ph, self.act_ph], self.obs_next_pred)
 
-        LayersPowered.__init__(self, [mlp.output_layer])
+        LayersPowered.__init__(self, [mlp.output_layer for mlp in mlps])
 
     def fit(self, obs, act, obs_next, epochs=100, verbose=False):
         """
@@ -112,7 +121,7 @@ class MLPDynamicsModel(LayersPowered, Serializable):
                         logger.log("Training NNDynamicsModel - finished epoch {} -- mean loss: {}".format(epoch, np.mean(batch_losses)))
                     break
 
-    def predict(self, obs, act):
+    def predict(self, obs, act, pred_type='rand'):
         """
         Predict the batch of next observations given the batch of current observations and actions
         :param obs: observations - numpy array of shape (n_samples, ndim_obs)
@@ -122,7 +131,17 @@ class MLPDynamicsModel(LayersPowered, Serializable):
         assert obs.ndim == 2 and act.ndim == 2, "inputs must have two dimensions"
         assert obs.shape[0] == act.shape[0]
 
-        return self.f_next_obs_pred(obs, act)
+        pred = np.array(self.f_next_obs_pred(obs, act))
+        batch_size = obs.shape[0]
+
+        if pred_type == 'rand':
+            idx = np.random.randint(0, self.num_models, size=batch_size)
+            pred = pred[idx, range(batch_size)]
+        elif pred_type == 'mean':
+            pred = np.mean(pred, axis=0)
+        elif pred_type == 'all':
+            pass
+        return pred
 
     def _data_input_fn(self, obs, act, obs_next, batch_size=500, buffer_size=100000):
         """ Takes in train data an creates an a symbolic nex_batch operator as well as an iterator object """
