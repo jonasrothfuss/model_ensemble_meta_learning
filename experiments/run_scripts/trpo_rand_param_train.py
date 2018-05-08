@@ -8,6 +8,7 @@ from sandbox.jonas.envs.mujoco import HalfCheetahEnvRandParams, AntEnvRandParams
 from rllab.envs.mujoco.half_cheetah_env import HalfCheetahEnv
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
+from experiments.helpers.ec2_helpers import cheapest_subnets
 
 import tensorflow as tf
 import sys
@@ -16,19 +17,8 @@ import random
 
 EXP_PREFIX = 'trpo-rand-param-env-baselines'
 
-ec2_instance = 'm4.4xlarge'
-
-# configure instan
-
-subnets = [
-    'us-east-2a',
-    'us-east-2b',
-    'us-east-2c',
-]
-
-info = config.INSTANCE_TYPE_INFO[ec2_instance]
-config.AWS_INSTANCE_TYPE = ec2_instance
-config.AWS_SPOT_PRICE = str(info["price"])
+ec2_instance = 'c4.4xlarge'
+subnets = cheapest_subnets(ec2_instance, num_subnets=3)
 
 
 def run_train_task(vv):
@@ -68,17 +58,17 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['AntEnvRandParams']) # HalfCheetahEnvRandParams
+    vg.add('env', ['HalfCheetahEnvRandParams']) # HalfCheetahEnvRandParams
     vg.add('n_itr', [500])
-    vg.add('log_scale_limit', [0.01, 0.05, 0.1, 0.5])
+    vg.add('log_scale_limit', [0.1, 0.5, 1.0, 1.5])
     vg.add('step_size', [0.01,0.05, 0.1])
     vg.add('seed', [1, 11, 21, 31, 41])
     vg.add('discount', [0.99])
-    vg.add('n_iter', [800])
+    vg.add('n_iter', [500])
     vg.add('path_length', [100])
-    vg.add('batch_size', [20000])
-    vg.add('hidden_nonlinearity', ['relu', 'tanh'])
-    vg.add('hidden_sizes', [(32, 32)])
+    vg.add('batch_size', [80000])
+    vg.add('hidden_nonlinearity', ['tanh'])
+    vg.add('hidden_sizes', [(32, 32), (100, 100)])
 
     variants = vg.variants()
     from pprint import pprint
@@ -86,15 +76,20 @@ def run_experiment(argv):
 
     # ----------------------- AWS conficuration ---------------------------------
     if args.mode == 'ec2':
+        info = config.INSTANCE_TYPE_INFO[ec2_instance]
         n_parallel = int(info["vCPU"] / 2)  # make the default 4 if not using ec2
     else:
         n_parallel = 6
 
     if args.mode == 'ecs':
+
+
+        config.AWS_INSTANCE_TYPE = ec2_instance
+        config.AWS_SPOT_PRICE = str(info["price"])
+
         print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format('TRPO', len(variants)))
-        print('Running on type {}, with price {}, parallel {} on the subnets: '.format(config.AWS_INSTANCE_TYPE,
-                                                                                       config.AWS_SPOT_PRICE,
-                                                                                       n_parallel), *subnets)
+        print('Running on type {}, with price {}, on the subnets: '.format(config.AWS_INSTANCE_TYPE,
+                                                                           config.AWS_SPOT_PRICE, ), str(subnets))
 
     # ----------------------- TRAINING ---------------------------------------
     exp_ids = random.sample(range(1, 1000), len(variants))
