@@ -182,7 +182,7 @@ class BatchPolopt(RLAlgorithm):
     def optimize_model(self, itr):
         if itr % self.opt_model_itr == 0:
             logger.log("Obtaining real samples for training the model...")
-            real_paths = self.obtain_real_samples(itr, batch_size=3000)
+            real_paths = self.obtain_real_samples(itr, batch_size=30000)
             logger.log("Logging diagnostics...")
             self.log_diagnostics(real_paths)
             logger.log("Processing samples...")
