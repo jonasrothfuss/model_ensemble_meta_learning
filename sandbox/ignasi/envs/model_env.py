@@ -30,6 +30,7 @@ class ModelEnv(Env, Serializable):
             assert len(init_pos.shape) == 2
             self.current_obs = init_pos
 
+    @property
     def action_space(self):
         """
         Returns a Space object
