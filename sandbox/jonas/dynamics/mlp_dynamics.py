@@ -21,17 +21,19 @@ class MLPDynamicsModel(LayersPowered, Serializable):
     def __init__(self,
                  name,
                  env,
-                 hidden_sizes=(100, 100),
+                 hidden_sizes=(500, 500),
                  hidden_nonlinearity=tf.nn.relu,
                  output_nonlinearity=None,
                  batch_size=200,
                  step_size=0.01,
-                 weight_normalization=True
+                 weight_normalization=True,
+                 normalize_input=True
                  ):
 
         Serializable.quick_init(self, locals())
 
         self.normalization = None
+        self.normalize_input = normalize_input
 
         with tf.variable_scope(name):
             self.batch_size = batch_size
@@ -60,7 +62,6 @@ class MLPDynamicsModel(LayersPowered, Serializable):
                       weight_normalization=weight_normalization)
 
             self.delta_pred = mlp.output
-            self.obs_next_pred = self.obs_ph + self.delta_pred
 
             # define loss and train_op
             self.loss = tf.nn.l2_loss(self.delta_ph - self.delta_pred)
@@ -68,7 +69,7 @@ class MLPDynamicsModel(LayersPowered, Serializable):
             self.train_op = self.optimizer.minimize(self.loss)
 
             # tensor_utils
-            self.f_next_obs_pred = tensor_utils.compile_function([self.obs_ph, self.act_ph], self.obs_next_pred)
+            self.f_delta_pred = tensor_utils.compile_function([self.obs_ph, self.act_ph], self.delta_pred)
 
         LayersPowered.__init__(self, [mlp.output_layer])
 
@@ -86,22 +87,25 @@ class MLPDynamicsModel(LayersPowered, Serializable):
 
         sess = tf.get_default_session()
 
-        if self.normalization is None or compute_normalization:
+        if (self.normalization is None or compute_normalization) and self.normalize_input:
             self.compute_normalization(obs, act, obs_next)
 
-        # normalize data
-        obs_normalized, act_normalized, deltas_normalized = self._normalize_data(obs, act, obs_next)
-        assert obs_normalized.ndim == deltas_normalized.ndim == act_normalized.ndim == 2
+        if self.normalize_input:
+            # normalize data
+            obs, act, delta = self._normalize_data(obs, act, obs_next)
+            assert obs.ndim == act.ndim == obs_next.ndim == 2
+        else:
+            delta = obs_next - obs
 
         # create data queue
-        next_batch, iterator = self._data_input_fn(obs_normalized, act_normalized, deltas_normalized, batch_size=self.batch_size)
+        next_batch, iterator = self._data_input_fn(obs, act, delta, batch_size=self.batch_size)
 
         # Training loop
         for epoch in range(epochs):
 
             # initialize data queue
             sess.run(iterator.initializer,
-                          feed_dict={self.obs_dataset_ph: obs_normalized, self.act_dataset_ph: act_normalized, self.delta_dataset_ph: deltas_normalized})
+                          feed_dict={self.obs_dataset_ph: obs, self.act_dataset_ph: act, self.delta_dataset_ph: obs_next})
 
             batch_losses = []
 
@@ -124,14 +128,21 @@ class MLPDynamicsModel(LayersPowered, Serializable):
         Predict the batch of next observations given the batch of current observations and actions
         :param obs: observations - numpy array of shape (n_samples, ndim_obs)
         :param act: actions - numpy array of shape (n_samples, ndim_act)
-        :return: pred_obs_next: predicted batch of next observations
+        :return: pred_obs_next: predicted batch of next observations (n_samples, ndim_obs)
         """
         assert obs.ndim == 2 and act.ndim == 2, "inputs must have two dimensions"
         assert obs.shape[0] == act.shape[0]
+        obs_original = obs
 
-        obs_normalized, act_normalized = self._normalize_data(obs, act)
+        if self.normalize_input:
+            obs, act = self._normalize_data(obs, act)
+            delta = np.array(self.f_delta_pred(obs, act))
+            delta = denormalize(delta, self.normalization['delta'][0], self.normalization['delta'][1])
+        else:
+            delta = np.array(self.f_delta_pred(obs, act))
 
-        return self.f_next_obs_pred(obs_normalized, act_normalized)
+        pred_obs = obs_original + delta
+        return pred_obs
 
     def compute_normalization(self, obs, act, obs_next):
         """
