@@ -62,9 +62,10 @@ class MLPDynamicsModel(LayersPowered, Serializable):
             self.delta_pred = mlp.output
             self.obs_next_pred = self.obs_ph + self.delta_pred
 
-            # define loss and optimizer
+            # define loss and train_op
             self.loss = tf.nn.l2_loss(self.delta_ph - self.delta_pred)
             self.optimizer = tf.train.AdamOptimizer(self.step_size)
+            self.train_op = self.optimizer.minimize(self.loss)
 
             # tensor_utils
             self.f_next_obs_pred = tensor_utils.compile_function([self.obs_ph, self.act_ph], self.obs_next_pred)
@@ -82,10 +83,8 @@ class MLPDynamicsModel(LayersPowered, Serializable):
         :param compute_normalization: boolean indicating whether normalization shall be (re-)computed given the data
         :param verbose: logging verbosity
         """
-        self.train_op = self.optimizer.minimize(self.loss)
 
         sess = tf.get_default_session()
-        self.initialize_unitialized_variables(sess) # initialize Adam optimizer variables
 
         if self.normalization is None or compute_normalization:
             self.compute_normalization(obs, act, obs_next)
