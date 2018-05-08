@@ -22,16 +22,19 @@ class ModelVectorizedSampler(ModelBaseSampler):
         pass
 
     def preprocess_samples(self, samples):
-        observations = list(np.array(samples['observtions']).transpose((1, 0, 2)))
+        observations = list(np.array(samples['observations']).transpose((1, 0, 2)))
         actions = list(np.array(samples['actions']).transpose((1, 0, 2)))
         rewards = list(np.array(samples['rewards']).transpose((1, 0)))
-        env_infos = list() #TODO: Concatenate the dict, transpose, and then use the keys again
-        agent_infos = list() #TODO: The same as in env_infos
+        if samples['env_infos'][0]:
+            env_infos = tensor_utils.temporal_list_dict_to_paths_list_dict(samples['env_infos'])
+        else:
+            env_infos = [dict() for _ in range(len(actions))]
+        agent_infos = tensor_utils.temporal_list_dict_to_paths_list_dict(samples['agent_infos'])
         paths = [dict(observations=obs,
                       actions=act,
                       rewards=rew,
                       env_infos=e_i,
-                      agent_info=a_i) for obs, act, rew, e_i, a_i
+                      agent_infos=a_i) for obs, act, rew, e_i, a_i
                  in zip(observations, actions, rewards, env_infos, agent_infos)]
         return paths
 
@@ -41,7 +44,7 @@ class ModelVectorizedSampler(ModelBaseSampler):
         :param real_path:
         :return:
         """
-        # todo: so far, i consider that i have a real world path, and that the agent never dies before the horizon
+        # todo: so far, i consider that i have a real world path, and that the agent never dies before the horizon. I just need to add zeros after that, and do some preprocessing
         assert len(real_path) == 1
         initial_observations = real_path[0]['observations'][:-self.model_max_path_lenght] # todo: we actually want to use the latter ones. also, it'll be tricky in environments that it can fail before the long horizon
         initial_observations = obses = np.repeat(initial_observations, self.num_branches, axis=0)
@@ -64,6 +67,7 @@ class ModelVectorizedSampler(ModelBaseSampler):
         all_observations = []
         all_rewards = []
         all_actions = []
+        # todo: Do a loop for all the real_world paths
         while timestep < self.model_max_path_lenght:
             t = time.time()
             actions, agent_infos = policy.get_actions(obses)
@@ -95,5 +99,4 @@ class ModelVectorizedSampler(ModelBaseSampler):
         logger.record_tabular("PolicyExecTime", policy_time)
         logger.record_tabular("EnvExecTime", env_time)
         logger.record_tabular("ProcessExecTime", process_time)
-        # TODO: If I really want the paths I need to preprocess the env_infos and agent_infos
         return paths

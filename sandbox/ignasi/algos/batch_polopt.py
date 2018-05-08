@@ -3,7 +3,7 @@ from rllab.algos.base import RLAlgorithm
 import rllab.misc.logger as logger
 from sandbox.rocky.tf.policies.base import Policy
 import tensorflow as tf
-from sandbox.rocky.tf.samplers.batch_sampler import BatchSampler
+from sandbox.ignasi.samplers.batch_sampler import BatchSampler
 from sandbox.ignasi.samplers.model_vectorized_sampler import ModelVectorizedSampler
 from rllab.sampler.utils import rollout
 import numpy as np
@@ -28,9 +28,9 @@ class BatchPolopt(RLAlgorithm):
             n_itr=500,
             start_itr=0,
             num_paths=1,
-            num_branches=2,
-            max_path_length=500,
-            model_max_path_length=200,
+            num_branches=10,
+            max_path_length=1000,
+            model_max_path_length=100,
             discount=0.99,
             gae_lambda=1,
             plot=False,
@@ -107,14 +107,19 @@ class BatchPolopt(RLAlgorithm):
         self.model_sampler.shutdown_worker()
         self.real_sampler.shutdown_worker()
 
-    def obtain_real_samples(self, itr):
-        return self.real_sampler.obtain_samples(itr)
+    def obtain_real_samples(self, itr, batch_size=None):
+        return self.real_sampler.obtain_samples(itr, batch_size=batch_size)
 
     def obtain_model_samples(self, itr, real_paths):
         return self.model_sampler.obtain_samples(itr, real_paths)
 
-    def process_samples(self, itr, paths):
-        return self.real_sampler.process_samples(itr, paths)
+    def process_real_samples(self, itr, paths, log=True):
+        data = self.real_sampler.process_samples(itr, paths, log=log)
+        self.data_buffer.add_data(dict((k, data[k]) for k in ('observations', 'next_observations', 'actions')))
+        return data
+
+    def process_model_samples(self, itr, paths):
+        return self.model_sampler.process_samples(itr, paths)
 
     def train(self, sess=None):
         created_session = True if (sess is None) else False
@@ -129,16 +134,16 @@ class BatchPolopt(RLAlgorithm):
         for itr in range(self.start_itr, self.n_itr):
             itr_start_time = time.time()
             with logger.prefix('itr #%d | ' % itr):
-                logger.log("Obtaining samples...")
+                self.optimize_model(itr)
+                logger.log("Obtaining real samples...")
                 real_paths = self.obtain_real_samples(itr)
+                logger.log("Obtaining model samples...")
                 model_paths = self.obtain_model_samples(itr, real_paths)
                 logger.log("Processing samples...")
-                samples_data = self.process_samples(itr, real_paths, model_paths)
-                logger.log("Logging diagnostics...")
-                self.log_diagnostics(real_paths, model_paths)
+                _ = self.process_real_samples(itr, real_paths, log=False)
+                samples_data = self.process_model_samples(itr, model_paths)
                 logger.log("Optimizing policy...")
                 self.optimize_policy(itr, samples_data)
-                self.optimize_model(itr)
                 logger.log("Saving snapshot...")
                 params = self.get_itr_snapshot(itr, samples_data)  # , **kwargs)
                 if self.store_paths:
@@ -175,11 +180,16 @@ class BatchPolopt(RLAlgorithm):
         raise NotImplementedError
 
     def optimize_model(self, itr):
-        #TODO: Probably what I want here is to collect a lot of data and train the model at the beginning
-        if itr and itr % self.opt_model_itr == 0:
+        if itr % self.opt_model_itr == 0:
+            logger.log("Obtaining real samples for training the model...")
+            real_paths = self.obtain_real_samples(itr, batch_size=3000)
+            logger.log("Logging diagnostics...")
+            self.log_diagnostics(real_paths)
+            logger.log("Processing samples...")
+            _ = self.process_real_samples(itr, real_paths)
             data = self.data_buffer.get_data()
             logger.log("Fitting the model...")
-            self.dynamics_model.fit(data['observations'], data['actions'], data['next_observations'])
+            self.dynamics_model.fit(data['observations'], data['actions'], data['next_observations'], verbose=False)
 
     def initialize_unitialized_variables(self, sess):
         uninit_variables = []

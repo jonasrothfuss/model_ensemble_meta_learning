@@ -120,6 +120,16 @@ def concat_tensor_dict_list(tensor_dict_list):
         ret[k] = v
     return ret
 
+def temporal_list_dict_to_paths_list_dict(tensor_list_dict):
+    keys = list(tensor_list_dict[0].keys())
+    num_paths = tensor_list_dict[0][keys[0]].shape[0]
+    ret = [{} for _ in range(num_paths)]
+    for k in keys:
+        aux = np.array([d[k] for d in tensor_list_dict])
+        dim = len(aux.shape)
+        aux = aux.transpose((1, 0) + tuple(range(2, dim)))
+        _ = [d.update({k: v}) for d, v in zip(ret, aux)]
+    return ret
 
 def split_tensor_dict_list(tensor_dict):
     keys = list(tensor_dict.keys())

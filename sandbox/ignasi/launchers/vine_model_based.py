@@ -1,6 +1,6 @@
 from sandbox.ignasi.algos.trpo import VINETRPO
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
-from sandbox.ignasi.envs.half_cheetah_env import HalfCheetahEnv
+from sandbox.ignasi.envs.com_half_cheetah_env import HalfCheetahEnv
 from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from sandbox.rocky.tf.envs.base import TfEnv
