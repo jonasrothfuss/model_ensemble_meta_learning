@@ -23,14 +23,6 @@ EXP_PREFIX = 'trpo-maml-rand-param-env-improved-policy'
 
 ec2_instance = 'm4.2xlarge'
 
-# configure instance
-
-subnets = cheapest_subnets(ec2_instance, num_subnets=3)
-
-info = config.INSTANCE_TYPE_INFO[ec2_instance]
-config.AWS_INSTANCE_TYPE = ec2_instance
-config.AWS_SPOT_PRICE = str(info["price"])
-
 
 def run_train_task(vv):
     env = TfEnv(normalize(vv['env'](log_scale_limit=vv["log_scale_limit"])))
@@ -96,28 +88,38 @@ def run_experiment(argv):
 
     # ----------------------- AWS conficuration ---------------------------------
     if args.mode == 'ec2':
+        subnets = cheapest_subnets(ec2_instance, num_subnets=3)
+        info = config.INSTANCE_TYPE_INFO[ec2_instance]
+        config.AWS_INSTANCE_TYPE = ec2_instance
+        config.AWS_SPOT_PRICE = str(info["price"])
+
         print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format('TRPO', len(variants)))
         print('Running on type {}, with price {}, on the subnets: '.format(config.AWS_INSTANCE_TYPE,
                                                                                        config.AWS_SPOT_PRICE,), str(subnets))
+
     if args.mode == 'ec2':
-        n_parallel = 4  # make the default 4 if not using ec2
-    else:
         n_parallel = 1 # for MAML use smaller number of parallel worker since parallelization is also done over the meta batch size
+    else:
+        n_parallel = 1
+
     # ----------------------- TRAINING ---------------------------------------
     exp_ids = random.sample(range(1, 1000), len(variants))
     for v, exp_id in zip(variants, exp_ids):
         exp_name = "trpo_maml_train_env_%s_%.3f_%.3f_%i_id_%i" % (v['env'], v['log_scale_limit'], v['meta_step_size'], v['seed'], exp_id)
         v = instantiate_class_stings(v)
 
-        subnet = random.choice(subnets)
-        config.AWS_REGION_NAME = subnet[:-1]
-        config.AWS_KEY_NAME = config.ALL_REGION_AWS_KEY_NAMES[
-            config.AWS_REGION_NAME]
-        config.AWS_IMAGE_ID = config.ALL_REGION_AWS_IMAGE_IDS[
-            config.AWS_REGION_NAME]
-        config.AWS_SECURITY_GROUP_IDS = \
-            config.ALL_REGION_AWS_SECURITY_GROUP_IDS[
+        if args.mode == 'ec2':
+            # configure instance
+
+            subnet = random.choice(subnets)
+            config.AWS_REGION_NAME = subnet[:-1]
+            config.AWS_KEY_NAME = config.ALL_REGION_AWS_KEY_NAMES[
                 config.AWS_REGION_NAME]
+            config.AWS_IMAGE_ID = config.ALL_REGION_AWS_IMAGE_IDS[
+                config.AWS_REGION_NAME]
+            config.AWS_SECURITY_GROUP_IDS = \
+                config.ALL_REGION_AWS_SECURITY_GROUP_IDS[
+                    config.AWS_REGION_NAME]
 
         run_experiment_lite(
             run_train_task,
@@ -132,6 +134,9 @@ def run_experiment(argv):
             sync_s3_log=True,
             # Specifies the seed for the experiment. If this is not provided, a random seed
             # will be used
+            pre_commands=["yes | pip install --upgrade pip",
+                          "yes | pip install tensorflow=='1.6.0'",
+                          "yes | pip install --upgrade cloudpickle"],
             seed=v["seed"],
             python_command="python3",
             mode=args.mode,

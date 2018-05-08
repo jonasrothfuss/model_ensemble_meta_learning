@@ -22,7 +22,7 @@ class MLPDynamicsModel(LayersPowered, Serializable):
                  name,
                  env,
                  hidden_sizes=(100, 100),
-                 hidden_nonlinearity=tf.nn.tanh,
+                 hidden_nonlinearity=tf.nn.relu,
                  output_nonlinearity=None,
                  batch_size=200,
                  step_size=0.01,
