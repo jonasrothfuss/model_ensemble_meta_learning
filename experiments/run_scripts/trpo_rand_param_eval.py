@@ -106,6 +106,9 @@ def run_evaluation(argv):
             # will be used
             seed=v["seed"],
             python_command='python3',
+            pre_commands=["yes | pip install --upgrade pip",
+                          "yes | pip install tensorflow=='1.6.0'",
+                          "yes | pip install --upgrade cloudpickle"],
             mode=args.mode,
             use_cloudpickle=True,
             periodic_sync=True,
