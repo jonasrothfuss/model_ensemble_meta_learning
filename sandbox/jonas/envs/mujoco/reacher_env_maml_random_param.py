@@ -38,9 +38,9 @@ class Reacher5DofMAMLEnvRandParams(BaseEnvRandParams, MujocoEnv, Serializable):
 
         # take a step
         self.forward_dynamics(action)
-        ob = self.get_current_obs()
+        obs = self.get_current_obs()
         done = False
-        return Step(ob, float(reward), done, reward_dist=reward_dist, reward_ctrl=reward_ctrl)
+        return Step(obs, float(reward), done, reward_dist=reward_dist, reward_ctrl=reward_ctrl)
 
     @overrides
     def reset_mujoco(self, init_state=None, evaluating=None):
@@ -172,7 +172,7 @@ class Reacher5DofMAMLEnvRandParams(BaseEnvRandParams, MujocoEnv, Serializable):
             new_params['body_pos'] = body_pos
             new_params['geom_pos'] = geom_pos
 
-        param_sets.append(new_params)
+            param_sets.append(new_params)
 
         return param_sets
 
