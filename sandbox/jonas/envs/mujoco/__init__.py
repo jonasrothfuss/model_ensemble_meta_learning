@@ -7,4 +7,4 @@ from .reacher_env_random_param import Reacher5DofEnvRandParams
 from .ant_env_maml_random_param import AntEnvMAMLRandParams
 from .cheetah_env_maml_rand_param import HalfCheetahMAMLEnvRandParams
 from .hopper_env_maml_random_param import HopperEnvMAMLRandParams
-
+from .reacher_env_maml_random_param import Reacher5DofMAMLEnvRandParams
