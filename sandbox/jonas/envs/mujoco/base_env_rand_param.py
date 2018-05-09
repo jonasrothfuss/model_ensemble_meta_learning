@@ -18,8 +18,10 @@ class BaseEnvRandParams(Serializable):
     """
 
     RAND_PARAMS = ['body_mass', 'dof_damping', 'body_inertia']
+    RAND_PARAMS_EXTENDED = RAND_PARAMS + ['geom_size']
 
-    def __init__(self, *args, log_scale_limit=2.0, fix_params=False, rand_params=RAND_PARAMS, random_seed=None, **kwargs):
+
+    def __init__(self, *args, log_scale_limit=2.0, fix_params=False, rand_params=RAND_PARAMS, random_seed=None, fixed_goal=True, **kwargs):
         """
         Half-Cheetah environment with randomized mujoco parameters
         :param log_scale_limit: lower / upper limit for uniform sampling in logspace of base 2
@@ -27,13 +29,15 @@ class BaseEnvRandParams(Serializable):
         :param fix_params: boolean indicating whether the mujoco parameters shall be fixed
         :param rand_params: mujoco model parameters to sample
         """
-        assert set(rand_params) <= set(self.RAND_PARAMS), "rand_params must be a subset of " + str(self.RAND_PARAMS)
+        assert set(rand_params) <= set(self.RAND_PARAMS_EXTENDED), \
+            "rand_params must be a subset of " + str(self.RAND_PARAMS_EXTENDED)
 
         self.log_scale_limit = log_scale_limit
         self.random_seed = random_seed
         self.random_state = np.random.RandomState(random_seed)
         self.fix_params = fix_params  # can be changed by calling the fix_mujoco_parameters method
         self.rand_params = rand_params
+        self.fixed_goal = fixed_goal
         self.parameters_already_fixed = False
 
         args_all, kwargs_all = get_all_function_arguments(self.__init__, locals())
