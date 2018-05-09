@@ -1,1 +1,2 @@
 from sandbox.jonas.dynamics.mlp_dynamics import MLPDynamicsModel
+from sandbox.jonas.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
