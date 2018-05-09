@@ -116,7 +116,7 @@ def load_saved_objects(variant_dict):
     Warning: resets the tf graph
 
     :param variant_dict that must contain the params_pickle_file
-    :return: loaded policy, baseline, environment a tensoflow session that is associated with the policy/baseline
+    :return: loaded policy, baseline, environment a tensoflow session that is associated with the policy/baseline, params_pickle_file path
     """
 
     # check if file exists -> if not try to download them from s3
@@ -135,6 +135,22 @@ def load_saved_objects(variant_dict):
     baseline = loaded_data["baseline"]
     env = loaded_data["env"]
     return policy, baseline, env, sess
+
+def load_baseline_and_env(variant_dict):
+    # check if file exists -> if not try to download them from s3
+    params_pickle_file = variant_dict['params_pickle_file']
+    if not os.path.isfile(params_pickle_file):
+        print("Cannot find params.pkl file locally - try to get it from aws s3")
+        local_log_path = download_experiement_files(variant_dict['exp_prefix'], variant_dict['train_exp_name'])
+        params_pickle_file = os.path.join(local_log_path, "params.pkl")
+        assert os.path.isfile(params_pickle_file), "Could not get params_pickle_file"
+
+    tf.reset_default_graph()
+    with tf.Session():
+        loaded_data = joblib.load(params_pickle_file)
+        baseline = loaded_data["baseline"]
+        env = loaded_data["env"]
+    return baseline, env, params_pickle_file
 
 def get_local_exp_log_dir(exp_prefix, exp_name):
     ''' determines log path of experiment'''

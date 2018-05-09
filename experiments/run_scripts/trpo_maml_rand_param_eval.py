@@ -27,18 +27,24 @@ def run_eval_task(vv):
 
     # load policy and baseline- Warning: resets the tf graph
     # also returns the tensorflow session which must be used in the further code
-    policy, baseline, env, sess = eval.load_saved_objects(vv)
+    baseline, env, params_pickle_file = eval.load_baseline_and_env(vv)
+
+    tf.reset_default_graph()
 
     # fix the mujoco parameters
     env_class = eval.get_env_class(env)
     env = TfEnv(normalize(env_class(log_scale_limit=vv["log_scale_limit"], fix_params=True,
                                              random_seed=vv['env_param_seed'])))
+
+
     step_size = vv['fast_lr']
+
+    policy = None
 
     algo = VPG(
             env=env,
             policy=policy,
-            load_policy=None,
+            load_policy=params_pickle_file,
             baseline=baseline,
             batch_size=20000,
             max_path_length=100,
@@ -104,7 +110,7 @@ def run_evaluation(argv):
             # Specifies the seed for the experiment. If this is not provided, a random seed
             # will be used
             seed=v["seed"],
-            python_command="python3",
+            python_command="python3", #TODO
             mode=args.mode,
             use_cloudpickle=True,
             periodic_sync=True,
