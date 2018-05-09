@@ -87,11 +87,11 @@ class Reacher5DofMAMLEnvRandParams(BaseEnvRandParams, MujocoEnv, Serializable):
         # OBS: 5,5,2,5,2
         theta = self.model.data.qpos.flat[:-2]
         return np.concatenate([
-            np.cos(theta),
+            np.cos(theta), # joint angles
             np.sin(theta),
-            self.model.data.qpos.flat[-2:],
-            self.model.data.qvel.flat[:-2],
-            (self.get_body_com('fingertip') - self.get_body_com("target"))[:2]
+            self.model.data.qpos.flat[-2:], #end effector position
+            self.model.data.qvel.flat[:-2], #velocities
+            (self.get_body_com('fingertip') - self.get_body_com("target"))[:2] # distance from goal
         ])
 
     def get_reward(self, obs, next_obs, action):
