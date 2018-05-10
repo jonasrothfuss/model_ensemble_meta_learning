@@ -46,6 +46,10 @@ class AntEnvMAMLRandParams(BaseEnvRandParams, AntEnv, Serializable):
             and state[2] >= 0.2 and state[2] <= 1.0
         done = not notdone
         ob = self.get_current_obs()
+
+        # clip reward in case mujoco sim goes crazy
+        reward = np.max(np.min(1000, reward), -1000)
+
         return Step(ob, float(reward), done)
 
     @overrides
