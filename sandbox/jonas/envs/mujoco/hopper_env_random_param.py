@@ -43,7 +43,7 @@ class HopperEnvRandParams(BaseEnvRandParams, HopperEnv, Serializable):
         done = not notdone
 
         # clip reward in case mujoco sim goes crazy
-        reward = np.minimum(np.maximum(1000.0, reward), -1000.0)
+        reward = np.minimum(np.maximum(-1000.0, reward), 1000.0)
 
         return Step(next_obs, reward, done)
 

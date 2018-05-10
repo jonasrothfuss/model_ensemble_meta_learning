@@ -48,7 +48,7 @@ class AntEnvRandParams(BaseEnvRandParams, AntEnv, Serializable):
         ob = self.get_current_obs()
 
         # clip reward in case mujoco sim goes crazy
-        reward = np.minimum(np.maximum(1000.0, reward), -1000.0)
+        reward = np.minimum(np.maximum(-1000.0, reward), 1000.0)
 
         return Step(ob, float(reward), done)
 
