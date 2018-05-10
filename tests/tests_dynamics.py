@@ -139,3 +139,20 @@ class TestMLPDynamicsEnsemble(unittest.TestCase):
 
             obs_pred = dynamics_model.predict(obs, act, pred_type='all')
             self.assertEqual(obs_pred.shape, obs.shape + (5,))
+
+    def test_train_prediction_std(self):
+        # just checks if std prediction returns correct shapes
+        env = PointEnv()
+        paths = sample_random_trajectories_point_env(env, num_paths=10, horizon=10)
+        dynamics_model = MLPDynamicsEnsemble("dyn_ensemble_2", env, hidden_sizes=(16, 16), num_models=5)
+
+        obs = np.concatenate([path['observations'] for path in paths], axis=0)
+        obs_next = np.concatenate([path['next_observations'] for path in paths], axis=0)
+        act = np.concatenate([path['actions'] for path in paths], axis=0)
+
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+
+            dynamics_model.fit(obs, act, obs_next, epochs=5)
+            std = dynamics_model.predict_std(obs, act)
+            self.assertEqual(std.shape, obs.shape)

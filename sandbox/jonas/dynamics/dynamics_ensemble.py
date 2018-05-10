@@ -34,15 +34,15 @@ class MLPDynamicsEnsemble(LayersPowered, Serializable):
         self.normalization = None
         self.normalize_input = normalize_input
 
+        self.batch_size = batch_size
+        self.step_size = step_size
+        self.num_models = num_models
+
+        # determine dimensionality of state and action space
+        obs_space_dims = env.observation_space.shape[0]
+        action_space_dims = env.action_space.shape[0]
+
         with tf.variable_scope(name):
-            self.batch_size = batch_size
-            self.step_size = step_size
-            self.num_models = num_models
-
-            # determine dimensionality of state and action space
-            obs_space_dims = env.observation_space.shape[0]
-            action_space_dims = env.action_space.shape[0]
-
             # placeholders
             self.obs_ph = tf.placeholder(tf.float32, shape=(None, obs_space_dims))
             self.act_ph = tf.placeholder(tf.float32, shape=(None, action_space_dims))
@@ -142,7 +142,7 @@ class MLPDynamicsEnsemble(LayersPowered, Serializable):
                    - all: returns the prediction of all the models
         :return: pred_obs_next: predicted batch of next observations -
                                 shape:  (n_samples, ndim_obs) - in case of 'rand' and 'mean' mode
-                                        (n_samples, ndim_obs) - in case of 'all' mode
+                                        (n_samples, ndim_obs, n_models) - in case of 'all' mode
         """
         assert obs.ndim == 2 and act.ndim == 2, "inputs must have two dimensions"
         assert obs.shape[0] == act.shape[0]
@@ -171,6 +171,20 @@ class MLPDynamicsEnsemble(LayersPowered, Serializable):
         else:
             NotImplementedError('pred_type must be one of [rand, mean, all]')
         return pred_obs
+
+    def predict_std(self, obs, act):
+        """
+        calculates the std of predicted next observations among the models
+        given the batch of current observations and actions
+        :param obs: observations - numpy array of shape (n_samples, ndim_obs)
+        :param act: actions - numpy array of shape (n_samples, ndim_act)
+        :return: std_pred_obs: std of predicted next observatations - (n_samples, ndim_obs)
+        """
+        assert self.num_models > 1, "calculating the std requires at "
+        pred_obs = self.predict(obs, act, pred_type='all')
+        assert pred_obs.ndim == 3
+        return np.std(pred_obs, axis=2)
+
 
     def compute_normalization(self, obs, act, obs_next):
         """
