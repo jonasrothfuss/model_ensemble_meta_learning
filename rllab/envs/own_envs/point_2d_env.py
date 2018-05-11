@@ -23,7 +23,7 @@ class PointEnv(object):
         info : a dictionary containing other diagnostic information from the previous action
         """
         prev_state = self._state
-        self._state = prev_state + action
+        self._state = prev_state + np.clip(action, -0.1, 0.1)
         reward = self.reward(prev_state, action, self._state)
         done = self.done(self._state)
         next_observation = np.copy(self._state)
