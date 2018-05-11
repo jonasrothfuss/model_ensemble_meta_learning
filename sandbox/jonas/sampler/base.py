@@ -7,6 +7,25 @@ from rllab.sampler.base import BaseSampler
 import rllab.misc.logger as logger
 
 
+class RandomBaseSampler(Sampler):
+    def __init__(self, algo):
+        """
+        :type algo: BatchPolopt
+        """
+        self.algo = algo
+
+
+    def process_samples(self, itr, paths):
+        observations_dynamics = tensor_utils.concat_tensor_list([path["observations"][:-1] for path in paths])
+        next_observations_dynamics = tensor_utils.concat_tensor_list([path["observations"][1:] for path in paths])
+        actions_dynamics = tensor_utils.concat_tensor_list([path["actions"][:-1] for path in paths])
+
+        samples_data = dict(
+            observations_dynamics=observations_dynamics,
+            next_observations_dynamics=next_observations_dynamics,
+            actions_dynamics=actions_dynamics,
+        )
+        return samples_data
 
 class ModelBaseSampler(Sampler):
     def __init__(self, algo):
