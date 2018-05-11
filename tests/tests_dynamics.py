@@ -74,7 +74,7 @@ class TestMLPDynamics(unittest.TestCase):
 
         env = PointEnv()
         paths = sample_random_trajectories_point_env(env, num_paths=500, horizon=100)
-        dynamics_model = MLPDynamicsModel("dyn_model_2b", env, hidden_sizes=(32, 32), normalize_input=False)
+        dynamics_model = MLPDynamicsModel("dyn_model_2b", env, hidden_sizes=(32, 32), normalize_input=True)
 
         obs = np.concatenate([path['observations'] for path in paths], axis=0)
         obs_next = np.concatenate([path['next_observations'] for path in paths], axis=0)

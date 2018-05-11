@@ -39,8 +39,8 @@ class MLPDynamicsEnsemble(LayersPowered, Serializable):
         self.num_models = num_models
 
         # determine dimensionality of state and action space
-        obs_space_dims = env.observation_space.shape[0]
-        action_space_dims = env.action_space.shape[0]
+        self.obs_space_dims = obs_space_dims = env.observation_space.shape[0]
+        self.action_space_dims = action_space_dims = env.action_space.shape[0]
 
         with tf.variable_scope(name):
             # placeholders
@@ -91,6 +91,11 @@ class MLPDynamicsEnsemble(LayersPowered, Serializable):
         :param compute_normalization: boolean indicating whether normalization shall be (re-)computed given the data
         :param verbose: logging verbosity
         """
+        assert obs.ndim == 2 and obs.shape[1]==self.obs_space_dims
+        assert obs_next.ndim == 2 and obs_next.shape[1] == self.obs_space_dims
+        assert act.ndim == 2 and act.shape[1] == self.action_space_dims
+
+
         sess = tf.get_default_session()
 
         if (self.normalization is None or compute_normalization) and self.normalize_input:
@@ -144,8 +149,10 @@ class MLPDynamicsEnsemble(LayersPowered, Serializable):
                                 shape:  (n_samples, ndim_obs) - in case of 'rand' and 'mean' mode
                                         (n_samples, ndim_obs, n_models) - in case of 'all' mode
         """
-        assert obs.ndim == 2 and act.ndim == 2, "inputs must have two dimensions"
         assert obs.shape[0] == act.shape[0]
+        assert obs.ndim == 2 and obs.shape[1] == self.obs_space_dims
+        assert act.ndim == 2 and act.shape[1] == self.action_space_dims
+
         obs_original = obs
 
         if self.normalize_input:

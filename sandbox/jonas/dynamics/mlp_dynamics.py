@@ -40,25 +40,25 @@ class MLPDynamicsModel(LayersPowered, Serializable):
             self.step_size = step_size
 
             # determine dimensionality of state and action space
-            obs_space_dims = env.observation_space.shape[0]
-            action_space_dims = env.action_space.shape[0]
+            self.obs_space_dims = env.observation_space.shape[0]
+            self.action_space_dims = env.action_space.shape[0]
 
             # placeholders
-            self.obs_ph = tf.placeholder(tf.float32, shape=(None, obs_space_dims))
-            self.act_ph = tf.placeholder(tf.float32, shape=(None, action_space_dims))
-            self.delta_ph = tf.placeholder(tf.float32, shape=(None, obs_space_dims))
+            self.obs_ph = tf.placeholder(tf.float32, shape=(None, self.obs_space_dims))
+            self.act_ph = tf.placeholder(tf.float32, shape=(None, self.action_space_dims))
+            self.delta_ph = tf.placeholder(tf.float32, shape=(None, self.obs_space_dims))
 
             # concatenate action and observation --> NN input
             self.nn_input = tf.concat([self.obs_ph, self.act_ph], axis=1)
 
             # create MLP
             mlp = MLP(name,
-                      obs_space_dims,
+                      self.obs_space_dims,
                       hidden_sizes,
                       hidden_nonlinearity,
                       output_nonlinearity,
                       input_var=self.nn_input,
-                      input_shape = (obs_space_dims+action_space_dims,),
+                      input_shape = (self.obs_space_dims+self.action_space_dims,),
                       weight_normalization=weight_normalization)
 
             self.delta_pred = mlp.output
@@ -84,6 +84,9 @@ class MLPDynamicsModel(LayersPowered, Serializable):
         :param compute_normalization: boolean indicating whether normalization shall be (re-)computed given the data
         :param verbose: logging verbosity
         """
+        assert obs.ndim == 2 and obs.shape[1]==self.obs_space_dims
+        assert obs_next.ndim == 2 and obs_next.shape[1] == self.obs_space_dims
+        assert act.ndim == 2 and act.shape[1] == self.action_space_dims
 
         sess = tf.get_default_session()
 
@@ -130,8 +133,10 @@ class MLPDynamicsModel(LayersPowered, Serializable):
         :param act: actions - numpy array of shape (n_samples, ndim_act)
         :return: pred_obs_next: predicted batch of next observations (n_samples, ndim_obs)
         """
-        assert obs.ndim == 2 and act.ndim == 2, "inputs must have two dimensions"
         assert obs.shape[0] == act.shape[0]
+        assert obs.ndim == 2 and obs.shape[1] == self.obs_space_dims
+        assert act.ndim == 2 and act.shape[1] == self.action_space_dims
+
         obs_original = obs
 
         if self.normalize_input:
