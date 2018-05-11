@@ -16,6 +16,15 @@ class ModelBaseSampler(Sampler):
         self.algo = algo
 
     def process_samples(self, itr, paths, log=True):
+        """ Compared with the standard Sampler, ModelBaseSampler.process_samples provides 3 additional data fields
+                - observations_dynamics
+                - next_observations_dynamics
+                - actions_dynamics
+            since the dynamics model needs (obs, act, next_obs) for training, observations_dynamics and actions_dynamics
+            skip the last step of a path while next_observations_dynamics skips the first step of a path
+        """
+
+
         baselines = []
         returns = []
 
@@ -40,10 +49,13 @@ class ModelBaseSampler(Sampler):
             np.concatenate(returns)
         )
 
+        observations_dynamics = tensor_utils.concat_tensor_list([path["observations"][:-1] for path in paths])
+        next_observations_dynamics = tensor_utils.concat_tensor_list([path["observations"][1:] for path in paths])
+        actions_dynamics = tensor_utils.concat_tensor_list([path["actions"][:-1] for path in paths])
+
         if not self.algo.policy.recurrent:
-            observations = tensor_utils.concat_tensor_list([path["observations"][:-1] for path in paths])
-            next_observations = tensor_utils.concat_tensor_list([path["observations"][1:] for path in paths])
-            actions = tensor_utils.concat_tensor_list([path["actions"][:-1] for path in paths])
+            observations = tensor_utils.concat_tensor_list([path["observations"] for path in paths])
+            actions = tensor_utils.concat_tensor_list([path["actions"] for path in paths])
             rewards = tensor_utils.concat_tensor_list([path["rewards"] for path in paths])
             returns = tensor_utils.concat_tensor_list([path["returns"] for path in paths])
             advantages = tensor_utils.concat_tensor_list([path["advantages"] for path in paths])
@@ -64,8 +76,11 @@ class ModelBaseSampler(Sampler):
             ent = np.mean(self.algo.policy.distribution.entropy(agent_infos))
 
             samples_data = dict(
+                observations_dynamics=observations_dynamics,
+                next_observations_dynamics=next_observations_dynamics,
+                actions_dynamics=actions_dynamics,
+
                 observations=observations,
-                next_observations=next_observations,
                 actions=actions,
                 rewards=rewards,
                 returns=returns,
@@ -74,8 +89,67 @@ class ModelBaseSampler(Sampler):
                 agent_infos=agent_infos,
                 paths=paths,
             )
-        else:
-           raise NotImplementedError
+        else: # recurrent policy
+            max_path_length = max([len(path["advantages"]) for path in paths])
+
+            # make all paths the same length (pad extra advantages with 0)
+            obs = [path["observations"] for path in paths]
+            obs = tensor_utils.pad_tensor_n(obs, max_path_length)
+
+            if self.algo.center_adv:
+                raw_adv = np.concatenate([path["advantages"] for path in paths])
+                adv_mean = np.mean(raw_adv)
+                adv_std = np.std(raw_adv) + 1e-8
+                adv = [(path["advantages"] - adv_mean) / adv_std for path in paths]
+            else:
+                adv = [path["advantages"] for path in paths]
+
+            adv = np.asarray([tensor_utils.pad_tensor(a, max_path_length) for a in adv])
+
+            actions = [path["actions"] for path in paths]
+            actions = tensor_utils.pad_tensor_n(actions, max_path_length)
+
+            rewards = [path["rewards"] for path in paths]
+            rewards = tensor_utils.pad_tensor_n(rewards, max_path_length)
+
+            returns = [path["returns"] for path in paths]
+            returns = tensor_utils.pad_tensor_n(returns, max_path_length)
+
+            agent_infos = [path["agent_infos"] for path in paths]
+            agent_infos = tensor_utils.stack_tensor_dict_list(
+                [tensor_utils.pad_tensor_dict(p, max_path_length) for p in agent_infos]
+            )
+
+            env_infos = [path["env_infos"] for path in paths]
+            env_infos = tensor_utils.stack_tensor_dict_list(
+                [tensor_utils.pad_tensor_dict(p, max_path_length) for p in env_infos]
+            )
+
+            valids = [np.ones_like(path["returns"]) for path in paths]
+            valids = tensor_utils.pad_tensor_n(valids, max_path_length)
+
+            average_discounted_return = \
+                np.mean([path["returns"][0] for path in paths])
+
+            undiscounted_returns = [sum(path["rewards"]) for path in paths]
+
+            ent = np.sum(self.algo.policy.distribution.entropy(agent_infos) * valids) / np.sum(valids)
+
+            samples_data = dict(
+                observations_dynamics=observations_dynamics,
+                next_observations_dynamics=next_observations_dynamics,
+                actions_dynamics=actions_dynamics,
+
+                observations=obs,
+                actions=actions,
+                advantages=adv,
+                rewards=rewards,
+                returns=returns,
+                valids=valids,
+                agent_infos=agent_infos,
+                env_infos=env_infos,
+                paths=paths,
+            )
 
         logger.log("fitting baseline...")
         if hasattr(self.algo.baseline, 'fit_with_samples'):
@@ -84,17 +158,16 @@ class ModelBaseSampler(Sampler):
             self.algo.baseline.fit(paths)
         logger.log("fitted")
 
-        if log:
-            logger.record_tabular('Iteration', itr)
-            logger.record_tabular('AverageDiscountedReturn',
-                                  average_discounted_return)
-            logger.record_tabular('AverageReturn', np.mean(undiscounted_returns))
-            logger.record_tabular('ExplainedVariance', ev)
-            logger.record_tabular('NumTrajs', len(paths))
-            logger.record_tabular('Entropy', ent)
-            logger.record_tabular('Perplexity', np.exp(ent))
-            logger.record_tabular('StdReturn', np.std(undiscounted_returns))
-            logger.record_tabular('MaxReturn', np.max(undiscounted_returns))
-            logger.record_tabular('MinReturn', np.min(undiscounted_returns))
+        logger.record_tabular('Iteration', itr)
+        logger.record_tabular('AverageDiscountedReturn',
+                              average_discounted_return)
+        logger.record_tabular('AverageReturn', np.mean(undiscounted_returns))
+        logger.record_tabular('ExplainedVariance', ev)
+        logger.record_tabular('NumTrajs', len(paths))
+        logger.record_tabular('Entropy', ent)
+        logger.record_tabular('Perplexity', np.exp(ent))
+        logger.record_tabular('StdReturn', np.std(undiscounted_returns))
+        logger.record_tabular('MaxReturn', np.max(undiscounted_returns))
+        logger.record_tabular('MinReturn', np.min(undiscounted_returns))
 
         return samples_data
