@@ -64,7 +64,7 @@ class MLPDynamicsModel(LayersPowered, Serializable):
             self.delta_pred = mlp.output
 
             # define loss and train_op
-            self.loss = tf.nn.l2_loss(self.delta_ph - self.delta_pred)
+            self.loss = tf.reduce_mean((self.delta_ph - self.delta_pred)**2)
             self.optimizer = tf.train.AdamOptimizer(self.step_size)
             self.train_op = self.optimizer.minimize(self.loss)
 
@@ -105,7 +105,7 @@ class MLPDynamicsModel(LayersPowered, Serializable):
 
             # initialize data queue
             sess.run(iterator.initializer,
-                          feed_dict={self.obs_dataset_ph: obs, self.act_dataset_ph: act, self.delta_dataset_ph: obs_next})
+                          feed_dict={self.obs_dataset_ph: obs, self.act_dataset_ph: act, self.delta_dataset_ph: delta})
 
             batch_losses = []
 
