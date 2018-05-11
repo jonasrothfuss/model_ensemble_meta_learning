@@ -4,7 +4,7 @@ from rllab.misc import tensor_utils
 from rllab.algos import util
 from rllab.sampler.base import Sampler
 from rllab.sampler.base import BaseSampler
-import rllab_maml.misc.logger as logger
+import rllab.misc.logger as logger
 
 
 

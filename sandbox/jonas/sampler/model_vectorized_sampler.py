@@ -21,7 +21,7 @@ class ModelVectorizedSampler(ModelBaseSampler):
     def start_worker(self):
         n_envs = self.n_envs
         if n_envs is None:
-            n_envs = int(self.algo.batch_size / self.algo.max_path_length)
+            n_envs = int(self.algo.batch_size_dynamics_samples / self.algo.max_path_length)
             n_envs = max(1, min(n_envs, 100))
 
         if getattr(self.algo.env, 'vectorized', False):
@@ -48,14 +48,14 @@ class ModelVectorizedSampler(ModelBaseSampler):
         dones = np.asarray([True] * self.vec_env.num_envs)
         running_paths = [None] * self.vec_env.num_envs
 
-        pbar = ProgBarCounter(self.algo.batch_size)
+        pbar = ProgBarCounter(self.algo.batch_size_dynamics_samples)
         policy_time = 0
         env_time = 0
         process_time = 0
 
         policy = self.algo.policy
         import time
-        while n_samples < self.algo.batch_size:
+        while n_samples < self.algo.batch_size_dynamics_samples:
             t = time.time()
             policy.reset(dones)
             actions, agent_infos = policy.get_actions(obses)
