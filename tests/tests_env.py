@@ -106,3 +106,6 @@ class TestReacherEnvRandomParam(unittest.TestCase):
 
         diff = np.sum(np.abs(goal_1 - goal_2))
         self.assertGreater(diff, 0.01)
+
+if __name__ == '__main__':
+    unittest.main()

@@ -80,3 +80,6 @@ class TestModelSampler(unittest.TestCase):
             samples_data = model_sampler.process_samples(itr, paths)
 
             print(samples_data.keys())
+
+if __name__ == '__main__':
+    unittest.main()

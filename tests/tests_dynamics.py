@@ -200,3 +200,6 @@ class TestMLPDynamicsEnsemble(unittest.TestCase):
             dynamics_model.fit(obs, act, obs_next, epochs=5)
             std = dynamics_model.predict_std(obs, act)
             self.assertEqual(std.shape, obs.shape)
+
+if __name__ == '__main__':
+    unittest.main()
