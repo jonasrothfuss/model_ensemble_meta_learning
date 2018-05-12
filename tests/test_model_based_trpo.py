@@ -24,44 +24,42 @@ import tensorflow as tf
 
 
 class TestMModelBasedTRPO(unittest.TestCase):
-    env = TfEnv(normalize(PointEnv()))
 
-    policy = GaussianMLPPolicy(
-        name="policy",
-        env_spec=env.spec,
-        hidden_sizes=(16, 16),
-        hidden_nonlinearity=tf.nn.tanh
-    )
+    def test_training(self):
+        env = TfEnv(normalize(PointEnv()))
 
-    baseline = LinearFeatureBaseline(env_spec=env.spec)
+        tf.set_random_seed(22)
+        np.random.seed(22)
 
-    dynamics_model = MLPDynamicsModel("dyn_model", env, hidden_sizes=(16, 16))
+        policy = GaussianMLPPolicy(
+            name="policy",
+            env_spec=env.spec,
+            hidden_sizes=(16, 16),
+            hidden_nonlinearity=tf.nn.tanh
+        )
 
-    # fit dynamics model
+        baseline = LinearFeatureBaseline(env_spec=env.spec)
 
-    algo = ModelTRPO(
-        env=env,
-        policy=policy,
-        dynamics_model=dynamics_model,
-        baseline=baseline,
-        batch_size=20000,
-        max_path_length=100,
-        n_itr=10,
-        discount=0.99,
-        step_size=0.001,
-    )
+        dynamics_model = MLPDynamicsModel("dyn_model", env, hidden_sizes=(16, 16))
 
-    # algo = TRPO(
-    #     env=env,
-    #     policy=policy,
-    #     baseline=baseline,
-    #     batch_size=20000,
-    #     max_path_length=100,
-    #     n_itr=50,
-    #     discount=0.99,
-    #     step_size=0.01,
-    # )
+        # fit dynamics model
 
+        algo = ModelTRPO(
+            env=env,
+            policy=policy,
+            dynamics_model=dynamics_model,
+            baseline=baseline,
+            batch_size_env_samples=5000,
+            initial_random_samples=10000,
+            batch_size_dynamics_samples=40000,
+            max_path_length=100,
+            dynamic_model_epochs=(30, 10),
+            model_retraining_gap=10,
+            n_itr=20,
+            discount=0.99,
+            step_size=0.001,
+        )
+        algo.train()
 
-    algo.train()
-
+if __name__ == '__main__':
+    unittest.main()
