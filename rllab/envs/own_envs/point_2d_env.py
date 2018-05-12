@@ -22,10 +22,10 @@ class PointEnv(object):
         done : a boolean, indicating whether the episode has ended
         info : a dictionary containing other diagnostic information from the previous action
         """
-        self._state = self._state + action
-        x, y = self._state
-        reward = - np.sqrt(x**2 + y**2)
-        done = abs(x) < 0.01 and abs(y) < 0.01
+        prev_state = self._state
+        self._state = prev_state + np.clip(action, -0.1, 0.1)
+        reward = self.reward(prev_state, action, self._state)
+        done = self.done(self._state)
         next_observation = np.copy(self._state)
         return Step(next_observation, reward, done)
 
@@ -51,6 +51,18 @@ class PointEnv(object):
 
     def render(self):
         print('current_state:', self._state)
+
+    def done(self, obs):
+        if obs.ndim == 1:
+            return abs(obs[0]) < 0.01 and abs(obs[1]) < 0.01
+        elif obs.ndim == 2:
+            return np.logical_and(np.abs(obs[:, 0]) < 0.01, np.abs(obs[:, 1]) < 0.01)
+
+    def reward(self, obs, act, obs_next):
+        if obs_next.ndim == 1:
+            return - np.sqrt(obs_next[0]**2 + obs_next[1]**2)
+        elif obs_next.ndim == 2:
+            return - np.sqrt(obs_next[:, 0] ** 2 + obs_next[:, 1] ** 2)
 
     def log_diagnostics(self, paths):
         pass

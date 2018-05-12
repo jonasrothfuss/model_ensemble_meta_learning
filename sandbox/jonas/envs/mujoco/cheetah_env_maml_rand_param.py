@@ -48,6 +48,10 @@ class HalfCheetahMAMLEnvRandParams(BaseEnvRandParams, HalfCheetahEnv, Serializab
         cost = ctrl_cost + run_cost
         reward = -cost
         done = False
+
+        # clip reward in case mujoco sim goes crazy
+        reward = np.minimum(np.maximum(-1000.0, reward), 1000.0)
+
         return Step(next_obs, reward, done)
 
 if __name__ == "__main__":

@@ -79,14 +79,14 @@ def train(env,
     random_controller = RandomController(env)
 
     random_paths = sample(env, random_controller, num_paths=num_paths_random, horizon=env_horizon)
-    print("Collected {} transitions with random policy".format(len(random_paths)))
+    print("Collected {} paths with random policy".format(len(random_paths)))
 
 
     # Build dynamics model and MPC controllers
 
     sess = tf.Session()
 
-    dynamics_model = MLPDynamicsModel("dynamics_model", env, batch_size=batch_size)
+    dynamics_model = MLPDynamicsModel("dynamics_model", env, hidden_sizes=(32, 32), hidden_nonlinearity=tf.nn.relu, batch_size=batch_size)
 
     mpc_controller = MPCcontroller(env=env,
                                    dynamics_model=dynamics_model,
@@ -111,7 +111,7 @@ def train(env,
         obs_next = np.concatenate([path['next_observations'] for path in dataset], axis=0)
         act = np.concatenate([path['actions'] for path in dataset], axis=0)
 
-        dynamics_model.fit(obs, act, obs_next, verbose=True, epochs=20)
+        dynamics_model.fit(obs, act, obs_next, verbose=True, epochs=10)
 
         # generate on-policy data
         new_data_rl = sample(env, mpc_controller, num_paths=num_paths_onpol, horizon=env_horizon, verbose=True)
@@ -153,7 +153,7 @@ def main():
     parser.add_argument('--dyn_iters', '-nd', type=int, default=60)
     parser.add_argument('--batch_size', '-b', type=int, default=512)
     # Data collection
-    parser.add_argument('--random_paths', '-r', type=int, default=10) #TODO change back to 10000
+    parser.add_argument('--random_paths', '-r', type=int, default=1000) #TODO change back to 10000
     parser.add_argument('--onpol_paths', '-d', type=int, default=10)
     parser.add_argument('--simulated_paths', '-sp', type=int, default=10)  #TODO change back to 1000
     parser.add_argument('--ep_len', '-ep', type=int, default=1000)

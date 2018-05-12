@@ -2,44 +2,59 @@ from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
-from sandbox.rocky.tf.algos.trpo import TRPO
 from rllab.misc.instrument import run_experiment_lite
-from sandbox.jonas.envs.mujoco import HalfCheetahEnvRandParams, AntEnvRandParams, HopperEnvRandParams
+from sandbox.jonas.envs.mujoco import HalfCheetahEnvRandParams, AntEnvRandParams, HopperEnvRandParams, Reacher5DofEnvRandParams
 from rllab.envs.mujoco.half_cheetah_env import HalfCheetahEnv
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
 from experiments.helpers.ec2_helpers import cheapest_subnets
+from sandbox.jonas.dynamics import MLPDynamicsModel, MLPDynamicsEnsemble
+from sandbox.jonas.algos.model_trpo import ModelTRPO
+from rllab.envs.own_envs.point_2d_env import PointEnv
 
 import tensorflow as tf
 import sys
 import argparse
 import random
 
-EXP_PREFIX = 'trpo-rand-param-env-baselines'
+EXP_PREFIX = 'model-ensemble-trpo'
 
-ec2_instance = 'c4.4xlarge'
+ec2_instance = 'c4.xlarge'
 subnets = cheapest_subnets(ec2_instance, num_subnets=3)
 
 
 def run_train_task(vv):
-    env = TfEnv(normalize(vv['env'](log_scale_limit=vv["log_scale_limit"])))
+    env = TfEnv(normalize(vv['env']()))
+
+    dynamics_model = MLPDynamicsEnsemble(
+        name="dyn_model",
+        env_spec = env.spec,
+        hidden_sizes=vv['hidden_sizes_model'],
+        weight_normalization=vv['weight_normalization_model']
+    )
 
     policy = GaussianMLPPolicy(
         name="policy",
         env_spec=env.spec,
-        hidden_sizes=vv['hidden_sizes'],
-        hidden_nonlinearity=vv['hidden_nonlinearity']
+        hidden_sizes=vv['hidden_sizes_policy'],
+        hidden_nonlinearity=vv['hidden_nonlinearity_policy'],
+
     )
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
 
-    algo = TRPO(
+    algo = ModelTRPO(
         env=env,
         policy=policy,
+        dynamics_model=dynamics_model,
         baseline=baseline,
-        batch_size=vv['batch_size'],
+        batch_size_env_samples=vv['batch_size_env_samples'],
+        batch_size_dynamics_samples=vv['batch_size_dynamics_samples'],
+        initial_random_samples=vv['initial_random_samples'],
+        dynamic_model_epochs=vv['dynamic_model_epochs'],
+        num_gradient_steps_per_iter=vv['num_gradient_steps_per_iter'],
         max_path_length=vv['path_length'],
-        n_itr=vv['n_iter'],
+        n_itr=vv['n_itr'],
         discount=vv['discount'],
         step_size=vv["step_size"],
     )
@@ -58,21 +73,26 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['HalfCheetahEnvRandParams']) # HalfCheetahEnvRandParams
-    vg.add('n_itr', [500])
-    vg.add('log_scale_limit', [0.1, 0.5, 1.0, 1.5])
-    vg.add('step_size', [0.01,0.05, 0.1])
-    vg.add('seed', [1, 11, 21, 31, 41])
+    vg.add('env', ['PointEnv']) # HalfCheetahEnvRandParams
+    vg.add('n_itr', [20])
+    #vg.add('log_scale_limit', [0.5])
+    vg.add('step_size', [0.01])
+    vg.add('seed', [1, 11]) #TODO set back to [1, 11, 21, 31, 41]
     vg.add('discount', [0.99])
-    vg.add('n_iter', [500])
     vg.add('path_length', [100])
-    vg.add('batch_size', [80000])
-    vg.add('hidden_nonlinearity', ['tanh'])
-    vg.add('hidden_sizes', [(32, 32), (100, 100)])
+    vg.add('batch_size_env_samples', [5000])
+    vg.add('batch_size_dynamics_samples', [40000])
+    vg.add('initial_random_samples', [10000])
+    vg.add('dynamic_model_epochs', [(30, 10)])
+    vg.add('num_gradient_steps_per_iter', [5])
+    vg.add('hidden_nonlinearity_policy', ['tanh'])
+    vg.add('hidden_nonlinearity_model', ['relu'])
+    vg.add('hidden_sizes_policy', [(100, 100)])
+    vg.add('hidden_sizes_model', [(256, 256)])
+    vg.add('weight_normalization_model', [False])
+
 
     variants = vg.variants()
-    from pprint import pprint
-    pprint(variants)
 
     # ----------------------- AWS conficuration ---------------------------------
     if args.mode == 'ec2':
@@ -81,7 +101,7 @@ def run_experiment(argv):
     else:
         n_parallel = 6
 
-    if args.mode == 'ecs':
+    if args.mode == 'ec2':
 
 
         config.AWS_INSTANCE_TYPE = ec2_instance
@@ -94,7 +114,8 @@ def run_experiment(argv):
     # ----------------------- TRAINING ---------------------------------------
     exp_ids = random.sample(range(1, 1000), len(variants))
     for v, exp_id in zip(variants, exp_ids):
-        exp_name = "trpo_train_env_%s_%.3f_%.3f_%i_id_%i" % (v['env'], v['log_scale_limit'], v['step_size'], v['seed'], exp_id)
+        exp_name = "model_trpo_train_env_%s_%i_%i_%i_id_%i" % (v['env'], v['num_gradient_steps_per_iter'],
+                                                               v['batch_size_env_samples'], v['seed'], exp_id)
         v = instantiate_class_stings(v)
 
         subnet = random.choice(subnets)
@@ -122,8 +143,7 @@ def run_experiment(argv):
             # Specifies the seed for the experiment. If this is not provided, a random seed
             # will be used
             seed=v["seed"],
-            #sync_all_data_node_to_s3=True,
-            python_command="python3", #sys.executable,
+            python_command=sys.executable, #"python3", #sys.executable,
             pre_commands=["yes | pip install --upgrade pip",
                           "yes | pip install tensorflow=='1.6.0'",
                           "yes | pip install --upgrade cloudpickle"],
@@ -133,16 +153,17 @@ def run_experiment(argv):
         )
 
 
-def instantiate_class_stings(v):
+def instantiate_class_stings(v): #TODO change to
     v['env'] = globals()[v['env']]
-    if v['hidden_nonlinearity'] == 'relu':
-        v['hidden_nonlinearity'] = tf.nn.relu
-    elif v['hidden_nonlinearity'] == 'tanh':
-        v['hidden_nonlinearity'] = tf.tanh
-    elif v['hidden_nonlinearity'] == 'elu':
-        v['hidden_nonlinearity'] = tf.nn.elu
-    else:
-        raise NotImplementedError('Not able to recognize spicified hidden_nonlinearity: %s' % v['hidden_nonlinearity'])
+    for nonlinearity_key in ['hidden_nonlinearity_policy', 'hidden_nonlinearity_model']:
+        if v[nonlinearity_key] == 'relu':
+            v[nonlinearity_key] = tf.nn.relu
+        elif v[nonlinearity_key] == 'tanh':
+            v[nonlinearity_key] = tf.tanh
+        elif v[nonlinearity_key] == 'elu':
+            v[nonlinearity_key] = tf.nn.elu
+        else:
+            raise NotImplementedError('Not able to recognize spicified hidden_nonlinearity: %s' % v['hidden_nonlinearity'])
     return v
 
 
