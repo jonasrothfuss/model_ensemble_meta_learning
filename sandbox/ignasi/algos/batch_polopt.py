@@ -30,7 +30,7 @@ class BatchPolopt(RLAlgorithm):
             num_paths=1,
             num_branches=10,
             max_path_length=1000,
-            model_max_path_length=100,
+            model_max_path_length=50,
             discount=0.99,
             gae_lambda=1,
             plot=False,
@@ -66,6 +66,7 @@ class BatchPolopt(RLAlgorithm):
         :param store_paths: Whether to save all paths data to the snapshot.
         """
         self.env = self.real_env = real_env
+        self._first = True
         self.model_env = model_env
         self.policy = policy
         self.baseline = baseline
@@ -182,7 +183,11 @@ class BatchPolopt(RLAlgorithm):
     def optimize_model(self, itr):
         if itr % self.opt_model_itr == 0:
             logger.log("Obtaining real samples for training the model...")
-            real_paths = self.obtain_real_samples(itr, batch_size=30000)
+            if self._first:
+                real_paths = self.obtain_real_samples(itr, batch_size=30000)
+                self._first = False
+            else:
+                real_paths = self.obtain_real_samples(itr, batch_size=30000)
             logger.log("Logging diagnostics...")
             self.log_diagnostics(real_paths)
             logger.log("Processing samples...")

@@ -39,7 +39,7 @@ algo = VINETRPO(
     baseline=baseline,
     dynamics_model=dynamics_model,
     num_paths=1,
-    n_itr=40,
+    n_itr=10001,
     discount=0.99,
     step_size=0.01,
 
