@@ -1,5 +1,6 @@
 import pickle
 
+from sandbox.rocky.tf.envs.vec_env_executor import VecEnvExecutor
 from rllab_maml.misc.overrides import overrides
 from rllab.misc import tensor_utils
 import numpy as np
@@ -16,22 +17,44 @@ class RandomVectorizedSampler(RandomBaseSampler, VectorizedSampler):
         self.algo = algo
         VectorizedSampler.__init__(self, algo, n_envs=n_envs)
 
+    def start_worker(self):
+        n_envs = self.n_envs
+        if n_envs is None:
+            n_envs = int(self.algo.batch_size / self.algo.max_path_length)
+            n_envs = max(1, min(n_envs, 100))
+
+        if getattr(self.algo.env, 'vectorized', False):
+            self.vec_env = self.algo.env.vec_env_executor(n_envs=n_envs, max_path_length=self.algo.max_path_length)
+        else:
+            envs = [pickle.loads(pickle.dumps(self.algo.env)) for _ in range(n_envs)]
+            self.vec_env = VecEnvExecutor(
+                envs=envs,
+                max_path_length=self.algo.max_path_length
+            )
+        self.env_spec = self.algo.env.spec
+
+
+    def shutdown_worker(self):
+        self.vec_env.terminate()
+
     @overrides
-    def obtain_samples(self, itr):
-        logger.log("Obtaining random samples for iteration %d..." % itr)
+    def obtain_samples(self, itr, num_samples=None):
+        if num_samples is None:
+            num_samples = self.algo.batch_size
+
         paths = []
-        n_samples = 0
+        n_samples_collected = 0
         obses = self.vec_env.reset()
         dones = np.asarray([True] * self.vec_env.num_envs)
         running_paths = [None] * self.vec_env.num_envs
 
-        pbar = ProgBarCounter(self.algo.batch_size)
+        pbar = ProgBarCounter(num_samples)
         env_time = 0
         process_time = 0
 
         policy = self.algo.policy
         import time
-        while n_samples < self.algo.batch_size:
+        while n_samples_collected < num_samples:
             # random actions
             actions = np.stack([self.vec_env.action_space.sample() for _ in range(len(obses))], axis=0)
             agent_infos = {}
@@ -72,7 +95,7 @@ class RandomVectorizedSampler(RandomBaseSampler, VectorizedSampler):
                         env_infos=tensor_utils.stack_tensor_dict_list(running_paths[idx]["env_infos"]),
                         agent_infos=tensor_utils.stack_tensor_dict_list(running_paths[idx]["agent_infos"]),
                     ))
-                    n_samples += len(running_paths[idx]["rewards"])
+                    n_samples_collected += len(running_paths[idx]["rewards"])
                     running_paths[idx] = None
             process_time += time.time() - t
             pbar.inc(len(obses))
@@ -80,7 +103,7 @@ class RandomVectorizedSampler(RandomBaseSampler, VectorizedSampler):
 
         pbar.stop()
 
-        logger.record_tabular("EnvExecTime", env_time)
-        logger.record_tabular("ProcessExecTime", process_time)
+        logger.record_tabular("RandomSampler-EnvExecTime", env_time)
+        logger.record_tabular("RandomSampler-EnvProcessExecTime", process_time)
 
         return paths

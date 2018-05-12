@@ -1,60 +1,55 @@
 import pickle
 
-import tensorflow as tf
-from rllab.sampler.base import BaseSampler
-from sandbox.rocky.tf.envs.parallel_vec_env_executor import ParallelVecEnvExecutor
-from sandbox.jonas.sampler.model_vec_env_executor import ModelVecEnvExecutor
+from sandbox.rocky.tf.envs.vec_env_executor import VecEnvExecutor
 from rllab.misc import tensor_utils
 import numpy as np
 from rllab.sampler.stateful_pool import ProgBarCounter
 import rllab.misc.logger as logger
 import itertools
 
-from sandbox.jonas.sampler.base import ModelBaseSampler
+from sandbox.jonas.sampler.base import BaseSampler
 
-class ModelVectorizedSampler(ModelBaseSampler):
+class EnvVectorizedSampler(BaseSampler):
 
     def __init__(self, algo, n_envs=None):
-        super(ModelVectorizedSampler, self).__init__(algo)
+        super(EnvVectorizedSampler, self).__init__(algo)
         self.n_envs = n_envs
 
     def start_worker(self):
         n_envs = self.n_envs
         if n_envs is None:
-            n_envs = int(self.algo.batch_size_dynamics_samples / self.algo.max_path_length)
+            n_envs = int(self.algo.batch_size / self.algo.max_path_length)
             n_envs = max(1, min(n_envs, 100))
 
         if getattr(self.algo.env, 'vectorized', False):
             self.vec_env = self.algo.env.vec_env_executor(n_envs=n_envs, max_path_length=self.algo.max_path_length)
         else:
-            env = pickle.loads(pickle.dumps(self.algo.env))
-
-            self.vec_env = ModelVecEnvExecutor(
-                env=env,
-                model=self.algo.dynamics_model,
-                max_path_length=self.algo.max_path_length,
-                n_parallel=n_envs
+            envs = [pickle.loads(pickle.dumps(self.algo.env)) for _ in range(n_envs)]
+            self.vec_env = VecEnvExecutor(
+                envs=envs,
+                max_path_length=self.algo.max_path_length
             )
         self.env_spec = self.algo.env.spec
 
     def shutdown_worker(self):
         self.vec_env.terminate()
 
-    def obtain_samples(self, itr):
+    def obtain_samples(self, itr, log_prefix=''):
+        logger.log("Obtaining samples for iteration %d..." % itr)
         paths = []
         n_samples = 0
         obses = self.vec_env.reset()
         dones = np.asarray([True] * self.vec_env.num_envs)
         running_paths = [None] * self.vec_env.num_envs
 
-        pbar = ProgBarCounter(self.algo.batch_size_dynamics_samples)
+        pbar = ProgBarCounter(self.algo.batch_size)
         policy_time = 0
         env_time = 0
         process_time = 0
 
         policy = self.algo.policy
         import time
-        while n_samples < self.algo.batch_size_dynamics_samples:
+        while n_samples < self.algo.batch_size:
             t = time.time()
             policy.reset(dones)
             actions, agent_infos = policy.get_actions(obses)
@@ -104,8 +99,8 @@ class ModelVectorizedSampler(ModelBaseSampler):
 
         pbar.stop()
 
-        logger.record_tabular("ModelSampler-PolicyExecTime", policy_time)
-        logger.record_tabular("ModelSampler-ModelExecTime", env_time)
-        logger.record_tabular("ModelSampler-ProcessExecTime", process_time)
+        logger.record_tabular(log_prefix + "PolicyExecTime", policy_time)
+        logger.record_tabular(log_prefix + "EnvExecTime", env_time)
+        logger.record_tabular(log_prefix + "ProcessExecTime", process_time)
 
         return paths

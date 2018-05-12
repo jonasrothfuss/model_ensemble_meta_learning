@@ -6,44 +6,45 @@ from rllab.sampler.base import Sampler
 from rllab.sampler.base import BaseSampler
 import rllab.misc.logger as logger
 
-
-class RandomBaseSampler(Sampler):
-    def __init__(self, algo):
+class Sampler(object):
+    def start_worker(self):
         """
-        :type algo: BatchPolopt
+        Initialize the sampler, e.g. launching parallel workers if necessary.
         """
-        self.algo = algo
+        raise NotImplementedError
 
+    def obtain_samples(self, itr):
+        """
+        Collect samples for the given iteration number.
+        :param itr: Iteration number.
+        :return: A list of paths.
+        """
+        raise NotImplementedError
 
     def process_samples(self, itr, paths):
-        observations_dynamics = tensor_utils.concat_tensor_list([path["observations"][:-1] for path in paths])
-        next_observations_dynamics = tensor_utils.concat_tensor_list([path["observations"][1:] for path in paths])
-        actions_dynamics = tensor_utils.concat_tensor_list([path["actions"][:-1] for path in paths])
+        """
+        Return processed sample data (typically a dictionary of concatenated tensors) based on the collected paths.
+        :param itr: Iteration number.
+        :param paths: A list of collected paths.
+        :return: Processed sample data.
+        """
+        raise NotImplementedError
 
-        samples_data = dict(
-            observations_dynamics=observations_dynamics,
-            next_observations_dynamics=next_observations_dynamics,
-            actions_dynamics=actions_dynamics,
-        )
-        return samples_data
+    def shutdown_worker(self):
+        """
+        Terminate workers if necessary.
+        """
+        raise NotImplementedError
 
-class ModelBaseSampler(Sampler):
+
+class BaseSampler(Sampler):
     def __init__(self, algo):
         """
         :type algo: BatchPolopt
         """
         self.algo = algo
 
-    def process_samples(self, itr, paths, log=True):
-        """ Compared with the standard Sampler, ModelBaseSampler.process_samples provides 3 additional data fields
-                - observations_dynamics
-                - next_observations_dynamics
-                - actions_dynamics
-            since the dynamics model needs (obs, act, next_obs) for training, observations_dynamics and actions_dynamics
-            skip the last step of a path while next_observations_dynamics skips the first step of a path
-        """
-
-
+    def process_samples(self, itr, paths, log_prefix=''):
         baselines = []
         returns = []
 
@@ -68,10 +69,6 @@ class ModelBaseSampler(Sampler):
             np.concatenate(returns)
         )
 
-        observations_dynamics = tensor_utils.concat_tensor_list([path["observations"][:-1] for path in paths])
-        next_observations_dynamics = tensor_utils.concat_tensor_list([path["observations"][1:] for path in paths])
-        actions_dynamics = tensor_utils.concat_tensor_list([path["actions"][:-1] for path in paths])
-
         if not self.algo.policy.recurrent:
             observations = tensor_utils.concat_tensor_list([path["observations"] for path in paths])
             actions = tensor_utils.concat_tensor_list([path["actions"] for path in paths])
@@ -95,10 +92,6 @@ class ModelBaseSampler(Sampler):
             ent = np.mean(self.algo.policy.distribution.entropy(agent_infos))
 
             samples_data = dict(
-                observations_dynamics=observations_dynamics,
-                next_observations_dynamics=next_observations_dynamics,
-                actions_dynamics=actions_dynamics,
-
                 observations=observations,
                 actions=actions,
                 rewards=rewards,
@@ -108,7 +101,7 @@ class ModelBaseSampler(Sampler):
                 agent_infos=agent_infos,
                 paths=paths,
             )
-        else: # recurrent policy
+        else:
             max_path_length = max([len(path["advantages"]) for path in paths])
 
             # make all paths the same length (pad extra advantages with 0)
@@ -155,10 +148,6 @@ class ModelBaseSampler(Sampler):
             ent = np.sum(self.algo.policy.distribution.entropy(agent_infos) * valids) / np.sum(valids)
 
             samples_data = dict(
-                observations_dynamics=observations_dynamics,
-                next_observations_dynamics=next_observations_dynamics,
-                actions_dynamics=actions_dynamics,
-
                 observations=obs,
                 actions=actions,
                 advantages=adv,
@@ -178,15 +167,107 @@ class ModelBaseSampler(Sampler):
         logger.log("fitted")
 
         logger.record_tabular('Iteration', itr)
-        logger.record_tabular('AverageDiscountedReturn',
+        logger.record_tabular(log_prefix + 'AverageDiscountedReturn',
                               average_discounted_return)
-        logger.record_tabular('AverageReturn', np.mean(undiscounted_returns))
-        logger.record_tabular('ExplainedVariance', ev)
-        logger.record_tabular('NumTrajs', len(paths))
-        logger.record_tabular('Entropy', ent)
-        logger.record_tabular('Perplexity', np.exp(ent))
-        logger.record_tabular('StdReturn', np.std(undiscounted_returns))
-        logger.record_tabular('MaxReturn', np.max(undiscounted_returns))
-        logger.record_tabular('MinReturn', np.min(undiscounted_returns))
+        logger.record_tabular(log_prefix + 'AverageReturn', np.mean(undiscounted_returns))
+        logger.record_tabular(log_prefix + 'ExplainedVariance', ev)
+        logger.record_tabular(log_prefix + 'NumTrajs', len(paths))
+        logger.record_tabular(log_prefix + 'Entropy', ent)
+        logger.record_tabular(log_prefix + 'Perplexity', np.exp(ent))
+        logger.record_tabular(log_prefix + 'StdReturn', np.std(undiscounted_returns))
+        logger.record_tabular(log_prefix + 'MaxReturn', np.max(undiscounted_returns))
+        logger.record_tabular(log_prefix + 'MinReturn', np.min(undiscounted_returns))
+
+        return samples_data
+
+class RandomBaseSampler(Sampler):
+    def __init__(self, algo):
+        """
+        :type algo: BatchPolopt
+        """
+        self.algo = algo
+
+
+    def process_samples(self, itr, paths):
+
+        # compute discounted rewards - > returns
+        returns = []
+        for idx, path in enumerate(paths):
+            path["returns"] = special.discount_cumsum(path["rewards"], self.algo.discount)
+            returns.append(path["returns"])
+
+
+        observations_dynamics = tensor_utils.concat_tensor_list([path["observations"][:-1] for path in paths])
+        next_observations_dynamics = tensor_utils.concat_tensor_list([path["observations"][1:] for path in paths])
+        actions_dynamics = tensor_utils.concat_tensor_list([path["actions"][:-1] for path in paths])
+
+        rewards = tensor_utils.concat_tensor_list([path["rewards"] for path in paths])
+        returns = tensor_utils.concat_tensor_list([path["returns"] for path in paths])
+
+        samples_data = dict(
+            observations_dynamics=observations_dynamics,
+            next_observations_dynamics=next_observations_dynamics,
+            actions_dynamics=actions_dynamics,
+
+            rewards=rewards,
+            returns=returns,
+        )
+        return samples_data
+
+class ModelBaseSampler(Sampler):
+    def __init__(self, algo):
+        """
+        :type algo: BatchPolopt
+        """
+        self.algo = algo
+
+    def process_samples(self, itr, paths, log=True, log_prefix=''):
+        """ Compared with the standard Sampler, ModelBaseSampler.process_samples provides 3 additional data fields
+                - observations_dynamics
+                - next_observations_dynamics
+                - actions_dynamics
+            since the dynamics model needs (obs, act, next_obs) for training, observations_dynamics and actions_dynamics
+            skip the last step of a path while next_observations_dynamics skips the first step of a path
+        """
+
+        # compute discounted rewards - > returns
+        returns = []
+        for idx, path in enumerate(paths):
+            path["returns"] = special.discount_cumsum(path["rewards"], self.algo.discount)
+            returns.append(path["returns"])
+
+
+        observations_dynamics = tensor_utils.concat_tensor_list([path["observations"][:-1] for path in paths])
+        next_observations_dynamics = tensor_utils.concat_tensor_list([path["observations"][1:] for path in paths])
+        actions_dynamics = tensor_utils.concat_tensor_list([path["actions"][:-1] for path in paths])
+
+        rewards = tensor_utils.concat_tensor_list([path["rewards"] for path in paths])
+        returns = tensor_utils.concat_tensor_list([path["returns"] for path in paths])
+
+        samples_data = dict(
+            observations_dynamics=observations_dynamics,
+            next_observations_dynamics=next_observations_dynamics,
+            actions_dynamics=actions_dynamics,
+
+            rewards=rewards,
+            returns=returns,
+            paths=paths,
+        )
+
+        average_discounted_return = \
+            np.mean([path["returns"][0] for path in paths])
+
+        undiscounted_returns = [sum(path["rewards"]) for path in paths]
+
+        logger.log("fitted")
+
+        logger.record_tabular('Iteration', itr)
+        logger.record_tabular(log_prefix + 'AverageDiscountedReturn',
+                              average_discounted_return)
+        logger.record_tabular(log_prefix + 'AverageReturn', np.mean(undiscounted_returns))
+        logger.record_tabular(log_prefix + 'NumTrajs', len(paths))
+        logger.record_tabular(log_prefix + 'StdReturn', np.std(undiscounted_returns))
+        logger.record_tabular(log_prefix + 'MaxReturn', np.max(undiscounted_returns))
+        logger.record_tabular(log_prefix + 'MinReturn', np.min(undiscounted_returns))
 
         return samples_data
