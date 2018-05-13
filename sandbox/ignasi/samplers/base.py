@@ -42,6 +42,18 @@ class ModelBaseSampler(Sampler):
         :type algo: BatchPolopt
         """
         self.algo = algo
+        self.num_branches = self.algo.num_branches
+
+    def get_dict_w_first_element(self, d):
+        _d = {}
+        for k, v in d.items():
+            if type(v) is dict:
+                _d[k] = self.get_dict_w_first_element(v)
+            else:
+                _d[k] = v[0][None]
+        return _d
+
+
 
     def process_samples(self, itr, paths):
         baselines = []
@@ -69,13 +81,13 @@ class ModelBaseSampler(Sampler):
         )
 
         if not self.algo.policy.recurrent:
-            observations = tensor_utils.concat_tensor_list([path["observations"] for path in paths])
-            actions = tensor_utils.concat_tensor_list([path["actions"] for path in paths])
-            rewards = tensor_utils.concat_tensor_list([path["rewards"] for path in paths])
-            returns = tensor_utils.concat_tensor_list([path["returns"] for path in paths])
-            advantages = tensor_utils.concat_tensor_list([path["advantages"] for path in paths])
-            env_infos = tensor_utils.concat_tensor_dict_list([path["env_infos"] for path in paths])
-            agent_infos = tensor_utils.concat_tensor_dict_list([path["agent_infos"] for path in paths])
+            observations = tensor_utils.concat_tensor_list([path["observations"][0][None] for path in paths])
+            actions = tensor_utils.concat_tensor_list([path["actions"][0][None] for path in paths])
+            rewards = tensor_utils.concat_tensor_list([path["rewards"][0][None] for path in paths])
+            returns = tensor_utils.concat_tensor_list([path["returns"][0][None] for path in paths])
+            advantages = tensor_utils.concat_tensor_list([path["advantages"][0][None] for path in paths])
+            env_infos = tensor_utils.concat_tensor_dict_list([self.get_dict_w_first_element(path["env_infos"]) for path in paths])
+            agent_infos = tensor_utils.concat_tensor_dict_list([self.get_dict_w_first_element(path["agent_infos"]) for path in paths])
 
             if self.algo.center_adv:
                 advantages = util.center_advantages(advantages)

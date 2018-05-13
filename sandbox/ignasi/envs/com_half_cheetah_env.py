@@ -65,8 +65,8 @@ class HalfCheetahEnv(MujocoEnv, Serializable):
         return x_next[:, 9] - self.ctrl_cost_coeff * 0.5 * np.sum(np.square(u), axis=1)
 
     def cost_tf(self, x, u, x_next):
-        return tf.clip_by_value(-tf.reduce_mean(x_next[:, 9] + self.ctrl_cost_coeff * 0.5 * tf.reduce_sum(tf.square(u), axis=1)), -10, 10)
+        return tf.clip_by_value(-tf.reduce_mean(x_next[:, 9] - self.ctrl_cost_coeff * 0.5 * tf.reduce_sum(tf.square(u), axis=1)), -10, 10)
 
     def cost_np_vec(self, x, u, x_next):
         assert np.amax(np.abs(u)) <= 1.0 + 1e-6
-        return np.clip(-(x_next[:, 9] + self.ctrl_cost_coeff * 0.5 * np.sum(np.square(u), axis=1)), -10, 10)
+        return np.clip(-(x_next[:, 9] - self.ctrl_cost_coeff * 0.5 * np.sum(np.square(u), axis=1)), -10, 10)

@@ -14,7 +14,7 @@ class ModelEnv(Env, Serializable):
         self.is_done = self._env.is_done
         self.current_obs = None
         super(ModelEnv, self).__init__()
-        Serializable.__init__(self)
+        Serializable.__init__(self, env, dynamics_model)
 
     def step(self, actions):
         next_obs = self.dynamics_model.predict(self.current_obs, actions)

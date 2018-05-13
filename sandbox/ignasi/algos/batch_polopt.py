@@ -27,11 +27,11 @@ class BatchPolopt(RLAlgorithm):
             scope=None,
             n_itr=500,
             start_itr=0,
-            num_paths=1,
+            num_paths=5,
             num_branches=10,
             max_path_length=1000,
             model_max_path_length=50,
-            discount=0.99,
+            discount=1,
             gae_lambda=1,
             plot=False,
             pause_for_plot=False,
@@ -140,8 +140,10 @@ class BatchPolopt(RLAlgorithm):
                 real_paths = self.obtain_real_samples(itr)
                 logger.log("Obtaining model samples...")
                 model_paths = self.obtain_model_samples(itr, real_paths)
+                logger.log("Logging diagnostics...")
+                self.log_diagnostics(real_paths)
                 logger.log("Processing samples...")
-                _ = self.process_real_samples(itr, real_paths, log=False)
+                _ = self.process_real_samples(itr, real_paths, log=True)
                 samples_data = self.process_model_samples(itr, model_paths)
                 logger.log("Optimizing policy...")
                 self.optimize_policy(itr, samples_data)
@@ -151,8 +153,8 @@ class BatchPolopt(RLAlgorithm):
                     params["paths"] = samples_data["paths"]
                 logger.save_itr_params(itr, params)
                 logger.log("Saved")
-                logger.record_tabular('Time', time.time() - start_time)
-                logger.record_tabular('ItrTime', time.time() - itr_start_time)
+                # logger.record_tabular('Time', time.time() - start_time)
+                # logger.record_tabular('ItrTime', time.time() - itr_start_time)
                 logger.dump_tabular(with_prefix=False)
         self.shutdown_worker()
         if created_session:
@@ -186,12 +188,12 @@ class BatchPolopt(RLAlgorithm):
             if self._first:
                 real_paths = self.obtain_real_samples(itr, batch_size=30000)
                 self._first = False
-            else:
-                real_paths = self.obtain_real_samples(itr, batch_size=30000)
-            logger.log("Logging diagnostics...")
-            self.log_diagnostics(real_paths)
-            logger.log("Processing samples...")
-            _ = self.process_real_samples(itr, real_paths)
+            # else:
+            #     real_paths = self.obtain_real_samples(itr, batch_size=3000)
+            #     logger.log("Logging diagnostics...")
+            #     self.log_diagnostics(real_paths)
+            #     logger.log("Processing samples...")
+                _ = self.process_real_samples(itr, real_paths)
             data = self.data_buffer.get_data()
             logger.log("Fitting the model...")
             self.dynamics_model.fit(data['observations'], data['actions'], data['next_observations'], verbose=False)

@@ -93,7 +93,7 @@ def lookup(d, keys):
     return d
 
 
-def load_exps_data(exp_folder_paths,disable_variant=False):
+def load_exps_data(exp_folder_paths, disable_variant=False):
     exps = []
     for exp_folder_path in exp_folder_paths:
         exps += [x[0] for x in os.walk(exp_folder_path)]

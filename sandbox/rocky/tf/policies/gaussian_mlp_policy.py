@@ -156,11 +156,14 @@ class GaussianMLPPolicy(StochasticPolicy, LayersPowered, Serializable):
         return dict(mean=mean_var, log_std=log_std_var)
 
     @overrides
-    def get_action(self, observation):
+    def get_action(self, observation, deterministic=False):
         flat_obs = self.observation_space.flatten(observation)
         mean, log_std = [x[0] for x in self._f_dist([flat_obs])]
-        rnd = np.random.normal(size=mean.shape)
-        action = rnd * np.exp(log_std) + mean
+        if deterministic:
+            action = mean
+        else:
+            rnd = np.random.normal(size=mean.shape)
+            action = rnd * np.exp(log_std) + mean
         return action, dict(mean=mean, log_std=log_std)
 
     def get_actions(self, observations):
