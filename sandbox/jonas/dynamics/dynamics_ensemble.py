@@ -18,7 +18,7 @@ class MLPDynamicsEnsemble(LayersPowered, Serializable):
 
     def __init__(self,
                  name,
-                 env,
+                 env_spec,
                  num_models=5,
                  hidden_sizes=(512, 512),
                  hidden_nonlinearity=tf.nn.relu,
@@ -39,8 +39,8 @@ class MLPDynamicsEnsemble(LayersPowered, Serializable):
         self.num_models = num_models
 
         # determine dimensionality of state and action space
-        self.obs_space_dims = obs_space_dims = env.observation_space.shape[0]
-        self.action_space_dims = action_space_dims = env.action_space.shape[0]
+        self.obs_space_dims = obs_space_dims = env_spec.observation_space.shape[0]
+        self.action_space_dims = action_space_dims = env_spec.action_space.shape[0]
 
         with tf.variable_scope(name):
             # placeholders

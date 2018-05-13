@@ -20,7 +20,7 @@ class MLPDynamicsModel(LayersPowered, Serializable):
 
     def __init__(self,
                  name,
-                 env,
+                 env_spec,
                  hidden_sizes=(500, 500),
                  hidden_nonlinearity=tf.nn.relu,
                  output_nonlinearity=None,
@@ -40,8 +40,8 @@ class MLPDynamicsModel(LayersPowered, Serializable):
             self.step_size = step_size
 
             # determine dimensionality of state and action space
-            self.obs_space_dims = env.observation_space.shape[0]
-            self.action_space_dims = env.action_space.shape[0]
+            self.obs_space_dims = env_spec.observation_space.shape[0]
+            self.action_space_dims = env_spec.action_space.shape[0]
 
             # placeholders
             self.obs_ph = tf.placeholder(tf.float32, shape=(None, self.obs_space_dims))
