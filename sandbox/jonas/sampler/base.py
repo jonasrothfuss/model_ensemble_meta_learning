@@ -44,7 +44,7 @@ class BaseSampler(Sampler):
         """
         self.algo = algo
 
-    def process_samples(self, itr, paths, log_prefix=''):
+    def process_samples(self, itr, paths, log=True, log_prefix=''):
         baselines = []
         returns = []
 
@@ -166,17 +166,20 @@ class BaseSampler(Sampler):
             self.algo.baseline.fit(paths)
         logger.log("fitted")
 
-        logger.record_tabular('Iteration', itr)
-        logger.record_tabular(log_prefix + 'AverageDiscountedReturn',
-                              average_discounted_return)
-        logger.record_tabular(log_prefix + 'AverageReturn', np.mean(undiscounted_returns))
-        logger.record_tabular(log_prefix + 'ExplainedVariance', ev)
-        logger.record_tabular(log_prefix + 'NumTrajs', len(paths))
-        logger.record_tabular(log_prefix + 'Entropy', ent)
-        logger.record_tabular(log_prefix + 'Perplexity', np.exp(ent))
-        logger.record_tabular(log_prefix + 'StdReturn', np.std(undiscounted_returns))
-        logger.record_tabular(log_prefix + 'MaxReturn', np.max(undiscounted_returns))
-        logger.record_tabular(log_prefix + 'MinReturn', np.min(undiscounted_returns))
+        if log == 'reward':
+            logger.record_tabular(log_prefix + 'AverageReturn', np.mean(undiscounted_returns))
+        elif log == 'all' or log is True:
+            logger.record_tabular('Iteration', itr)
+            logger.record_tabular(log_prefix + 'AverageDiscountedReturn',
+                                  average_discounted_return)
+            logger.record_tabular(log_prefix + 'AverageReturn', np.mean(undiscounted_returns))
+            logger.record_tabular(log_prefix + 'ExplainedVariance', ev)
+            logger.record_tabular(log_prefix + 'NumTrajs', len(paths))
+            logger.record_tabular(log_prefix + 'Entropy', ent)
+            logger.record_tabular(log_prefix + 'Perplexity', np.exp(ent))
+            logger.record_tabular(log_prefix + 'StdReturn', np.std(undiscounted_returns))
+            logger.record_tabular(log_prefix + 'MaxReturn', np.max(undiscounted_returns))
+            logger.record_tabular(log_prefix + 'MinReturn', np.min(undiscounted_returns))
 
         return samples_data
 
@@ -188,7 +191,7 @@ class RandomBaseSampler(Sampler):
         self.algo = algo
 
 
-    def process_samples(self, itr, paths):
+    def process_samples(self, itr, paths, log=True, log_prefix=''):
 
         # compute discounted rewards - > returns
         returns = []
@@ -212,6 +215,22 @@ class RandomBaseSampler(Sampler):
             rewards=rewards,
             returns=returns,
         )
+
+        average_discounted_return = \
+            np.mean([path["returns"][0] for path in paths])
+
+        undiscounted_returns = [sum(path["rewards"]) for path in paths]
+
+        if log:
+            logger.record_tabular('Iteration', itr)
+            logger.record_tabular(log_prefix + 'AverageDiscountedReturn',
+                                  average_discounted_return)
+            logger.record_tabular(log_prefix + 'AverageReturn', np.mean(undiscounted_returns))
+            logger.record_tabular(log_prefix + 'NumTrajs', len(paths))
+            logger.record_tabular(log_prefix + 'StdReturn', np.std(undiscounted_returns))
+            logger.record_tabular(log_prefix + 'MaxReturn', np.max(undiscounted_returns))
+            logger.record_tabular(log_prefix + 'MinReturn', np.min(undiscounted_returns))
+
         return samples_data
 
 class ModelBaseSampler(Sampler):
@@ -259,15 +278,14 @@ class ModelBaseSampler(Sampler):
 
         undiscounted_returns = [sum(path["rewards"]) for path in paths]
 
-        logger.log("fitted")
-
-        logger.record_tabular('Iteration', itr)
-        logger.record_tabular(log_prefix + 'AverageDiscountedReturn',
-                              average_discounted_return)
-        logger.record_tabular(log_prefix + 'AverageReturn', np.mean(undiscounted_returns))
-        logger.record_tabular(log_prefix + 'NumTrajs', len(paths))
-        logger.record_tabular(log_prefix + 'StdReturn', np.std(undiscounted_returns))
-        logger.record_tabular(log_prefix + 'MaxReturn', np.max(undiscounted_returns))
-        logger.record_tabular(log_prefix + 'MinReturn', np.min(undiscounted_returns))
+        if log:
+            logger.record_tabular('Iteration', itr)
+            logger.record_tabular(log_prefix + 'AverageDiscountedReturn',
+                                  average_discounted_return)
+            logger.record_tabular(log_prefix + 'AverageReturn', np.mean(undiscounted_returns))
+            logger.record_tabular(log_prefix + 'NumTrajs', len(paths))
+            logger.record_tabular(log_prefix + 'StdReturn', np.std(undiscounted_returns))
+            logger.record_tabular(log_prefix + 'MaxReturn', np.max(undiscounted_returns))
+            logger.record_tabular(log_prefix + 'MinReturn', np.min(undiscounted_returns))
 
         return samples_data

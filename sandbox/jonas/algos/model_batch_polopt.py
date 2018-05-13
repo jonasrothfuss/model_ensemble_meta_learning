@@ -31,7 +31,7 @@ class ModelBatchPolopt(RLAlgorithm):
             discount=0.99,
             gae_lambda=1,
             dynamic_model_epochs=(30, 10),
-            model_retraining_gap=10,
+            num_gradient_steps_per_iter=10,
             plot=False,
             pause_for_plot=False,
             center_adv=True,
@@ -64,7 +64,7 @@ class ModelBatchPolopt(RLAlgorithm):
         :param gae_lambda: Lambda used for generalized advantage estimation.
         :param dynamic_model_epochs: (2-tuple) number of epochs to train the dynamics model
                                         (n_epochs_at_first_iter, n_epochs_after_first_iter)
-        :param model_retraining_gap: number of policy gradients steps before retraining dynamics model
+        :param num_gradient_steps_per_iter: number of policy gradients steps before retraining dynamics model
         :param plot: Plot evaluation run after each iteration.
         :param pause_for_plot: Whether to pause before contiuing when plotting.
         :param center_adv: Whether to rescale the advantages so that they have mean 0 and standard deviation 1.
@@ -86,7 +86,7 @@ class ModelBatchPolopt(RLAlgorithm):
         self.discount = discount
         self.gae_lambda = gae_lambda
         self.dynamic_model_epochs = dynamic_model_epochs
-        self.model_retraining_gap = model_retraining_gap
+        self.num_gradient_steps_per_iter = num_gradient_steps_per_iter
         self.plot = plot
         self.pause_for_plot = pause_for_plot
         self.center_adv = center_adv
@@ -140,8 +140,8 @@ class ModelBatchPolopt(RLAlgorithm):
     def process_samples_for_dynamics(self, itr, paths):
         return self.model_sampler.process_samples(itr, paths, log=False)
 
-    def process_samples_for_policy(self, itr, paths):
-        return self.env_sampler.process_samples(itr, paths, log_prefix='DynTrajs-')
+    def process_samples_for_policy(self, itr, paths, log=True, log_prefix='DynTrajs-'):
+        return self.env_sampler.process_samples(itr, paths, log=log, log_prefix=log_prefix)
 
     def train(self, sess=None):
         created_session = True if (sess is None) else False
@@ -158,48 +158,47 @@ class ModelBatchPolopt(RLAlgorithm):
         for itr in range(self.start_itr, self.n_itr):
             itr_start_time = time.time()
 
-            retrain_model = type(self.model_retraining_gap) is int and itr % self.model_retraining_gap == 0
-
             with logger.prefix('itr #%d | ' % itr):
 
-                if retrain_model:
-                    # get rollouts from the env
 
-                    if self.initial_random_samples and itr == 0:
-                        logger.log("Obtaining random samples from the environment...")
-                        new_env_paths = self.obtain_random_samples(itr)
-                        self.all_paths.extend(new_env_paths)
-                        samples_data_dynamics = self.random_sampler.process_samples(itr, self.all_paths)
-                    else:
-                        logger.log("Obtaining samples from the environment using the policy...")
-                        new_env_paths = self.obtain_env_samples(itr)
-                        self.all_paths.extend(new_env_paths)
-                        logger.log("Processing environment samples...")
-                        # first processing just for logging purposes
-                        self.model_sampler.process_samples(itr, new_env_paths, log=True, log_prefix='EnvTrajs-')
+                # get rollouts from the env
 
-                        samples_data_dynamics = self.process_samples_for_dynamics(itr, self.all_paths)
+                if self.initial_random_samples and itr == 0:
+                    logger.log("Obtaining random samples from the environment...")
+                    new_env_paths = self.obtain_random_samples(itr)
+                    self.all_paths.extend(new_env_paths)
+                    samples_data_dynamics = self.random_sampler.process_samples(itr, self.all_paths, log=True, log_prefix='EnvTrajs-') # must log in the same way as the model sampler below
+                else:
+                    logger.log("Obtaining samples from the environment using the policy...")
+                    new_env_paths = self.obtain_env_samples(itr)
+                    self.all_paths.extend(new_env_paths)
+                    logger.log("Processing environment samples...")
+                    # first processing just for logging purposes
+                    self.model_sampler.process_samples(itr, new_env_paths, log=True, log_prefix='EnvTrajs-')
 
-                    # fit dynamics model
-                    epochs = self.dynamic_model_epochs[min(itr, len(self.dynamic_model_epochs) - 1)]
-                    logger.log("Training dynamics model for %i epochs ..." % (epochs))
-                    self.dynamics_model.fit(samples_data_dynamics['observations_dynamics'],
-                                            samples_data_dynamics['actions_dynamics'],
-                                            samples_data_dynamics['next_observations_dynamics'],
-                                            epochs=epochs)
+                    samples_data_dynamics = self.process_samples_for_dynamics(itr, self.all_paths)
 
-                # get imaginary rollouts
-                logger.log("Obtaining samples from the dynamics model...")
-                new_model_paths = self.obtain_model_samples(itr)
+                # fit dynamics model
+                epochs = self.dynamic_model_epochs[min(itr, len(self.dynamic_model_epochs) - 1)]
+                logger.log("Training dynamics model for %i epochs ..." % (epochs))
+                self.dynamics_model.fit(samples_data_dynamics['observations_dynamics'],
+                                        samples_data_dynamics['actions_dynamics'],
+                                        samples_data_dynamics['next_observations_dynamics'],
+                                        epochs=epochs)
 
-                logger.log("Processing dynamics model samples...")
-                samples_data_model = self.process_samples_for_policy(itr, new_model_paths)
+                for gradient_itr in range(self.num_gradient_steps_per_iter):
+                    # get imaginary rollouts
+                    logger.log("Policy Gradient Step %i of %i - Obtaining samples from the dynamics model..."%(gradient_itr, self.num_gradient_steps_per_iter))
+                    new_model_paths = self.obtain_model_samples(itr)
 
-                logger.log("Logging diagnostics...")
-                self.log_diagnostics(new_model_paths)
+                    logger.log("Policy Gradient Step %i of %i - Processing dynamics model samples..."%(gradient_itr, self.num_gradient_steps_per_iter))
+                    samples_data_model = self.process_samples_for_policy(itr, new_model_paths, log='reward', log_prefix='%i-DynTrajs-'%gradient_itr)
 
-                logger.log("Optimizing policy...")
-                self.optimize_policy(itr, samples_data_model)
+                    # logger.log("Policy Gradient Step %i of %i - Logging diagnostics..."%(gradient_itr, self.num_gradient_steps_per_iter))
+                    # self.log_diagnostics(new_model_paths)
+
+                    logger.log("Policy Gradient Step %i of %i - Optimizing policy..."%(gradient_itr, self.num_gradient_steps_per_iter))
+                    self.optimize_policy(itr, samples_data_model, log=False)
 
 
                 logger.log("Saving snapshot...")
@@ -239,7 +238,7 @@ class ModelBatchPolopt(RLAlgorithm):
         """
         raise NotImplementedError
 
-    def optimize_policy(self, itr, samples_data):
+    def optimize_policy(self, itr, samples_data, log=True, log_prefix=''):
         raise NotImplementedError
 
     def initialize_unitialized_variables(self, sess):
