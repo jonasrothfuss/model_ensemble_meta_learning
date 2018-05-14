@@ -103,7 +103,8 @@ class ModelBatchPolopt(RLAlgorithm):
             if self.policy.vectorized and not force_batch_sampler:
                 sampler_cls = EnvVectorizedSampler
             else:
-                sampler_cls = BatchSampler
+                raise NotImplementedError()
+                #sampler_cls = BatchSampler
         if sampler_args is None:
             sampler_args = dict()
         self.env_sampler = sampler_cls(self, **sampler_args)
