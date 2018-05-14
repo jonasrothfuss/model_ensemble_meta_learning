@@ -4,7 +4,7 @@ from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from rllab.misc.instrument import run_experiment_lite
 from sandbox.jonas.envs.mujoco import HalfCheetahEnvRandParams, AntEnvRandParams, HopperEnvRandParams, Reacher5DofEnvRandParams
-from rllab.envs.mujoco.half_cheetah_env import HalfCheetahEnv
+from sandbox.jonas.envs.mujoco.cheetah_env import HalfCheetahEnv
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
 from experiments.helpers.ec2_helpers import cheapest_subnets
@@ -19,18 +19,20 @@ import random
 
 EXP_PREFIX = 'model-ensemble-trpo'
 
-ec2_instance = 'c4.xlarge'
+ec2_instance = 'c4.2xlarge'
 subnets = cheapest_subnets(ec2_instance, num_subnets=3)
 
 
 def run_train_task(vv):
+
     env = TfEnv(normalize(vv['env']()))
 
     dynamics_model = MLPDynamicsEnsemble(
         name="dyn_model",
-        env_spec = env.spec,
+        env_spec=env.spec,
         hidden_sizes=vv['hidden_sizes_model'],
-        weight_normalization=vv['weight_normalization_model']
+        weight_normalization=vv['weight_normalization_model'],
+        num_models=vv['num_models']
     )
 
     policy = GaussianMLPPolicy(
@@ -73,7 +75,7 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['PointEnv']) # HalfCheetahEnvRandParams
+    vg.add('env', ['HalfCheetahEnv']) # HalfCheetahEnvRandParams
     vg.add('n_itr', [20])
     #vg.add('log_scale_limit', [0.5])
     vg.add('step_size', [0.01])
@@ -82,16 +84,16 @@ def run_experiment(argv):
     vg.add('path_length', [100])
     vg.add('batch_size_env_samples', [5000])
     vg.add('batch_size_dynamics_samples', [40000])
-    vg.add('initial_random_samples', [10000])
+    vg.add('initial_random_samples', [5000, 10000])
     vg.add('dynamic_model_epochs', [(30, 10)])
-    vg.add('num_gradient_steps_per_iter', [5])
+    vg.add('num_gradient_steps_per_iter', [40])
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(100, 100)])
-    vg.add('hidden_sizes_model', [(256, 256)])
+    vg.add('hidden_sizes_model', [(512, 512)])
     vg.add('weight_normalization_model', [False])
-
-
+    vg.add('retrain_model_when_reward_decreases', [True])
+    vg.add('num_models', [1, 5, 10])
     variants = vg.variants()
 
     # ----------------------- AWS conficuration ---------------------------------
@@ -143,9 +145,9 @@ def run_experiment(argv):
             # Specifies the seed for the experiment. If this is not provided, a random seed
             # will be used
             seed=v["seed"],
-            python_command=sys.executable, #"python3", #sys.executable,
-            pre_commands=["yes | pip install --upgrade pip",
-                          "yes | pip install tensorflow=='1.6.0'",
+            python_command="python3", #sys.executable,
+            pre_commands=["yes | pip install tensorflow=='1.6.0'",
+                          "pip list",
                           "yes | pip install --upgrade cloudpickle"],
             mode=args.mode,
             use_cloudpickle=True,
