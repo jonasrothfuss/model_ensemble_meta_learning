@@ -44,7 +44,7 @@ class BaseSampler(Sampler):
         """
         self.algo = algo
 
-    def process_samples(self, itr, paths, log=True, log_prefix=''):
+    def process_samples(self, itr, paths, log=True, log_prefix='', return_reward=False):
         baselines = []
         returns = []
 
@@ -181,7 +181,10 @@ class BaseSampler(Sampler):
             logger.record_tabular(log_prefix + 'MaxReturn', np.max(undiscounted_returns))
             logger.record_tabular(log_prefix + 'MinReturn', np.min(undiscounted_returns))
 
-        return samples_data
+        if return_reward:
+            return samples_data, np.mean(undiscounted_returns)
+        else:
+            return samples_data
 
 class RandomBaseSampler(Sampler):
     def __init__(self, algo):
