@@ -126,16 +126,16 @@ class ModelBatchPolopt(RLAlgorithm):
         self.env_sampler.shutdown_worker()
         self.model_sampler.shutdown_worker()
 
-    def obtain_env_samples(self, itr):
-        return self.env_sampler.obtain_samples(itr, log_prefix='EnvSampler-')
+    def obtain_env_samples(self, itr, log=True):
+        return self.env_sampler.obtain_samples(itr, log=log, log_prefix='EnvSampler-')
 
-    def obtain_model_samples(self, itr):
-        return self.model_sampler.obtain_samples(itr)
+    def obtain_model_samples(self, itr, log=False):
+        return self.model_sampler.obtain_samples(itr, log=log)
 
-    def obtain_random_samples(self, itr):
+    def obtain_random_samples(self, itr, log=False):
         assert self.random_sampler is not None
         assert self.initial_random_samples is not None
-        return self.random_sampler.obtain_samples(itr, num_samples=self.initial_random_samples)
+        return self.random_sampler.obtain_samples(itr, num_samples=self.initial_random_samples, log=log)
 
     def process_samples_for_dynamics(self, itr, paths):
         return self.model_sampler.process_samples(itr, paths, log=False)

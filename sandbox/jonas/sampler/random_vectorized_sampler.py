@@ -38,7 +38,7 @@ class RandomVectorizedSampler(RandomBaseSampler, VectorizedSampler):
         self.vec_env.terminate()
 
     @overrides
-    def obtain_samples(self, itr, num_samples=None):
+    def obtain_samples(self, itr, num_samples=None, log=True, log_prefix='RandomSampler-'):
         if num_samples is None:
             num_samples = self.algo.batch_size
 
@@ -103,7 +103,8 @@ class RandomVectorizedSampler(RandomBaseSampler, VectorizedSampler):
 
         pbar.stop()
 
-        logger.record_tabular("RandomSampler-EnvExecTime", env_time)
-        logger.record_tabular("RandomSampler-EnvProcessExecTime", process_time)
+        if log:
+            logger.record_tabular(log_prefix + "EnvExecTime", env_time)
+            logger.record_tabular(log_prefix + "EnvProcessExecTime", process_time)
 
         return paths
