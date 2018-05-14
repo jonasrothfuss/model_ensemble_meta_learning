@@ -56,7 +56,9 @@ class RandomVectorizedSampler(RandomBaseSampler, VectorizedSampler):
         import time
         while n_samples_collected < num_samples:
             # random actions
+            t = time.time()
             actions = np.stack([self.vec_env.action_space.sample() for _ in range(len(obses))], axis=0)
+            policy_time = time.time() - t
             agent_infos = {}
 
             t = time.time()
@@ -104,6 +106,7 @@ class RandomVectorizedSampler(RandomBaseSampler, VectorizedSampler):
         pbar.stop()
 
         if log:
+            logger.record_tabular(log_prefix + "PolicyExecTime", policy_time)
             logger.record_tabular(log_prefix + "EnvExecTime", env_time)
             logger.record_tabular(log_prefix + "EnvProcessExecTime", process_time)
 
