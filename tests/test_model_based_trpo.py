@@ -54,7 +54,7 @@ class TestMModelBasedTRPO(unittest.TestCase):
             batch_size_dynamics_samples=40000,
             max_path_length=100,
             dynamic_model_epochs=(30, 10),
-            model_retraining_gap=10,
+            num_gradient_steps_per_iter=2,
             n_itr=20,
             discount=0.99,
             step_size=0.001,
