@@ -21,7 +21,7 @@ class HalfCheetahMAMLEnvRandParams(BaseEnvRandParams, HalfCheetahEnv, Serializab
         :param fix_params: boolean indicating whether the mujoco parameters shall be fixed
         :param rand_params: mujoco model parameters to sample
         """
-
+        self.ctrl_cost_coeff = 1e-1
         args_all, kwargs_all = get_all_function_arguments(self.__init__, locals())
         BaseEnvRandParams.__init__(*args_all, **kwargs_all)
         HalfCheetahEnv.__init__(self, *args, **kwargs)
@@ -43,7 +43,7 @@ class HalfCheetahMAMLEnvRandParams(BaseEnvRandParams, HalfCheetahEnv, Serializab
         self.forward_dynamics(action)
         next_obs = self.get_current_obs()
         action = np.clip(action, *self.action_bounds)
-        ctrl_cost = 1e-1 * 0.5 * np.sum(np.square(action))
+        ctrl_cost = self.ctrl_cost_coeff * 0.5 * np.sum(np.square(action))
         run_cost = -1 * self.get_body_comvel("torso")[0]
         cost = ctrl_cost + run_cost
         reward = -cost
@@ -53,6 +53,17 @@ class HalfCheetahMAMLEnvRandParams(BaseEnvRandParams, HalfCheetahEnv, Serializab
         reward = np.minimum(np.maximum(-1000.0, reward), 1000.0)
 
         return Step(next_obs, reward, done)
+
+    def reward(self, obs, action, obs_next):
+        if obs.ndim == 2 and action.ndim == 2:
+            assert obs.shape == obs_next.shape and action.shape[0] == obs.shape[0]
+            forward_vel = (obs_next[:, -3] - obs[:, -3]) / 0.01
+            ctrl_cost = self.ctrl_cost_coeff * 0.5 * np.sum(np.square(action), axis=1)
+            return forward_vel - ctrl_cost
+        else:
+            forward_vel = (obs_next[-3] - obs[-3]) / 0.01
+            ctrl_cost = self.ctrl_cost_coeff * 0.5 * np.sum(np.square(action))
+            return forward_vel - ctrl_cost
 
 if __name__ == "__main__":
     env = HalfCheetahMAMLEnvRandParams()
