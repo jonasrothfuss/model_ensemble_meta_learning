@@ -127,7 +127,7 @@ class BatchMAMLPolopt(RLAlgorithm):
         return paths
 
     def process_samples(self, itr, paths, prefix='', log=True):
-        return self.sampler.process_samples(itr, paths, prefix=prefix, log=log)
+        return self.sampler.process_samples(itr, paths, log=log, log_prefix=prefix)
 
     def train(self):
         # TODO - make this a util
