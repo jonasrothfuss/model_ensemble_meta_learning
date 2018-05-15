@@ -170,7 +170,6 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         self.input_list_for_grad = input_list
         self.surr_objs = surr_objs_tensor
 
-
     def compute_updated_dists(self, samples):
         """ Compute fast gradients once per iteration and pull them out of tensorflow for sampling with the post-update policy.
         """
@@ -270,7 +269,6 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         sess = tf.get_default_session()
         sess.run(self.assign_ops, feed_dict)
 
-
     def switch_to_init_dist(self):
         # switch cur policy distribution to pre-update policy
         self._cur_f_dist = self._init_f_dist
@@ -324,7 +322,6 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
 
         return self.dist_info_sym(new_obs_var, all_params=params_dict, is_training=is_training)
 
-
     @overrides
     def get_action(self, observation, idx=None):
         # this function takes a numpy array observations and outputs randomly sampled actions.
@@ -352,6 +349,40 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         rnd = np.random.normal(size=means.shape)
         actions = rnd * np.exp(log_stds) + means
         return actions, dict(mean=means, log_std=log_stds)
+
+    def get_actions_batch(self, observations):
+        """
+
+        :param observations: list of numpy arrays containing a batch of observations corresponding to a task -
+                             shape of each numpy array must be (batch_size, ndim_obs)
+        :return: actions - shape (batch_size * tasks, ndim_obs)
+        """
+        batch_size = None
+
+        # assert that obs of all tasks have the same batch size
+        for obs_batch in observations:
+            if batch_size is None:
+                batch_size = obs_batch.shape[0]
+            else:
+                assert obs_batch.shape[0] == batch_size
+
+                obs_batch.flatten()
+
+        obs_stack = np.concatenate(observations, axis=0)
+
+        result = self._cur_f_dist(obs_stack)
+
+        if len(result) == 2:
+            # NOTE - this code assumes that there aren't 2 meta tasks in a batch
+            means, log_stds = result
+        else:
+            means = np.concatenate([res[0] for res in result], axis=0)
+            log_stds = np.concatenate([res[1] for res in result], axis=0)
+
+        rnd = np.random.normal(size=means.shape)
+        actions = rnd * np.exp(log_stds) + means
+        return actions, dict(mean=means, log_std=log_stds)
+
 
     @property
     def distribution(self):
