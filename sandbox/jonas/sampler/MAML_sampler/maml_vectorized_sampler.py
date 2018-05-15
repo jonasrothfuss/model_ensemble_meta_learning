@@ -53,13 +53,14 @@ class MAMLVectorizedSampler(BaseSampler):
 
         assert self.vec_env.num_envs % self.n_tasks == 0
 
+        n_envs_per_task = self.vec_env.num_envs // self.n_tasks
+
         # if the reset args are not list/numpy, we set the same args for each env
         if reset_args is not None and (type(reset_args) != list and type(reset_args)!=np.ndarray):
             reset_args = [reset_args]*self.vec_env.num_envs
         else:
             # duplicate reset_args as n_envs_per_task times for each task
             assert len(reset_args) == self.n_tasks
-            n_envs_per_task = self.vec_env.num_envs // self.n_tasks
             reset_args = [reset_arg for reset_arg in reset_args for _ in range(n_envs_per_task)]
 
         assert len(reset_args) == self.n_envs
