@@ -1,9 +1,10 @@
 from sandbox.jonas.envs.mujoco import AntEnvMAMLRandParams, HalfCheetahMAMLEnvRandParams, HopperEnvMAMLRandParams
+from sandbox.jonas.envs.mujoco import Reacher5DofMAMLEnvRandParams
 
 from rllab_maml.envs.mujoco.half_cheetah_env import HalfCheetahEnv
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
-from sandbox_maml.rocky.tf.algos.maml_trpo import MAMLTRPO
+from sandbox.jonas.algos.MAML.maml_trpo import MAMLTRPO
 from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab_maml.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
 from rllab_maml.envs.normalized_env import normalize
@@ -19,7 +20,7 @@ import argparse
 import random
 
 
-EXP_PREFIX = 'trpo-maml-rand-param-env-improved-policy'
+EXP_PREFIX = 'trpo-maml-rand-param-env'
 
 ec2_instance = 'm4.2xlarge'
 
@@ -66,22 +67,21 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['HalfCheetahMAMLEnvRandParams'])
-    vg.add('n_itr', [500])
-    vg.add('log_scale_limit', [0.1, 0.5, 1.0, 1.5]) #TODO reset to [0.1, 0.5, 1.0, 1.5]
+    vg.add('env', ['HalfCheetahMAMLEnvRandParams']) #Reacher5DofMAMLEnvRandParams HalfCheetahMAMLEnvRandParams
+    vg.add('log_scale_limit', [0.1, 0.3, 0.5])
     vg.add('fast_lr', [0.1])
     vg.add('meta_batch_size', [40])
     vg.add('num_grad_updates', [1])
     vg.add('meta_step_size', [0.01])
     vg.add('fast_batch_size', [20])
-    vg.add('seed', [1, 11, 21, 31, 41])
+    vg.add('seed', [1, 11]) #TODO add [21, 31, 41]
     vg.add('discount', [0.99])
     vg.add('n_iter', [500])
     vg.add('path_length', [100])
     vg.add('hidden_nonlinearity', ['tanh'])
     vg.add('hidden_sizes', [(100, 100)])
     vg.add('trainable_step_size', [True, False])
-    vg.add('bias_transform', [True, False])
+    vg.add('bias_transform', [False])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
 
     variants = vg.variants()
