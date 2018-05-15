@@ -3,7 +3,8 @@ from collections import OrderedDict
 
 from rllab_maml.misc import ext
 import sandbox_maml.rocky.tf.core.layers as L
-from sandbox_maml.rocky.tf.spaces.box import Box
+from sandbox_maml.rocky.tf.spaces.box import Box as BoxMAML
+from sandbox.rocky.tf.spaces.box import Box
 
 from rllab_maml.core.serializable import Serializable
 from sandbox_maml.rocky.tf.policies.base import StochasticPolicy
@@ -72,7 +73,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         :return:
         """
         Serializable.quick_init(self, locals())
-        assert isinstance(env_spec.action_space, Box)
+        assert isinstance(env_spec.action_space, Box) or isinstance(env_spec.action_space, BoxMAML)
 
         obs_dim = env_spec.observation_space.flat_dim
         self.action_dim = env_spec.action_space.flat_dim

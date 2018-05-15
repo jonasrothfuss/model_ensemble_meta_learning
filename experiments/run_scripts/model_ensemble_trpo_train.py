@@ -3,14 +3,11 @@ from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from rllab.misc.instrument import run_experiment_lite
-from sandbox.jonas.envs.mujoco import HalfCheetahEnvRandParams, AntEnvRandParams, HopperEnvRandParams, Reacher5DofEnvRandParams
-from sandbox.jonas.envs.mujoco.cheetah_env import HalfCheetahEnv
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
 from experiments.helpers.ec2_helpers import cheapest_subnets
-from sandbox.jonas.dynamics import MLPDynamicsModel, MLPDynamicsEnsemble
-from sandbox.jonas.algos.model_trpo import ModelTRPO
-from rllab.envs.own_envs.point_2d_env import PointEnv
+from sandbox.jonas.dynamics import MLPDynamicsEnsemble
+from sandbox.jonas.algos.ModelTRPO.model_trpo import ModelTRPO
 
 import tensorflow as tf
 import sys
