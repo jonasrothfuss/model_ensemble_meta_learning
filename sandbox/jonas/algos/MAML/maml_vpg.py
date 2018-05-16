@@ -1,6 +1,6 @@
 
 
-from rllab_maml.misc import logger
+from rllab.misc import logger
 from rllab_maml.misc import ext
 from rllab_maml.misc.overrides import overrides
 from sandbox.jonas.algos.MAML.batch_maml_polopt import BatchMAMLPolopt

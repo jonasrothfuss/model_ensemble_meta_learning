@@ -4,14 +4,14 @@ matplotlib.use('Pdf')
 import matplotlib.pyplot as plt
 import numpy as np
 import os.path as osp
-import rllab_maml.misc.logger as logger
+import rllab.misc.logger as logger
 import rllab_maml.plotter as plotter
 import tensorflow as tf
 import time
 
 from rllab_maml.algos.base import RLAlgorithm
 from sandbox_maml.rocky.tf.policies.base import Policy
-from sandbox_maml.rocky.tf.samplers.batch_sampler import BatchSampler
+from sandbox.jonas.sampler.MAML_sampler.maml_batch_sampler import BatchSampler
 from sandbox.jonas.sampler.MAML_sampler.maml_vectorized_sampler import MAMLVectorizedSampler
 from sandbox_maml.rocky.tf.spaces import Discrete
 from rllab_maml.sampler.stateful_pool import singleton_pool
@@ -100,12 +100,11 @@ class BatchMAMLPolopt(RLAlgorithm):
 
         if sampler_cls is None:
             if singleton_pool.n_parallel > 1:
-                raise NotImplementedError
-                #sampler_cls = BatchSampler
+                sampler_cls = BatchSampler
+                sampler_args = dict(n_envs=self.meta_batch_size)
             else:
                 sampler_cls = MAMLVectorizedSampler
-        if sampler_args is None:
-            sampler_args = dict(n_tasks=self.meta_batch_size, n_envs=self.meta_batch_size * batch_size)
+                sampler_args = dict(n_tasks=self.meta_batch_size, n_envs=self.meta_batch_size * batch_size)
         self.sampler = sampler_cls(self, **sampler_args)
 
     def start_worker(self):

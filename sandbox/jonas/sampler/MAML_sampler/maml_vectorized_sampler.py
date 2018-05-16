@@ -7,7 +7,7 @@ from sandbox.jonas.sampler.MAML_sampler.maml_vec_env_executor import MAMLVecEnvE
 from rllab_maml.misc import tensor_utils
 import numpy as np
 from rllab_maml.sampler.stateful_pool import ProgBarCounter
-import rllab_maml.misc.logger as logger
+import rllab.misc.logger as logger
 import itertools
 
 

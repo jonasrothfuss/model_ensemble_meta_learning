@@ -1,6 +1,6 @@
 from rllab_maml.misc import ext
 from rllab_maml.misc.overrides import overrides
-import rllab_maml.misc.logger as logger
+import rllab.misc.logger as logger
 from sandbox.jonas.algos.MAML.batch_maml_polopt import BatchMAMLPolopt
 from sandbox_maml.rocky.tf.optimizers.penalty_lbfgs_optimizer import PenaltyLbfgsOptimizer
 from sandbox_maml.rocky.tf.optimizers.first_order_optimizer import FirstOrderOptimizer
