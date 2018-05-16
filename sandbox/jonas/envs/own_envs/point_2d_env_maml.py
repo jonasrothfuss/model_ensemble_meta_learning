@@ -68,7 +68,7 @@ class PointEnvMAML(object):
         elif obs_next.ndim == 2:
             return - np.sqrt(obs_next[:, 0] ** 2 + obs_next[:, 1] ** 2)
 
-    def log_diagnostics(self, paths):
+    def log_diagnostics(self, paths, **kwargs):
         pass
 
     def terminate(self):
