@@ -198,6 +198,7 @@ class ModelMAMLNPO(ModelBatchMAMLPolopt):
         return dict(
             itr=itr,
             policy=self.policy,
+            dynamics_model=self.dynamics_model,
             baseline=self.baseline,
             env=self.env,
         )
