@@ -30,14 +30,14 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
             dynamics_model,
             baseline,
             scope=None,
-            n_itr=500,
+            n_itr=20,
             start_itr=0,
             # Note that the number of trajectories for grad upate = batch_size
             # Defaults are 10 trajectories of length 500 for gradient update
-            batch_size_env_samples=200,
-            batch_size_dynamics_samples=400,
+            batch_size_env_samples=10,
+            batch_size_dynamics_samples=100,
             initial_random_samples=None,
-            max_path_length=500,
+            max_path_length=100,
             num_grad_updates=1,
             discount=0.99,
             gae_lambda=1,
@@ -250,7 +250,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                                             epochs=epochs)
 
 
-                    prev_mean_reward = -10 ** 8  # set prev reward
+                    prev_mean_reward = -10 ** 22  # set prev reward
 
                     for maml_itr in range(self.num_maml_steps_per_iter):
 
@@ -272,7 +272,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                             all_samples_data_maml_iter.append(samples_data)
 
                             # for logging purposes
-                            _, mean_reward = self.process_samples_for_policy(itr, flatten_list(new_model_paths.values()), log='reward', log_prefix="%i%s"%(maml_itr+1, chr(97 + step)), return_reward=True)
+                            _, mean_reward = self.process_samples_for_policy(itr, flatten_list(new_model_paths.values()), log='reward', log_prefix="DynTrajs%i%s-"%(maml_itr+1, chr(97 + step)), return_reward=True)
 
                             if step < self.num_grad_updates:
                                 logger.log("Computing policy updates...")
