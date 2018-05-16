@@ -1,6 +1,6 @@
 import pickle
 
-from rllab_maml.sampler.base import BaseSampler
+from sandbox.jonas.sampler.base import ModelBaseSampler
 from sandbox.jonas.sampler.MAML_model_sampler.maml_model_vec_env_executor import MAMLModelVecEnvExecutor
 from rllab.misc import tensor_utils
 import numpy as np
@@ -8,13 +8,13 @@ from rllab.sampler.stateful_pool import ProgBarCounter
 import rllab.misc.logger as logger
 import itertools
 
-class MAMLModelVectorizedSampler(BaseSampler):
+class MAMLModelVectorizedSampler(ModelBaseSampler):
 
     def __init__(self, algo, n_parallel=None):
         super(MAMLModelVectorizedSampler, self).__init__(algo)
         self.n_models = self.algo.dynamics_model.num_models
         if n_parallel is None:
-            self.n_parallel = self.algo.batch_size // self.algo.max_path_length
+            self.n_parallel = self.algo.batch_size_dynamics_samples // self.algo.max_path_length
         else:
             self.n_parallel = n_parallel
         assert self.n_parallel % self.n_models == 0
@@ -33,7 +33,7 @@ class MAMLModelVectorizedSampler(BaseSampler):
     def shutdown_worker(self):
         self.vec_env.terminate()
 
-    def obtain_samples(self, itr, return_dict=False, log_prefix=''):
+    def obtain_samples(self, itr, return_dict=False, log=True, log_prefix=''):
         # return_dict: whether or not to return a dictionary or list form of paths
 
         paths = {}
@@ -62,6 +62,8 @@ class MAMLModelVectorizedSampler(BaseSampler):
             # get actions from MAML policy
             obs_per_task = np.split(np.asarray(obses), self.n_models)
             actions, agent_infos = policy.get_actions_batch(obs_per_task)
+
+            assert actions.shape[0] == self.n_parallel
 
             policy_time += time.time() - t
             t = time.time()
@@ -108,13 +110,15 @@ class MAMLModelVectorizedSampler(BaseSampler):
 
         pbar.stop()
 
-        logger.record_tabular(log_prefix + "PolicyExecTime", policy_time)
-        logger.record_tabular(log_prefix + "EnvExecTime", env_time)
-        logger.record_tabular(log_prefix + "ProcessExecTime", process_time)
+        if log:
+            logger.record_tabular(log_prefix + "PolicyExecTime", policy_time)
+            logger.record_tabular(log_prefix + "EnvExecTime", env_time)
+            logger.record_tabular(log_prefix + "ProcessExecTime", process_time)
 
         if not return_dict:
             flatten_list = lambda l: [item for sublist in l for item in sublist]
             paths = flatten_list(paths.values())
             # path_keys = flatten_list([[key]*len(paths[key]) for key in paths.keys()])
-
+        else:
+            assert len(paths) == self.n_models
         return paths
