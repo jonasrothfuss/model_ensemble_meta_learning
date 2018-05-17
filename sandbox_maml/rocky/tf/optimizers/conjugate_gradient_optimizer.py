@@ -1,6 +1,6 @@
 from rllab_maml.misc import ext
 from rllab_maml.misc import krylov
-from rllab_maml.misc import logger
+from rllab.misc import logger
 from rllab_maml.core.serializable import Serializable
 # from rllab_maml.misc.ext import flatten_tensor_variables
 import itertools
@@ -32,7 +32,7 @@ class PerlmutterHvp(object):
         def Hx_plain():
             Hx_plain_splits = tf.gradients(
                 tf.reduce_sum(
-                    tf.pack([tf.reduce_sum(g * x) for g, x in zip(constraint_grads, xs)])
+                    tf.stack([tf.reduce_sum(g * x) for g, x in zip(constraint_grads, xs)])
                 ),
                 params
             )
