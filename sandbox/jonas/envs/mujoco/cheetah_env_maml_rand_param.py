@@ -1,7 +1,7 @@
 from rllab_maml.envs.mujoco.half_cheetah_env import HalfCheetahEnv
 from rllab_maml.core.serializable import Serializable
 from sandbox.jonas.envs.mujoco.base_env_rand_param import BaseEnvRandParams
-from rllab_maml.misc import logger
+from rllab.misc import logger
 from rllab_maml.misc.overrides import overrides
 from sandbox.jonas.envs.helpers import get_all_function_arguments
 from rllab_maml.envs.base import Step
@@ -67,8 +67,13 @@ class HalfCheetahMAMLEnvRandParams(BaseEnvRandParams, HalfCheetahEnv, Serializab
 
 if __name__ == "__main__":
     env = HalfCheetahMAMLEnvRandParams()
-    env.reset()
+    obs_prev = env.reset()
     print(env.model.body_mass)
     for _ in range(1000):
         env.render()
-        env.step(env.action_space.sample())  # take a random action
+        action = env.action_space.sample()
+        obs_new, reward, _, _ = env.step(action)  # take a random action
+        reward_fn = env.reward(obs_prev, action, obs_new)
+        obs_prev = obs_new
+
+        print(reward, reward_fn, reward-reward_fn)
