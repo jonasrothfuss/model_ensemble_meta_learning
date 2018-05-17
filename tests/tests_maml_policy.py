@@ -9,13 +9,9 @@ import pickle
 import joblib
 import os
 
-from sandbox.jonas.envs.mujoco import HalfCheetahMAMLEnvRandParams
-from sandbox.jonas.algos.MAML.maml_trpo import MAMLTRPO
+
 from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
-from rllab_maml.envs.normalized_env import normalize
 from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
-from sandbox_maml.rocky.tf.envs.base import TfEnv
-from experiments.helpers.ec2_helpers import cheapest_subnets
 from sandbox.jonas.envs.own_envs import PointEnvMAML
 from sandbox_maml.rocky.tf.envs.base import TfEnv
 from rllab_maml.envs.normalized_env import normalize
