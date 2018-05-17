@@ -176,21 +176,20 @@ class ModelMAMLNPO(ModelBatchMAMLPolopt):
             if log: logger.log("Computing KL before")
             mean_kl_before = self.optimizer.constraint_val(input_list)
 
-        if log:
-            logger.log("Computing loss before")
-            loss_before = self.optimizer.loss(input_list)
-            logger.log("Optimizing")
-            self.optimizer.optimize(input_list)
-            logger.log("Computing loss after")
-            loss_after = self.optimizer.loss(input_list)
-            if self.use_maml:
-                logger.log("Computing KL after")
-                mean_kl = self.optimizer.constraint_val(input_list)
-                logger.record_tabular('MeanKLBefore', mean_kl_before)  # this now won't be 0!
-                logger.record_tabular('MeanKL', mean_kl)
-            logger.record_tabular('LossBefore', loss_before)
-            logger.record_tabular('LossAfter', loss_after)
-            logger.record_tabular('dLoss', loss_before - loss_after)
+        if log: logger.log("Computing loss before")
+        loss_before = self.optimizer.loss(input_list)
+        if log: logger.log("Optimizing")
+        self.optimizer.optimize(input_list)
+        if log: logger.log("Computing loss after")
+        loss_after = self.optimizer.loss(input_list)
+        if self.use_maml:
+            if log: logger.log("Computing KL after")
+            mean_kl = self.optimizer.constraint_val(input_list)
+            if log: logger.record_tabular('MeanKLBefore', mean_kl_before)  # this now won't be 0!
+            if log: logger.record_tabular('MeanKL', mean_kl)
+            if log: logger.record_tabular('LossBefore', loss_before)
+            if log: logger.record_tabular('LossAfter', loss_after)
+            if log: logger.record_tabular('dLoss', loss_before - loss_after)
         return dict()
 
     @overrides

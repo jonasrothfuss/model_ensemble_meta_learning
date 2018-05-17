@@ -11,11 +11,12 @@ import time
 
 from rllab_maml.algos.base import RLAlgorithm
 from sandbox_maml.rocky.tf.policies.base import Policy
-from sandbox_maml.rocky.tf.samplers.batch_sampler import BatchSampler
+
 from sandbox_maml.rocky.tf.spaces import Discrete
 from rllab_maml.sampler.stateful_pool import singleton_pool
 
 from sandbox.jonas.sampler import RandomVectorizedSampler, MAMLModelVectorizedSampler, MAMLVectorizedSampler
+from sandbox.jonas.sampler.MAML_sampler.maml_batch_sampler import BatchSampler
 
 class ModelBatchMAMLPolopt(RLAlgorithm):
     """
@@ -130,11 +131,11 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         # env sampler - get samples from environment using the policy
         if sampler_cls is None:
             if singleton_pool.n_parallel > 1:
-                raise NotImplementedError #sampler_cls = BatchSampler
+                sampler_cls = BatchSampler
+                sampler_args = dict(n_envs=self.meta_batch_size)
             else:
                 sampler_cls = MAMLVectorizedSampler
-        if sampler_args is None:
-            sampler_args = dict(n_envs=self.meta_batch_size, n_tasks=self.num_models)
+                sampler_args = dict(n_tasks=self.meta_batch_size, n_envs=self.meta_batch_size * batch_size)
         self.env_sampler = sampler_cls(self, **sampler_args)
 
         # model sampler - makes (imaginary) rollouts with the estimated dynamics model ensemble
@@ -181,34 +182,27 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         return self.env_sampler.process_samples(itr, paths, log=log, log_prefix=log_prefix, return_reward=return_reward)
 
     def train(self):
+        # TODO - make this a util
         flatten_list = lambda l: [item for sublist in l for item in sublist]
 
         with tf.Session() as sess:
-
-            ''' Code for loading a previous policy. Somewhat hacky because needs to be in sess. '''
-            if self.load_policy is not None: #TODO also - load model ensemble
+            # Code for loading a previous policy. Somewhat hacky because needs to be in sess.
+            if self.load_policy is not None:
                 import joblib
                 self.policy = joblib.load(self.load_policy)['policy']
             self.init_opt()
-            # initialize uninitialized vars  (only initialize vars that were not loaded)
-            uninit_vars = []
-            for var in tf.global_variables():
-                # note - this is hacky, may be better way to do this in newer TF.
-                try:
-                    sess.run(var)
-                except tf.errors.FailedPreconditionError:
-                    uninit_vars.append(var)
-            sess.run(tf.variables_initializer(uninit_vars))
+            self.initialize_uninitialized_variables(sess)
 
             self.all_paths = []
 
             self.start_worker()
             start_time = time.time()
+
             for itr in range(self.start_itr, self.n_itr):
                 itr_start_time = time.time()
                 with logger.prefix('itr #%d | ' % itr):
 
-                    # sample environment configuration #TODO eventually remove sampling
+                    ''' sample environment configuration '''
                     env = self.env
                     while not ('sample_env_params' in dir(env) or 'sample_goals' in dir(env)):
                         env = env._wrapped_env
@@ -217,20 +211,19 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                     elif 'sample_env_params':
                         learner_env_params = env.sample_env_params(self.meta_batch_size)
 
-
-                    self.policy.switch_to_init_dist()  # Switch to pre-update policy
-
                     ''' get rollouts from the environment'''
 
                     if self.initial_random_samples and itr == 0:
                         logger.log("Obtaining random samples from the environment...")
                         new_env_paths = self.obtain_random_samples(itr, log=True)
                         self.all_paths.extend(new_env_paths)
-                        samples_data_dynamics = self.random_sampler.process_samples(itr, self.all_paths, log=True,
-                                                                                    log_prefix='EnvTrajs-')  # must log in the same way as the model sampler below
+                        samples_data_dynamics = self.random_sampler.process_samples(itr, self.all_paths,
+                                                                                               log=True,
+                                                                                               log_prefix='EnvTrajs-')  # must log in the same way as the model sampler below
                     else:
                         logger.log("Obtaining samples from the environment using the policy...")
-                        new_env_paths = self.obtain_env_samples(itr, reset_args=learner_env_params, log_prefix='EnvTrajs-')
+                        new_env_paths = self.obtain_env_samples(itr, reset_args=learner_env_params,
+                                                                log_prefix='EnvTrajs-')
                         # flatten dict of paths per task/mode --> list of paths
                         new_env_paths = [path for task_paths in new_env_paths.values() for path in task_paths]
                         self.all_paths.extend(new_env_paths)
@@ -247,20 +240,23 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                     self.dynamics_model.fit(samples_data_dynamics['observations_dynamics'],
                                             samples_data_dynamics['actions_dynamics'],
                                             samples_data_dynamics['next_observations_dynamics'],
-                                            epochs=epochs)
-
+                                            epochs=epochs, verbose=True) #TODO set verbose False
 
                     prev_mean_reward = -10 ** 22  # set prev reward
 
                     for maml_itr in range(self.num_maml_steps_per_iter):
 
+                        self.policy.switch_to_init_dist()  # Switch to pre-update policy
+
                         all_samples_data_maml_iter, all_paths_maml_iter = [], []
-                        for step in range(self.num_grad_updates + 1): # MAML inner loop --> two iterations
+                        for step in range(self.num_grad_updates + 1):
 
                             logger.log("MAML Step %i%s of %i - Obtaining samples from the dynamics model..." % (
-                            maml_itr+1, chr(97 + step), self.num_maml_steps_per_iter))
+                                maml_itr + 1, chr(97 + step), self.num_maml_steps_per_iter))
 
+                            # TODO get paths from model instead of
                             new_model_paths = self.obtain_model_samples(itr)
+                            #new_model_paths = self.obtain_env_samples(itr, reset_args=learner_env_params, log_prefix=str(step))
                             assert type(new_model_paths) == dict and len(new_model_paths) == self.num_models
                             all_paths_maml_iter.append(new_model_paths)
 
@@ -272,26 +268,18 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                             all_samples_data_maml_iter.append(samples_data)
 
                             # for logging purposes
-                            _, mean_reward = self.process_samples_for_policy(itr, flatten_list(new_model_paths.values()), log='reward', log_prefix="DynTrajs%i%s-"%(maml_itr+1, chr(97 + step)), return_reward=True)
+                            _, mean_reward = self.process_samples_for_policy(itr,
+                                                                             flatten_list(new_model_paths.values()),
+                                                                             log='reward',
+                                                                             log_prefix="DynTrajs%i%s-" % (
+                                                                             maml_itr + 1, chr(97 + step)),
+                                                                             return_reward=True)
 
                             if step < self.num_grad_updates:
                                 logger.log("Computing policy updates...")
                                 self.policy.compute_updated_dists(samples_data)
 
-
-                        # stop gradient steps when mean_reward decreases
-                        if self.retrain_model_when_reward_decreases and mean_reward < prev_mean_reward:
-                            logger.log(
-                                "Stopping MAML gradient steps since mean reward decreased from %.2f to %.2f" % (
-                                prev_mean_reward, mean_reward))
-                            # complete some logging stuff
-                            for i in range(maml_itr + 1, self.num_maml_steps_per_iter):
-                                logger.record_tabular('%ia-DynTrajs-AverageReturn' % i, None)
-                                logger.record_tabular('%ib-DynTrajs-AverageReturn' % i, None)
-                            break
-
-                        logger.log("MAML Step %i of %i - Optimizing policy..." % (maml_itr+1, self.num_maml_steps_per_iter))
-
+                        logger.log("MAML Step %i of %i - Optimizing policy..." % (maml_itr + 1, self.num_maml_steps_per_iter))
                         # This needs to take all samples_data so that it can construct graph for meta-optimization.
                         self.optimize_policy(itr, all_samples_data_maml_iter, log=False)
 
@@ -307,7 +295,8 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
 
                     logger.dump_tabular(with_prefix=False)
 
-        self.shutdown_worker()
+
+            self.shutdown_worker()
 
     def log_diagnostics(self, paths, prefix):
         self.env.log_diagnostics(paths, prefix)
@@ -328,9 +317,19 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         """
         raise NotImplementedError
 
-    def optimize_policy(self, itr, samples_data):
+    def optimize_policy(self, itr, samples_data, log=True):
         raise NotImplementedError
 
     def update_plot(self):
         if self.plot:
             plotter.update_plot(self.policy, self.max_path_length)
+
+    def initialize_uninitialized_variables(self, sess):
+        uninit_vars = []
+        for var in tf.global_variables():
+            # note - this is hacky, may be better way to do this in newer TF.
+            try:
+                sess.run(var)
+            except tf.errors.FailedPreconditionError:
+                uninit_vars.append(var)
+        sess.run(tf.variables_initializer(uninit_vars))
