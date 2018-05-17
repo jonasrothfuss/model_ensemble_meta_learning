@@ -2,7 +2,7 @@ import numpy as np
 
 from rllab.core.serializable import Serializable
 from rllab.envs.base import Step
-from rllab.envs.mujoco.mujoco_env import MujocoEnv
+from rllab_maml.envs.mujoco.mujoco_env import MujocoEnv
 from rllab.misc import logger
 from rllab.misc.overrides import overrides
 
@@ -68,6 +68,9 @@ class HalfCheetahEnv(MujocoEnv, Serializable):
         logger.record_tabular('MaxForwardProgress', np.max(progs))
         logger.record_tabular('MinForwardProgress', np.min(progs))
         logger.record_tabular('StdForwardProgress', np.std(progs))
+
+    def sample_env_params(self, num_param_sets, log_scale_limit=None):
+      return [{} for _ in range(num_param_sets)]
 
 
 
