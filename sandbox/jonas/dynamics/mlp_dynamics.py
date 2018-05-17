@@ -24,8 +24,8 @@ class MLPDynamicsModel(LayersPowered, Serializable):
                  hidden_sizes=(500, 500),
                  hidden_nonlinearity=tf.nn.relu,
                  output_nonlinearity=None,
-                 batch_size=200,
-                 step_size=0.01,
+                 batch_size=500,
+                 step_size=0.001,
                  weight_normalization=True,
                  normalize_input=True
                  ):

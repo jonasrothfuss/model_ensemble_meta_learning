@@ -24,8 +24,8 @@ class MetaDynamicsEnsemble(LayersPowered, Serializable):
                  hidden_sizes=(512, 512),
                  hidden_nonlinearity=tf.nn.relu,
                  output_nonlinearity=None,
-                 batch_size=200,
-                 step_size=0.01,
+                 batch_size=500,
+                 step_size=0.001,
                  weight_normalization=False,
                  normalize_input=True,
                  ):
@@ -79,7 +79,7 @@ class MetaDynamicsEnsemble(LayersPowered, Serializable):
             self.delta_pred = tf.stack(delta_preds, axis=2) # shape: (batch_size, ndim_obs, n_models)
 
             # define loss and train_op
-            self.loss = tf.nn.l2_loss(self.delta_ph[:, :, None] - self.delta_pred)
+            self.loss = tf.reduce_mean((self.delta_ph[:, :, None] - self.delta_pred)**2)
             self.optimizer = tf.train.AdamOptimizer(self.step_size)
             self.train_op = self.optimizer.minimize(self.loss)
 
