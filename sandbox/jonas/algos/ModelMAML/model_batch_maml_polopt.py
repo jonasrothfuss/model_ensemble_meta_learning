@@ -135,7 +135,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                 sampler_args = dict(n_envs=self.meta_batch_size)
             else:
                 sampler_cls = MAMLVectorizedSampler
-                sampler_args = dict(n_tasks=self.meta_batch_size, n_envs=self.meta_batch_size * batch_size)
+                sampler_args = dict(n_tasks=self.meta_batch_size, n_envs=self.meta_batch_size * batch_size_env_samples)
         self.env_sampler = sampler_cls(self, **sampler_args)
 
         # model sampler - makes (imaginary) rollouts with the estimated dynamics model ensemble
@@ -233,6 +233,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
 
                         samples_data_dynamics = self.process_samples_for_dynamics(itr, self.all_paths)
 
+
                     ''' fit dynamics model '''
 
                     epochs = self.dynamic_model_epochs[min(itr, len(self.dynamic_model_epochs) - 1)]
@@ -244,6 +245,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
 
                     prev_mean_reward = -10 ** 22  # set prev reward
 
+                    ''' MAML steps '''
                     for maml_itr in range(self.num_maml_steps_per_iter):
 
                         self.policy.switch_to_init_dist()  # Switch to pre-update policy
@@ -254,9 +256,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                             logger.log("MAML Step %i%s of %i - Obtaining samples from the dynamics model..." % (
                                 maml_itr + 1, chr(97 + step), self.num_maml_steps_per_iter))
 
-                            # TODO get paths from model instead of
                             new_model_paths = self.obtain_model_samples(itr)
-                            #new_model_paths = self.obtain_env_samples(itr, reset_args=learner_env_params, log_prefix=str(step))
                             assert type(new_model_paths) == dict and len(new_model_paths) == self.num_models
                             all_paths_maml_iter.append(new_model_paths)
 
@@ -278,6 +278,16 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                             if step < self.num_grad_updates:
                                 logger.log("Computing policy updates...")
                                 self.policy.compute_updated_dists(samples_data)
+
+                        # stop gradient steps when mean_reward decreases
+                        if self.retrain_model_when_reward_decreases and mean_reward < prev_mean_reward:
+                            logger.log(
+                                "Stopping policy gradients steps since mean reward decreased from %.2f to %.2f" % (
+                                prev_mean_reward, mean_reward))
+                            # complete some logging stuff
+                            for i in range(maml_itr + 1, self.num_gradient_steps_per_iter):
+                                logger.record_tabular('%i-DynTrajs-AverageReturn' % i, None)
+                            break
 
                         logger.log("MAML Step %i of %i - Optimizing policy..." % (maml_itr + 1, self.num_maml_steps_per_iter))
                         # This needs to take all samples_data so that it can construct graph for meta-optimization.
