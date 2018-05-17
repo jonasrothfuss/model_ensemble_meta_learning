@@ -4,7 +4,7 @@ from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from sandbox.rocky.tf.algos.trpo import TRPO
 from rllab.misc.instrument import run_experiment_lite
-from sandbox.jonas.envs.mujoco import HalfCheetahEnvRandParams, AntEnvRandParams, HopperEnvRandParams
+from sandbox.jonas.envs.mujoco import HalfCheetahEnvRandParams, AntEnvRandParams, HopperEnvRandParams, Reacher5DofEnvRandParams
 from rllab.envs.mujoco.half_cheetah_env import HalfCheetahEnv
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
@@ -17,11 +17,13 @@ import random
 
 EXP_PREFIX = 'trpo-rand-param-env-baselines'
 
-ec2_instance = 'c4.4xlarge'
+ec2_instance = 'c4.xlarge'
 subnets = cheapest_subnets(ec2_instance, num_subnets=3)
 
 
 def run_train_task(vv):
+
+
     env = TfEnv(normalize(vv['env'](log_scale_limit=vv["log_scale_limit"])))
 
     policy = GaussianMLPPolicy(
@@ -42,6 +44,7 @@ def run_train_task(vv):
         n_itr=vv['n_iter'],
         discount=vv['discount'],
         step_size=vv["step_size"],
+        force_batch_sampler=True
     )
     algo.train()
 
@@ -60,28 +63,26 @@ def run_experiment(argv):
     vg = VariantGenerator()
     vg.add('env', ['HalfCheetahEnvRandParams']) # HalfCheetahEnvRandParams
     vg.add('n_itr', [500])
-    vg.add('log_scale_limit', [0.1, 0.5, 1.0, 1.5])
-    vg.add('step_size', [0.01,0.05, 0.1])
-    vg.add('seed', [1, 11, 21, 31, 41])
+    vg.add('log_scale_limit', [0.01, 0.1, 0.3, 0.5])
+    vg.add('step_size', [0.01])
+    vg.add('seed', [1, 11]) #TODO set back to [1, 11, 21, 31, 41]
     vg.add('discount', [0.99])
-    vg.add('n_iter', [500])
+    vg.add('n_iter', [700])
     vg.add('path_length', [100])
-    vg.add('batch_size', [80000])
+    vg.add('batch_size', [20000, 80000])
     vg.add('hidden_nonlinearity', ['tanh'])
-    vg.add('hidden_sizes', [(32, 32), (100, 100)])
+    vg.add('hidden_sizes', [(100, 100)])
 
     variants = vg.variants()
-    from pprint import pprint
-    pprint(variants)
 
     # ----------------------- AWS conficuration ---------------------------------
     if args.mode == 'ec2':
         info = config.INSTANCE_TYPE_INFO[ec2_instance]
         n_parallel = int(info["vCPU"] / 2)  # make the default 4 if not using ec2
     else:
-        n_parallel = 6
+        n_parallel = 12
 
-    if args.mode == 'ecs':
+    if args.mode == 'ec2':
 
 
         config.AWS_INSTANCE_TYPE = ec2_instance
@@ -94,7 +95,7 @@ def run_experiment(argv):
     # ----------------------- TRAINING ---------------------------------------
     exp_ids = random.sample(range(1, 1000), len(variants))
     for v, exp_id in zip(variants, exp_ids):
-        exp_name = "trpo_train_env_%s_%.3f_%.3f_%i_id_%i" % (v['env'], v['log_scale_limit'], v['step_size'], v['seed'], exp_id)
+        exp_name = "trpo_train_env_%s_%.3f_%i_%i_id_%i" % (v['env'], v['log_scale_limit'], v['batch_size'], v['seed'], exp_id)
         v = instantiate_class_stings(v)
 
         subnet = random.choice(subnets)
