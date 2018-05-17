@@ -1,7 +1,40 @@
 import unittest
 from sandbox.jonas.envs.mujoco.reacher_env_random_param import Reacher5DofEnvRandParams
+from sandbox.jonas.envs.mujoco import HalfCheetahMAMLEnvRandParams, HalfCheetahEnvRandParams, \
+    HopperEnvMAMLRandParams, HopperEnvRandParams
+
 import numpy as np
 import pickle
+
+
+
+class TestRabdParamEnv(unittest.TestCase):
+
+    def test_serialization(self):
+        envs = [
+            HalfCheetahEnvRandParams(log_scale_limit=0.2, fix_params=True, random_seed=22),
+            HalfCheetahMAMLEnvRandParams(log_scale_limit=0.2, fix_params=True, random_seed=22),
+            HopperEnvMAMLRandParams(log_scale_limit=0.2, fix_params=True, random_seed=22),
+            HopperEnvRandParams(log_scale_limit=0.2, fix_params=True, random_seed=24)
+
+        ]
+
+        for env in envs:
+            env.reset()
+            geom_size_before = env.model.geom_size
+            for _ in range(10):
+                env.step(env.action_space.sample())  # take a random action
+
+            # pickle and unpickle
+            env = pickle.loads(pickle.dumps(env))
+
+            env.reset()
+            geom_size_after = env.model.geom_size
+
+            diff = np.sum(np.abs(geom_size_before - geom_size_after))
+
+            self.assertAlmostEquals(diff, 0, places=3)
+            self.assertAlmostEquals(env.log_scale_limit, 0.2)
 
 class TestReacherEnvRandomParam(unittest.TestCase):
 
