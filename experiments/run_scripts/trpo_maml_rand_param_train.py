@@ -1,4 +1,5 @@
 from sandbox.jonas.envs.mujoco import AntEnvMAMLRandParams, HalfCheetahMAMLEnvRandParams, HopperEnvMAMLRandParams
+from sandbox.jonas.envs.mujoco import HalfCheetahEnvRandParams
 from sandbox.jonas.envs.mujoco import Reacher5DofMAMLEnvRandParams
 
 from rllab_maml.envs.mujoco.half_cheetah_env import HalfCheetahEnv
@@ -7,11 +8,11 @@ from rllab import config
 from sandbox.jonas.algos.MAML.maml_trpo import MAMLTRPO
 from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab_maml.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
-from rllab_maml.envs.normalized_env import normalize
+from sandbox.jonas.envs.normalized_env import normalize
+from sandbox.jonas.envs.base import TfEnv
 from rllab_maml.misc.instrument import stub, run_experiment_lite
 from sandbox_maml.rocky.tf.policies.maml_minimal_gauss_mlp_policy import MAMLGaussianMLPPolicy
 from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
-from sandbox_maml.rocky.tf.envs.base import TfEnv
 from experiments.helpers.ec2_helpers import cheapest_subnets
 
 import tensorflow as tf
@@ -67,7 +68,7 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['HalfCheetahMAMLEnvRandParams']) #Reacher5DofMAMLEnvRandParams HalfCheetahMAMLEnvRandParams
+    vg.add('env', ['HalfCheetahEnvRandParams']) #Reacher5DofMAMLEnvRandParams HalfCheetahMAMLEnvRandParams
     vg.add('log_scale_limit', [0.1, 0.3, 0.5])
     vg.add('fast_lr', [0.1])
     vg.add('meta_batch_size', [40])
@@ -98,9 +99,10 @@ def run_experiment(argv):
                                                                                        config.AWS_SPOT_PRICE,), str(subnets))
 
     if args.mode == 'ec2':
-        n_parallel = 1 # for MAML use smaller number of parallel worker since parallelization is also done over the meta batch size
+        info = config.INSTANCE_TYPE_INFO[ec2_instance]
+        n_parallel = int(info["vCPU"] / 2)  # make the default 4 if not using ec2
     else:
-        n_parallel = 1
+        n_parallel = 12
 
     # ----------------------- TRAINING ---------------------------------------
     exp_ids = random.sample(range(1, 1000), len(variants))

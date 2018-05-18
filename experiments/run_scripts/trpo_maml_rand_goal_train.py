@@ -7,11 +7,11 @@ from rllab import config
 from sandbox.jonas.algos.MAML.maml_trpo import MAMLTRPO
 from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab_maml.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
-from rllab_maml.envs.normalized_env import normalize
+from sandbox.jonas.envs.normalized_env import normalize
+from sandbox.jonas.envs.base import TfEnv
 from rllab_maml.misc.instrument import stub, run_experiment_lite
 from sandbox_maml.rocky.tf.policies.maml_minimal_gauss_mlp_policy import MAMLGaussianMLPPolicy
 from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
-from sandbox_maml.rocky.tf.envs.base import TfEnv
 from experiments.helpers.ec2_helpers import cheapest_subnets
 
 import tensorflow as tf
