@@ -575,6 +575,11 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
     def flat_to_params(self, flattened_params, all_params=False, **tags):
         return unflatten_tensors(flattened_params, self.get_param_shapes(all_params, **tags))
 
+    def get_mean_step_size(self):
+        """ returns the mean gradient stepsize """
+        sess = tf.get_default_session()
+        return np.concatenate([sess.run(step_size_values).flatten() for step_size_values in self.param_step_sizes.values()]).mean()
+
     def __getstate__(self):
         d = Serializable.__getstate__(self)
         global load_params

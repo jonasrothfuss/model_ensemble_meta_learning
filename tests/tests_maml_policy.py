@@ -75,3 +75,24 @@ class TestMAMLImprovedGaussPolicy(unittest.TestCase):
         diff = np.sum(np.abs(action_before - action_after))
         self.assertAlmostEquals(diff, 0.0, places=3)
 
+
+    def test_get_mean(self):
+
+        env = TfEnv(normalize(PointEnvMAML()))
+        obs = env.reset()
+
+        policy = MAMLImprovedGaussianMLPPolicy(
+            name="policy",
+            env_spec=env.spec,
+            hidden_sizes=(16, 16),
+            hidden_nonlinearity=tf.nn.tanh,
+            trainable_step_size=True,
+            grad_step_size=0.7
+        )
+
+
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+            mean_stepsize_1 = policy.get_mean_step_size()
+
+        self.assertAlmostEquals(mean_stepsize_1, 0.7, places=5)
