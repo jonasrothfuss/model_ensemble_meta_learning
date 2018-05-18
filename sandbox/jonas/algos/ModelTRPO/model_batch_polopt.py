@@ -3,7 +3,7 @@ from rllab.algos.base import RLAlgorithm
 import rllab.misc.logger as logger
 from sandbox.rocky.tf.policies.base import Policy
 import tensorflow as tf
-from sandbox.rocky.tf.samplers.batch_sampler import BatchSampler
+from sandbox.jonas.sampler.env_batch_sampler import EnvBatchSampler
 from rllab.sampler.utils import rollout
 
 from sandbox.jonas.sampler import ModelVectorizedSampler, RandomVectorizedSampler, EnvVectorizedSampler
@@ -103,8 +103,7 @@ class ModelBatchPolopt(RLAlgorithm):
             if self.policy.vectorized and not force_batch_sampler:
                 sampler_cls = EnvVectorizedSampler
             else:
-                raise NotImplementedError()
-                #sampler_cls = BatchSampler
+                sampler_cls = BatchSampler
         if sampler_args is None:
             sampler_args = dict()
         self.env_sampler = sampler_cls(self, **sampler_args)
@@ -159,22 +158,31 @@ class ModelBatchPolopt(RLAlgorithm):
 
         self.start_worker()
         start_time = time.time()
+        n_env_timesteps = 0
+
         for itr in range(self.start_itr, self.n_itr):
             itr_start_time = time.time()
 
             with logger.prefix('itr #%d | ' % itr):
-
 
                 # get rollouts from the env
 
                 if self.initial_random_samples and itr == 0:
                     logger.log("Obtaining random samples from the environment...")
                     new_env_paths = self.obtain_random_samples(itr, log=True)
+
+                    n_env_timesteps += self.initial_random_samples
+                    logger.record_tabular("n_timesteps", n_env_timesteps)
+
                     self.all_paths.extend(new_env_paths)
                     samples_data_dynamics = self.random_sampler.process_samples(itr, self.all_paths, log=True, log_prefix='EnvTrajs-') # must log in the same way as the model sampler below
                 else:
                     logger.log("Obtaining samples from the environment using the policy...")
                     new_env_paths = self.obtain_env_samples(itr)
+
+                    n_env_timesteps += self.batch_size
+                    logger.record_tabular("n_timesteps", n_env_timesteps)
+
                     self.all_paths.extend(new_env_paths)
                     logger.log("Processing environment samples...")
                     # first processing just for logging purposes
