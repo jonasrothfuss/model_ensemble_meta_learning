@@ -200,6 +200,8 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                 itr_start_time = time.time()
                 with logger.prefix('itr #%d | ' % itr):
 
+                    logger.record_tabular("mean_inner_stepsize", self.policy.get_mean_step_size())
+
                     ''' sample environment configuration '''
                     env = self.env
                     while not ('sample_env_params' in dir(env) or 'sample_goals' in dir(env)):

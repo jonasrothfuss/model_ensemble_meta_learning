@@ -4,6 +4,7 @@ from sandbox.rocky.tf.core.layers_powered import LayersPowered
 import sandbox.rocky.tf.core.layers as L
 from sandbox.rocky.tf.core.network import MLP
 from sandbox.rocky.tf.spaces.box import Box
+from sandbox_maml.rocky.tf.spaces.box import Box as BoxMAML
 
 from rllab.core.serializable import Serializable
 from sandbox.rocky.tf.policies.base import StochasticPolicy
@@ -53,7 +54,7 @@ class GaussianMLPPolicy(StochasticPolicy, LayersPowered, Serializable):
         :return:
         """
         Serializable.quick_init(self, locals())
-        assert isinstance(env_spec.action_space, Box)
+        assert isinstance(env_spec.action_space, Box) or isinstance(env_spec.action_space, BoxMAML)
 
         with tf.variable_scope(name):
 
