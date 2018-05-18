@@ -17,7 +17,6 @@ class MLPDynamicsModel(LayersPowered, Serializable):
     Class for MLP continous dynamics model
     """
 
-
     def __init__(self,
                  name,
                  env_spec,
@@ -27,7 +26,8 @@ class MLPDynamicsModel(LayersPowered, Serializable):
                  batch_size=500,
                  step_size=0.001,
                  weight_normalization=True,
-                 normalize_input=True
+                 normalize_input=True,
+                 optimizer=tf.train.AdamOptimizer
                  ):
 
         Serializable.quick_init(self, locals())
@@ -58,14 +58,14 @@ class MLPDynamicsModel(LayersPowered, Serializable):
                       hidden_nonlinearity,
                       output_nonlinearity,
                       input_var=self.nn_input,
-                      input_shape = (self.obs_space_dims+self.action_space_dims,),
+                      input_shape=(self.obs_space_dims+self.action_space_dims,),
                       weight_normalization=weight_normalization)
 
             self.delta_pred = mlp.output
 
             # define loss and train_op
             self.loss = tf.reduce_mean((self.delta_ph - self.delta_pred)**2)
-            self.optimizer = tf.train.AdamOptimizer(self.step_size)
+            self.optimizer = optimizer(self.step_size)
             self.train_op = self.optimizer.minimize(self.loss)
 
             # tensor_utils
@@ -79,7 +79,7 @@ class MLPDynamicsModel(LayersPowered, Serializable):
         Fits the NN dynamics model
         :param obs: observations - numpy array of shape (n_samples, ndim_obs)
         :param act: actions - numpy array of shape (n_samples, ndim_act)
-        :param obs_next: observations after takeing action - numpy array of shape (n_samples, ndim_obs)
+        :param obs_next: observations after taking action - numpy array of shape (n_samples, ndim_obs)
         :param epochs: number of training epochs
         :param compute_normalization: boolean indicating whether normalization shall be (re-)computed given the data
         :param verbose: logging verbosity
