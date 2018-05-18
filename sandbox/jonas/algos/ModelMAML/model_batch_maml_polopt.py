@@ -2,7 +2,6 @@ import matplotlib
 matplotlib.use('Pdf')
 
 import matplotlib.pyplot as plt
-import numpy as np
 import os.path as osp
 import rllab.misc.logger as logger
 import rllab_maml.plotter as plotter
@@ -10,13 +9,11 @@ import tensorflow as tf
 import time
 
 from rllab_maml.algos.base import RLAlgorithm
-from sandbox_maml.rocky.tf.policies.base import Policy
-
-from sandbox_maml.rocky.tf.spaces import Discrete
 from rllab_maml.sampler.stateful_pool import singleton_pool
 
 from sandbox.jonas.sampler import RandomVectorizedSampler, MAMLModelVectorizedSampler, MAMLVectorizedSampler
 from sandbox.jonas.sampler.MAML_sampler.maml_batch_sampler import BatchSampler
+
 
 class ModelBatchMAMLPolopt(RLAlgorithm):
     """
@@ -197,6 +194,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
 
             self.start_worker()
             start_time = time.time()
+            n_env_timesteps = 0
 
             for itr in range(self.start_itr, self.n_itr):
                 itr_start_time = time.time()
@@ -216,14 +214,22 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                     if self.initial_random_samples and itr == 0:
                         logger.log("Obtaining random samples from the environment...")
                         new_env_paths = self.obtain_random_samples(itr, log=True)
+
+                        n_env_timesteps += self.initial_random_samples
+                        logger.record_tabular("n_timesteps", n_env_timesteps)
+
                         self.all_paths.extend(new_env_paths)
                         samples_data_dynamics = self.random_sampler.process_samples(itr, self.all_paths,
                                                                                                log=True,
                                                                                                log_prefix='EnvTrajs-')  # must log in the same way as the model sampler below
+
                     else:
                         logger.log("Obtaining samples from the environment using the policy...")
                         new_env_paths = self.obtain_env_samples(itr, reset_args=learner_env_params,
-                                                                log_prefix='EnvTrajs-')
+                                                                log_prefix='EnvSampler-')
+                        n_env_timesteps += self.batch_size
+                        logger.record_tabular("n_timesteps", n_env_timesteps)
+
                         # flatten dict of paths per task/mode --> list of paths
                         new_env_paths = [path for task_paths in new_env_paths.values() for path in task_paths]
                         self.all_paths.extend(new_env_paths)
