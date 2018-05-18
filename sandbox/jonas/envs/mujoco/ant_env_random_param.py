@@ -5,6 +5,7 @@ from sandbox.jonas.envs.helpers import get_all_function_arguments
 
 from rllab.misc.overrides import overrides
 from rllab.envs.base import Step
+from rllab.misc import logger
 
 import numpy as np
 
@@ -52,6 +53,16 @@ class AntEnvRandParams(BaseEnvRandParams, AntEnv, Serializable):
 
         return Step(ob, float(reward), done)
 
+    @overrides
+    def log_diagnostics(self, paths, prefix=''):
+        progs = [
+            path["observations"][-1][-3] - path["observations"][0][-3]
+            for path in paths
+        ]
+        logger.record_tabular(prefix+'AverageForwardProgress', np.mean(progs))
+        logger.record_tabular(prefix+'MaxForwardProgress', np.max(progs))
+        logger.record_tabular(prefix+'MinForwardProgress', np.min(progs))
+        logger.record_tabular(prefix+'StdForwardProgress', np.std(progs))
 
 if __name__ == "__main__":
     env = AntEnvRandParams()

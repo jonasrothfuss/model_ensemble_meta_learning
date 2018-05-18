@@ -5,6 +5,7 @@ from sandbox.jonas.envs.helpers import get_all_function_arguments
 from rllab.envs.base import Step
 from rllab.misc.overrides import overrides
 from rllab_maml.envs.base import Step
+from rllab.misc import logger
 
 import numpy as np
 
@@ -53,6 +54,16 @@ class HalfCheetahEnvRandParams(BaseEnvRandParams, HalfCheetahEnv, Serializable):
             ctrl_cost = self.ctrl_cost_coeff * 0.5 * np.sum(np.square(action))
             return forward_vel - ctrl_cost
 
+    @overrides
+    def log_diagnostics(self, paths, prefix=''):
+        progs = [
+            path["observations"][-1][-3] - path["observations"][0][-3]
+            for path in paths
+        ]
+        logger.record_tabular(prefix+'AverageForwardProgress', np.mean(progs))
+        logger.record_tabular(prefix+'MaxForwardProgress', np.max(progs))
+        logger.record_tabular(prefix+'MinForwardProgress', np.min(progs))
+        logger.record_tabular(prefix+'StdForwardProgress', np.std(progs))
 
 if __name__ == "__main__":
     env = HalfCheetahEnvRandParams()
