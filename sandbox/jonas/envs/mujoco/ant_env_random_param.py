@@ -53,6 +53,30 @@ class AntEnvRandParams(BaseEnvRandParams, AntEnv, Serializable):
 
         return Step(ob, float(reward), done)
 
+    def reward(self, obs, action, obs_next):
+        lb, ub = self.action_bounds
+        scaling = (ub - lb) * 0.5
+        if obs.ndim == 2 and action.ndim == 2:
+            assert obs.shape == obs_next.shape and action.shape[0] == obs.shape[0]
+            forward_vel = (obs_next[:, -3] - obs[:, -3])/ 0.02
+            ctrl_cost = 0.5 * 1e-2 * np.sum(np.square(action / scaling), axis=1)
+            contact_cost = 0.5 * 1e-3 * np.sum(np.square(obs_next[:, 29:29+84]), axis=1)
+            survive_reward = 0.05
+            return forward_vel - ctrl_cost - contact_cost + survive_reward
+        else:
+            return self.reward(np.array([obs]), np.array([action]), np.array([obs_next]))[0]
+
+    def done(self, obs):
+        if obs.ndim == 2:
+            notdone = np.all(np.isfinite(obs), axis=1) * (obs[:, 2] >= 0.2) * (obs[:, 2] <= 1.0)
+            return np.logical_not(notdone)
+        else:
+            notdone = np.isfinite(obs).all()  and obs[2] >= 0.2 and obs[2] <= 1.0
+            return not notdone
+
+
+
+
     @overrides
     def log_diagnostics(self, paths, prefix=''):
         progs = [
