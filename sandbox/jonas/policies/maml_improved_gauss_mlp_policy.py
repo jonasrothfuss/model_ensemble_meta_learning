@@ -3,13 +3,14 @@ from collections import OrderedDict
 
 from rllab_maml.misc import ext
 import sandbox_maml.rocky.tf.core.layers as L
-from sandbox_maml.rocky.tf.spaces.box import Box
+from sandbox_maml.rocky.tf.spaces.box import Box as BoxMAML
+from sandbox.rocky.tf.spaces.box import Box
 
 from rllab_maml.core.serializable import Serializable
 from sandbox_maml.rocky.tf.policies.base import StochasticPolicy
 from sandbox_maml.rocky.tf.distributions.diagonal_gaussian import DiagonalGaussian # This is just a util class. No params.
 from rllab_maml.misc.overrides import overrides
-from rllab_maml.misc import logger
+from rllab.misc import logger
 from rllab_maml.misc.tensor_utils import flatten_tensors, unflatten_tensors
 from sandbox_maml.rocky.tf.misc import tensor_utils
 from sandbox.jonas.core.utils import make_dense_layer_with_bias_transform, forward_dense_bias_transform
@@ -72,7 +73,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         :return:
         """
         Serializable.quick_init(self, locals())
-        assert isinstance(env_spec.action_space, Box)
+        assert isinstance(env_spec.action_space, Box) or isinstance(env_spec.action_space, BoxMAML)
 
         obs_dim = env_spec.observation_space.flat_dim
         self.action_dim = env_spec.action_space.flat_dim
@@ -81,84 +82,86 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         self.output_nonlinearity = output_nonlinearity
         self.input_shape = (None, obs_dim,)
         self.stop_grad = stop_grad
+        self.name = name
 
-        # create network
-        if mean_network is None:
-            self.all_params = self.create_MLP(  # TODO: this should not be a method of the policy! --> helper
-                name="mean_network",
-                output_dim=self.action_dim,
-                hidden_sizes=hidden_sizes,
-                bias_transform=bias_transform
-            )
-            self.input_tensor, _ = self.forward_MLP('mean_network', self.all_params,
-                                                    reuse=None, # Need to run this for batch norm
-                                                    bias_transform=bias_transform
-            )
-            forward_mean = lambda x, params, is_train: self.forward_MLP('mean_network', params,
-                    input_tensor=x, is_training=is_train, bias_transform=bias_transform)[1]
-        else:
-            raise NotImplementedError('Not supported.')
+        with tf.variable_scope(self.name):
+            # create network
+            if mean_network is None:
+                self.all_params = self.create_MLP(  # TODO: this should not be a method of the policy! --> helper
+                    name="mean_network",
+                    output_dim=self.action_dim,
+                    hidden_sizes=hidden_sizes,
+                    bias_transform=bias_transform,
+                )
+                self.input_tensor, _ = self.forward_MLP('mean_network', self.all_params,
+                                                        reuse=None, # Need to run this for batch norm
+                                                        bias_transform=bias_transform,
+                )
+                forward_mean = lambda x, params, is_train: self.forward_MLP('mean_network', params,
+                        input_tensor=x, is_training=is_train, bias_transform=bias_transform)[1]
+            else:
+                raise NotImplementedError('Not supported.')
 
-        if std_network is not None:
-            raise NotImplementedError('Not supported.')
-        else:
-            if adaptive_std:
+            if std_network is not None:
                 raise NotImplementedError('Not supported.')
             else:
+                if adaptive_std:
+                    raise NotImplementedError('Not supported.')
+                else:
+                    if std_parametrization == 'exp':
+                        init_std_param = np.log(init_std)
+                    elif std_parametrization == 'softplus':
+                        init_std_param = np.log(np.exp(init_std) - 1)
+                    else:
+                        raise NotImplementedError
+                    self.all_params['std_param'] = make_param_layer(
+                        num_units=self.action_dim,
+                        param=tf.constant_initializer(init_std_param),
+                        name="output_std_param",
+                        trainable=learn_std,
+                    )
+                    forward_std = lambda x, params: forward_param_layer(x, params['std_param'])
+                self.all_param_vals = None
+
+                # unify forward mean and forward std into a single function
+                self._forward = lambda obs, params, is_train: (
+                        forward_mean(obs, params, is_train), forward_std(obs, params))
+
+                self.std_parametrization = std_parametrization
+
                 if std_parametrization == 'exp':
-                    init_std_param = np.log(init_std)
+                    min_std_param = np.log(min_std)
                 elif std_parametrization == 'softplus':
-                    init_std_param = np.log(np.exp(init_std) - 1)
+                    min_std_param = np.log(np.exp(min_std) - 1)
                 else:
                     raise NotImplementedError
-                self.all_params['std_param'] = make_param_layer(
-                    num_units=self.action_dim,
-                    param=tf.constant_initializer(init_std_param),
-                    name="output_std_param",
-                    trainable=learn_std,
+
+                self.min_std_param = min_std_param
+
+                self._dist = DiagonalGaussian(self.action_dim)
+
+                self._cached_params = {}
+
+                super(MAMLImprovedGaussianMLPPolicy, self).__init__(env_spec)
+
+                dist_info_sym = self.dist_info_sym(self.input_tensor, dict(), is_training=False)
+                mean_var = dist_info_sym["mean"]
+                log_std_var = dist_info_sym["log_std"]
+
+                # pre-update policy
+                self._init_f_dist = tensor_utils.compile_function(
+                    inputs=[self.input_tensor],
+                    outputs=[mean_var, log_std_var],
                 )
-                forward_std = lambda x, params: forward_param_layer(x, params['std_param'])
-            self.all_param_vals = None
+                self._cur_f_dist = self._init_f_dist
 
-            # unify forward mean and forward std into a single function
-            self._forward = lambda obs, params, is_train: (
-                    forward_mean(obs, params, is_train), forward_std(obs, params))
-
-            self.std_parametrization = std_parametrization
-
-            if std_parametrization == 'exp':
-                min_std_param = np.log(min_std)
-            elif std_parametrization == 'softplus':
-                min_std_param = np.log(np.exp(min_std) - 1)
-            else:
-                raise NotImplementedError
-
-            self.min_std_param = min_std_param
-
-            self._dist = DiagonalGaussian(self.action_dim)
-
-            self._cached_params = {}
-
-            super(MAMLImprovedGaussianMLPPolicy, self).__init__(env_spec)
-
-            dist_info_sym = self.dist_info_sym(self.input_tensor, dict(), is_training=False)
-            mean_var = dist_info_sym["mean"]
-            log_std_var = dist_info_sym["log_std"]
-
-            # pre-update policy
-            self._init_f_dist = tensor_utils.compile_function(
-                inputs=[self.input_tensor],
-                outputs=[mean_var, log_std_var],
-            )
-            self._cur_f_dist = self._init_f_dist
-
-            #stepsize for each parameter
-            self.param_step_sizes = {}
-            with tf.variable_scope("mean_network", reuse=True):
-                for key, param in self.all_params.items():
-                    shape = param.get_shape().as_list()
-                    init_stepsize = np.ones(shape, dtype=np.float32) * grad_step_size
-                    self.param_step_sizes[key + "_step_size"] = tf.Variable(initial_value=init_stepsize, name='step_size_%s'%key, dtype=tf.float32, trainable=trainable_step_size)
+                #stepsize for each parameter
+                self.param_step_sizes = {}
+                with tf.variable_scope("mean_network", reuse=True):
+                    for key, param in self.all_params.items():
+                        shape = param.get_shape().as_list()
+                        init_stepsize = np.ones(shape, dtype=np.float32) * grad_step_size
+                        self.param_step_sizes[key + "_step_size"] = tf.Variable(initial_value=init_stepsize, name='step_size_%s'%key, dtype=tf.float32, trainable=trainable_step_size)
 
     @property
     def vectorized(self):
@@ -169,7 +172,6 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         """
         self.input_list_for_grad = input_list
         self.surr_objs = surr_objs_tensor
-
 
     def compute_updated_dists(self, samples):
         """ Compute fast gradients once per iteration and pull them out of tensorflow for sampling with the post-update policy.
@@ -270,7 +272,6 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         sess = tf.get_default_session()
         sess.run(self.assign_ops, feed_dict)
 
-
     def switch_to_init_dist(self):
         # switch cur policy distribution to pre-update policy
         self._cur_f_dist = self._init_f_dist
@@ -324,7 +325,6 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
 
         return self.dist_info_sym(new_obs_var, all_params=params_dict, is_training=is_training)
 
-
     @overrides
     def get_action(self, observation, idx=None):
         # this function takes a numpy array observations and outputs randomly sampled actions.
@@ -353,15 +353,49 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         actions = rnd * np.exp(log_stds) + means
         return actions, dict(mean=means, log_std=log_stds)
 
+    def get_actions_batch(self, observations):
+        """
+
+        :param observations: list of numpy arrays containing a batch of observations corresponding to a task -
+                             shape of each numpy array must be (batch_size, ndim_obs)
+        :return: actions - shape (batch_size * tasks, ndim_obs)
+        """
+        batch_size = None
+
+        # assert that obs of all tasks have the same batch size
+        for obs_batch in observations:
+            if batch_size is None:
+                batch_size = obs_batch.shape[0]
+            else:
+                assert obs_batch.shape[0] == batch_size
+
+                obs_batch.flatten()
+
+        obs_stack = np.concatenate(observations, axis=0)
+
+        result = self._cur_f_dist(obs_stack)
+
+        if len(result) == 2:
+            # NOTE - this code assumes that there aren't 2 meta tasks in a batch
+            means, log_stds = result
+        else:
+            means = np.concatenate([res[0] for res in result], axis=0)
+            log_stds = np.concatenate([res[1] for res in result], axis=0)
+
+        rnd = np.random.normal(size=means.shape)
+        actions = rnd * np.exp(log_stds) + means
+        return actions, dict(mean=means, log_std=log_stds)
+
+
     @property
     def distribution(self):
         return self._dist
 
     def get_params_internal(self, all_params=False, **tags):
         if tags.get('trainable', False):
-            params = tf.trainable_variables()
+            params = tf.trainable_variables(scope=self.name)
         else:
-            params = tf.global_variables()
+            params = tf.global_variables(scope=self.name)
 
         #params = [p for p in params if p.name.startswith('mean_network') or p.name.startswith('output_std_param')]
         params = [p for p in params if 'Adam' not in p.name]
@@ -540,6 +574,11 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
 
     def flat_to_params(self, flattened_params, all_params=False, **tags):
         return unflatten_tensors(flattened_params, self.get_param_shapes(all_params, **tags))
+
+    def get_mean_step_size(self):
+        """ returns the mean gradient stepsize """
+        sess = tf.get_default_session()
+        return np.concatenate([sess.run(step_size_values).flatten() for step_size_values in self.param_step_sizes.values()]).mean()
 
     def __getstate__(self):
         d = Serializable.__getstate__(self)

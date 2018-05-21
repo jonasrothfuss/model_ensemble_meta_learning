@@ -1,48 +1,51 @@
 import pickle
 
-import tensorflow as tf
-from rllab.sampler.base import BaseSampler
-from sandbox.rocky.tf.envs.parallel_vec_env_executor import ParallelVecEnvExecutor
-from sandbox.rocky.tf.envs.vec_env_executor import VecEnvExecutor
+from sandbox.jonas.sampler.base import ModelBaseSampler
+from sandbox.jonas.sampler.MAML_model_sampler.maml_model_vec_env_executor import MAMLModelVecEnvExecutor
 from rllab.misc import tensor_utils
 import numpy as np
 from rllab.sampler.stateful_pool import ProgBarCounter
 import rllab.misc.logger as logger
 import itertools
 
+class MAMLModelVectorizedSampler(ModelBaseSampler):
 
-class VectorizedSampler(BaseSampler):
-
-    def __init__(self, algo, n_envs=None):
-        super(VectorizedSampler, self).__init__(algo)
-        self.n_envs = n_envs
+    def __init__(self, algo, n_parallel=None):
+        super(MAMLModelVectorizedSampler, self).__init__(algo)
+        self.n_models = self.algo.dynamics_model.num_models
+        if n_parallel is None:
+            self.n_parallel = self.algo.batch_size_dynamics_samples // self.algo.max_path_length
+        else:
+            self.n_parallel = n_parallel
+        assert self.n_parallel % self.n_models == 0
 
     def start_worker(self):
-        n_envs = self.n_envs
-        if n_envs is None:
-            n_envs = int(self.algo.batch_size / self.algo.max_path_length)
-            n_envs = max(1, min(n_envs, 100))
+        env = pickle.loads(pickle.dumps(self.algo.env))
 
-        if getattr(self.algo.env, 'vectorized', False):
-            self.vec_env = self.algo.env.vec_env_executor(n_envs=n_envs, max_path_length=self.algo.max_path_length)
-        else:
-            envs = [pickle.loads(pickle.dumps(self.algo.env)) for _ in range(n_envs)]
-            self.vec_env = VecEnvExecutor(
-                envs=envs,
-                max_path_length=self.algo.max_path_length
-            )
+        self.vec_env = MAMLModelVecEnvExecutor(
+            env=env,
+            model=self.algo.dynamics_model,
+            max_path_length=self.algo.max_path_length,
+            n_parallel=self.n_parallel
+        )
         self.env_spec = self.algo.env.spec
 
     def shutdown_worker(self):
         self.vec_env.terminate()
 
-    def obtain_samples(self, itr, log=True, log_prefix=''):
-        logger.log("Obtaining samples for iteration %d..." % itr)
-        paths = []
+    def obtain_samples(self, itr, return_dict=False, log=True, log_prefix=''):
+        # return_dict: whether or not to return a dictionary or list form of paths
+
+        paths = {}
+        for i in range(self.n_models):
+            paths[i] = []
+
         n_samples = 0
+        n_parallel_per_task = self.vec_env.num_envs // self.n_models
+
         obses = self.vec_env.reset()
-        dones = np.asarray([True] * self.vec_env.num_envs)
-        running_paths = [None] * self.vec_env.num_envs
+        dones = np.asarray([True] * self.n_parallel)
+        running_paths = [None] * self.n_parallel
 
         pbar = ProgBarCounter(self.algo.batch_size)
         policy_time = 0
@@ -51,10 +54,16 @@ class VectorizedSampler(BaseSampler):
 
         policy = self.algo.policy
         import time
+
         while n_samples < self.algo.batch_size:
             t = time.time()
             policy.reset(dones)
-            actions, agent_infos = policy.get_actions(obses)
+
+            # get actions from MAML policy
+            obs_per_task = np.split(np.asarray(obses), self.n_models)
+            actions, agent_infos = policy.get_actions_batch(obs_per_task)
+
+            assert actions.shape[0] == self.n_parallel
 
             policy_time += time.time() - t
             t = time.time()
@@ -86,7 +95,7 @@ class VectorizedSampler(BaseSampler):
                 running_paths[idx]["env_infos"].append(env_info)
                 running_paths[idx]["agent_infos"].append(agent_info)
                 if done:
-                    paths.append(dict(
+                    paths[idx // n_parallel_per_task].append(dict(
                         observations=self.env_spec.observation_space.flatten_n(running_paths[idx]["observations"]),
                         actions=self.env_spec.action_space.flatten_n(running_paths[idx]["actions"]),
                         rewards=tensor_utils.stack_tensor_list(running_paths[idx]["rewards"]),
@@ -106,4 +115,10 @@ class VectorizedSampler(BaseSampler):
             logger.record_tabular(log_prefix + "EnvExecTime", env_time)
             logger.record_tabular(log_prefix + "ProcessExecTime", process_time)
 
+        if not return_dict:
+            flatten_list = lambda l: [item for sublist in l for item in sublist]
+            paths = flatten_list(paths.values())
+            # path_keys = flatten_list([[key]*len(paths[key]) for key in paths.keys()])
+        else:
+            assert len(paths) == self.n_models
         return paths

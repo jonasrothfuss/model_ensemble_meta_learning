@@ -1,24 +1,14 @@
 import unittest
 from rllab.envs.own_envs.point_2d_env import PointEnv
-from sandbox.jonas.controllers import RandomController
-from sandbox.jonas.model_based_rl.helpers import sample, path_reward
-from sandbox.jonas.dynamics import MLPDynamicsModel, MLPDynamicsEnsemble
-import tensorflow as tf
+from sandbox.jonas.dynamics import MLPDynamicsModel
 import numpy as np
-import pickle
-
-from sandbox.rocky.tf.samplers.batch_sampler import BatchSampler
-from sandbox.rocky.tf.samplers.vectorized_sampler import VectorizedSampler
 
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
-from sandbox.rocky.tf.algos.trpo import TRPO
 
-from sandbox.jonas.sampler.model_vec_env_executor import ModelVecEnvExecutor
-from sandbox.jonas.sampler.model_vectorized_sampler import ModelVectorizedSampler
-from sandbox.jonas.algos.model_trpo import ModelTRPO
+from sandbox.jonas.algos.ModelTRPO.model_trpo import ModelTRPO
 
 import tensorflow as tf
 
@@ -54,7 +44,7 @@ class TestMModelBasedTRPO(unittest.TestCase):
             batch_size_dynamics_samples=40000,
             max_path_length=100,
             dynamic_model_epochs=(30, 10),
-            model_retraining_gap=10,
+            num_gradient_steps_per_iter=2,
             n_itr=20,
             discount=0.99,
             step_size=0.001,

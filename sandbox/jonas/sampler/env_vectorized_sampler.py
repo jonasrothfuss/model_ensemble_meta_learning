@@ -34,7 +34,7 @@ class EnvVectorizedSampler(BaseSampler):
     def shutdown_worker(self):
         self.vec_env.terminate()
 
-    def obtain_samples(self, itr, log_prefix=''):
+    def obtain_samples(self, itr, log=True, log_prefix=''):
         logger.log("Obtaining samples for iteration %d..." % itr)
         paths = []
         n_samples = 0
@@ -99,8 +99,9 @@ class EnvVectorizedSampler(BaseSampler):
 
         pbar.stop()
 
-        logger.record_tabular(log_prefix + "PolicyExecTime", policy_time)
-        logger.record_tabular(log_prefix + "EnvExecTime", env_time)
-        logger.record_tabular(log_prefix + "ProcessExecTime", process_time)
+        if log:
+            logger.record_tabular(log_prefix + "PolicyExecTime", policy_time)
+            logger.record_tabular(log_prefix + "EnvExecTime", env_time)
+            logger.record_tabular(log_prefix + "ProcessExecTime", process_time)
 
         return paths

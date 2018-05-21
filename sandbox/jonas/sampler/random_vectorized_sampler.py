@@ -38,7 +38,7 @@ class RandomVectorizedSampler(RandomBaseSampler, VectorizedSampler):
         self.vec_env.terminate()
 
     @overrides
-    def obtain_samples(self, itr, num_samples=None):
+    def obtain_samples(self, itr, num_samples=None, log=True, log_prefix='RandomSampler-'):
         if num_samples is None:
             num_samples = self.algo.batch_size
 
@@ -56,7 +56,9 @@ class RandomVectorizedSampler(RandomBaseSampler, VectorizedSampler):
         import time
         while n_samples_collected < num_samples:
             # random actions
+            t = time.time()
             actions = np.stack([self.vec_env.action_space.sample() for _ in range(len(obses))], axis=0)
+            policy_time = time.time() - t
             agent_infos = {}
 
             t = time.time()
@@ -103,7 +105,9 @@ class RandomVectorizedSampler(RandomBaseSampler, VectorizedSampler):
 
         pbar.stop()
 
-        logger.record_tabular("RandomSampler-EnvExecTime", env_time)
-        logger.record_tabular("RandomSampler-EnvProcessExecTime", process_time)
+        if log:
+            logger.record_tabular(log_prefix + "PolicyExecTime", policy_time)
+            logger.record_tabular(log_prefix + "EnvExecTime", env_time)
+            logger.record_tabular(log_prefix + "EnvProcessExecTime", process_time)
 
         return paths

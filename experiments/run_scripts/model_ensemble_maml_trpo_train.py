@@ -1,21 +1,27 @@
-from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
-from rllab_maml.envs.normalized_env import normalize
-from sandbox_maml.rocky.tf.envs.base import TfEnv
-from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
-from rllab.misc.instrument import run_experiment_lite
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
+from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
+from rllab_maml.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
+from rllab_maml.envs.normalized_env import normalize
+from rllab.misc.instrument import stub, run_experiment_lite
+from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
+from sandbox.jonas.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
+from sandbox.jonas.algos.ModelMAML.model_maml_trpo import ModelMAMLTRPO
+from sandbox_maml.rocky.tf.envs.base import TfEnv
 from experiments.helpers.ec2_helpers import cheapest_subnets
-from sandbox.jonas.dynamics import MLPDynamicsEnsemble
-from sandbox.jonas.algos.ModelTRPO.model_trpo import ModelTRPO
+
+from sandbox.jonas.envs.own_envs import PointEnvMAML
+from sandbox.jonas.envs.mujoco import AntEnvMAMLRandParams, HalfCheetahMAMLEnvRandParams, HopperEnvMAMLRandParams
+from sandbox.jonas.envs.mujoco import Reacher5DofMAMLEnvRandParams
 from sandbox.jonas.envs.mujoco.cheetah_env import HalfCheetahEnv
+
 
 import tensorflow as tf
 import sys
 import argparse
 import random
 
-EXP_PREFIX = 'model-ensemble-trpo'
+EXP_PREFIX = 'model-ensemble-maml'
 
 ec2_instance = 'c4.2xlarge'
 subnets = cheapest_subnets(ec2_instance, num_subnets=3)
@@ -30,33 +36,39 @@ def run_train_task(vv):
         env_spec=env.spec,
         hidden_sizes=vv['hidden_sizes_model'],
         weight_normalization=vv['weight_normalization_model'],
-        num_models=vv['num_models']
+        num_models=vv['num_models'],
+        optimizer=vv['optimizer_model']
     )
 
-    policy = GaussianMLPPolicy(
+    policy = MAMLImprovedGaussianMLPPolicy(
         name="policy",
         env_spec=env.spec,
         hidden_sizes=vv['hidden_sizes_policy'],
         hidden_nonlinearity=vv['hidden_nonlinearity_policy'],
-
+        grad_step_size=vv['fast_lr'],
+        trainable_step_size=vv['trainable_step_size'],
+        bias_transform=vv['bias_transform']
     )
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
 
-    algo = ModelTRPO(
+    algo = ModelMAMLTRPO(
         env=env,
         policy=policy,
         dynamics_model=dynamics_model,
         baseline=baseline,
+        n_itr=vv['n_itr'],
+        n_iter=vv['n_itr'],
         batch_size_env_samples=vv['batch_size_env_samples'],
         batch_size_dynamics_samples=vv['batch_size_dynamics_samples'],
         initial_random_samples=vv['initial_random_samples'],
         dynamic_model_epochs=vv['dynamic_model_epochs'],
-        num_gradient_steps_per_iter=vv['num_gradient_steps_per_iter'],
+        num_maml_steps_per_iter=vv['num_maml_steps_per_iter'],
         max_path_length=vv['path_length'],
-        n_itr=vv['n_itr'],
         discount=vv['discount'],
-        step_size=vv["step_size"],
+        step_size=vv["meta_step_size"],
+        num_grad_updates=1,
+        retrain_model_when_reward_decreases=vv['retrain_model_when_reward_decreases']
     )
     algo.train()
 
@@ -73,33 +85,39 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['HalfCheetahEnv']) # HalfCheetahEnvRandParams
+    vg.add('env', ['HalfCheetahEnv'])
     vg.add('n_itr', [15])
     #vg.add('log_scale_limit', [0.5])
-    vg.add('step_size', [0.01])
+    vg.add('fast_lr', [0.01])
+    vg.add('meta_step_size', [0.01])
     vg.add('seed', [22, 44, 55]) #TODO set back to [1, 11, 21, 31, 41]
     vg.add('discount', [0.99])
     vg.add('path_length', [100])
-    vg.add('batch_size_env_samples', [5000])
-    vg.add('batch_size_dynamics_samples', [50000])
-    vg.add('initial_random_samples', [5000, 10000])
-    vg.add('dynamic_model_epochs', [(100, 50)])
-    vg.add('num_gradient_steps_per_iter', [50, 100])
+    vg.add('batch_size_env_samples', [10])
+    vg.add('batch_size_dynamics_samples', [100])
+    vg.add('initial_random_samples', [5000])
+    vg.add('dynamic_model_epochs', [(100, 50), (60, 30)])
+    vg.add('num_maml_steps_per_iter', [1]) #50, 100
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(100, 100)])
     vg.add('hidden_sizes_model', [(512, 512)])
     vg.add('weight_normalization_model', [False])
+    vg.add('optimizer_model', ['adam'])
     vg.add('retrain_model_when_reward_decreases', [True])
     vg.add('num_models', [5])
+    vg.add('trainable_step_size', [False, True])
+    vg.add('bias_transform', [False])
+    vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
+
     variants = vg.variants()
 
     # ----------------------- AWS conficuration ---------------------------------
     if args.mode == 'ec2':
         info = config.INSTANCE_TYPE_INFO[ec2_instance]
-        n_parallel = int(info["vCPU"] / 2)  # make the default 4 if not using ec2
+        n_parallel = int(info["vCPU"])
     else:
-        n_parallel = 6
+        n_parallel = 12
 
     if args.mode == 'ec2':
 
@@ -114,7 +132,7 @@ def run_experiment(argv):
     # ----------------------- TRAINING ---------------------------------------
     exp_ids = random.sample(range(1, 1000), len(variants))
     for v, exp_id in zip(variants, exp_ids):
-        exp_name = "model_trpo_train_env_%s_%i_%i_%i_id_%i" % (v['env'], v['num_gradient_steps_per_iter'],
+        exp_name = "model_ensemble_maml_train_env_%s_%i_%i_%i_id_%i" % (v['env'], v['num_maml_steps_per_iter'],
                                                                v['batch_size_env_samples'], v['seed'], exp_id)
         v = instantiate_class_stings(v)
 
@@ -136,14 +154,14 @@ def run_experiment(argv):
             # Number of parallel workers for sampling
             n_parallel=n_parallel,
             # Only keep the snapshot parameters for the last iteration
-            snapshot_mode="last",
+            snapshot_mode="all",
             periodic_sync=True,
             sync_s3_pkl=True,
             sync_s3_log=True,
             # Specifies the seed for the experiment. If this is not provided, a random seed
             # will be used
             seed=v["seed"],
-            python_command="python3", #sys.executable,
+            python_command="python3",
             pre_commands=["yes | pip install tensorflow=='1.6.0'",
                           "pip list",
                           "yes | pip install --upgrade cloudpickle"],
@@ -153,8 +171,18 @@ def run_experiment(argv):
         )
 
 
-def instantiate_class_stings(v): #TODO change to
+def instantiate_class_stings(v):
     v['env'] = globals()[v['env']]
+
+    # optimizer
+    if v['optimizer_model'] == 'sgd':
+        v['optimizer_model'] = tf.train.GradientDescentOptimizer
+    elif v['optimizer_model'] == 'adam':
+        v['optimizer_model'] = tf.train.AdamOptimizer
+    elif v['optimizer_model'] == 'momentum':
+        v['optimizer_model'] = tf.train.MomentumOptimizer
+
+    # nonlinearlity
     for nonlinearity_key in ['hidden_nonlinearity_policy', 'hidden_nonlinearity_model']:
         if v[nonlinearity_key] == 'relu':
             v[nonlinearity_key] = tf.nn.relu

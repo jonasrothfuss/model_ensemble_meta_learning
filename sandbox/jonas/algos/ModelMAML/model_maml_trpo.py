@@ -1,10 +1,10 @@
 
 
-from sandbox.jonas.algos.model_npo import ModelNPO
-from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer
+from sandbox.jonas.algos.ModelMAML.model_maml_npo import ModelMAMLNPO
+from sandbox_maml.rocky.tf.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer
 
 
-class ModelTRPO(ModelNPO):
+class ModelMAMLTRPO(ModelMAMLNPO):
     """
     Trust Region Policy Optimization
     """
@@ -18,4 +18,4 @@ class ModelTRPO(ModelNPO):
             if optimizer_args is None:
                 optimizer_args = dict()
             optimizer = ConjugateGradientOptimizer(**optimizer_args)
-        super(ModelTRPO, self).__init__(optimizer=optimizer, **kwargs)
+        super(ModelMAMLTRPO, self).__init__(optimizer=optimizer, **kwargs)

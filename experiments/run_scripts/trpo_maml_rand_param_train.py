@@ -1,16 +1,18 @@
 from sandbox.jonas.envs.mujoco import AntEnvMAMLRandParams, HalfCheetahMAMLEnvRandParams, HopperEnvMAMLRandParams
+from sandbox.jonas.envs.mujoco import HalfCheetahEnvRandParams
+from sandbox.jonas.envs.mujoco import Reacher5DofMAMLEnvRandParams
 
 from rllab_maml.envs.mujoco.half_cheetah_env import HalfCheetahEnv
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
-from sandbox_maml.rocky.tf.algos.maml_trpo import MAMLTRPO
+from sandbox.jonas.algos.MAML.maml_trpo import MAMLTRPO
 from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab_maml.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
-from rllab_maml.envs.normalized_env import normalize
+from sandbox.jonas.envs.normalized_env import normalize
+from sandbox.jonas.envs.base import TfEnv
 from rllab_maml.misc.instrument import stub, run_experiment_lite
 from sandbox_maml.rocky.tf.policies.maml_minimal_gauss_mlp_policy import MAMLGaussianMLPPolicy
 from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
-from sandbox_maml.rocky.tf.envs.base import TfEnv
 from experiments.helpers.ec2_helpers import cheapest_subnets
 
 import tensorflow as tf
@@ -19,7 +21,7 @@ import argparse
 import random
 
 
-EXP_PREFIX = 'trpo-maml-rand-param-env-improved-policy'
+EXP_PREFIX = 'trpo-maml-rand-param-env'
 
 ec2_instance = 'm4.2xlarge'
 
@@ -66,22 +68,21 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['HalfCheetahMAMLEnvRandParams'])
-    vg.add('n_itr', [500])
-    vg.add('log_scale_limit', [0.1, 0.5, 1.0, 1.5]) #TODO reset to [0.1, 0.5, 1.0, 1.5]
+    vg.add('env', ['HalfCheetahEnvRandParams']) #Reacher5DofMAMLEnvRandParams HalfCheetahMAMLEnvRandParams
+    vg.add('log_scale_limit', [0.1, 0.3, 0.5])
     vg.add('fast_lr', [0.1])
     vg.add('meta_batch_size', [40])
     vg.add('num_grad_updates', [1])
     vg.add('meta_step_size', [0.01])
     vg.add('fast_batch_size', [20])
-    vg.add('seed', [1, 11, 21, 31, 41])
+    vg.add('seed', [1, 11]) #TODO add [21, 31, 41]
     vg.add('discount', [0.99])
     vg.add('n_iter', [500])
     vg.add('path_length', [100])
     vg.add('hidden_nonlinearity', ['tanh'])
     vg.add('hidden_sizes', [(100, 100)])
     vg.add('trainable_step_size', [True, False])
-    vg.add('bias_transform', [True, False])
+    vg.add('bias_transform', [False])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
 
     variants = vg.variants()
@@ -98,9 +99,10 @@ def run_experiment(argv):
                                                                                        config.AWS_SPOT_PRICE,), str(subnets))
 
     if args.mode == 'ec2':
-        n_parallel = 1 # for MAML use smaller number of parallel worker since parallelization is also done over the meta batch size
+        info = config.INSTANCE_TYPE_INFO[ec2_instance]
+        n_parallel = int(info["vCPU"] / 2)  # make the default 4 if not using ec2
     else:
-        n_parallel = 1
+        n_parallel = 12
 
     # ----------------------- TRAINING ---------------------------------------
     exp_ids = random.sample(range(1, 1000), len(variants))

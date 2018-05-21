@@ -7,15 +7,15 @@ import tensorflow as tf
 import numpy as np
 import pickle
 import joblib
+import os
 
-from sandbox.jonas.envs.mujoco import HalfCheetahMAMLEnvRandParams
-from sandbox_maml.rocky.tf.algos.maml_trpo import MAMLTRPO
+
 from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
-from rllab_maml.envs.normalized_env import normalize
 from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
+from sandbox.jonas.envs.own_envs import PointEnvMAML
 from sandbox_maml.rocky.tf.envs.base import TfEnv
-from experiments.helpers.ec2_helpers import cheapest_subnets
-
+from rllab_maml.envs.normalized_env import normalize
+from sandbox.jonas.algos.MAML.maml_trpo import MAMLTRPO
 
 class TestMAMLImprovedGaussPolicy(unittest.TestCase):
 
@@ -26,9 +26,40 @@ class TestMAMLImprovedGaussPolicy(unittest.TestCase):
         return random_paths
 
     def test_serialization(self):
-        env = HalfCheetahMAMLEnvRandParams(log_scale_limit=0.1)
+
+        env = TfEnv(normalize(PointEnvMAML()))
         obs = env.reset()
-        pkl_file = '/home/jonasrothfuss/Dropbox/Eigene_Dateien/UC_Berkley/2_Code/model_ensemble_meta_learning/data/s3/trpo-maml-rand-param-env/trpo_maml_train_env_HalfCheetahMAMLEnvRandParams_0.050_0.010_1_id_234/params.pkl'
+
+        policy = MAMLImprovedGaussianMLPPolicy(
+            name="policy",
+            env_spec=env.spec,
+            hidden_sizes=(16, 16),
+            hidden_nonlinearity=tf.nn.tanh
+        )
+
+        baseline = LinearFeatureBaseline(env_spec=env.spec)
+
+        import rllab.misc.logger as logger
+
+        logger.set_snapshot_dir('/tmp/')
+        logger.set_snapshot_mode('last')
+
+        algo = MAMLTRPO(
+            env=env,
+            policy=policy,
+            baseline=baseline,
+            batch_size=2,
+            max_path_length=10,
+            meta_batch_size=4,
+            num_grad_updates=1,
+            n_itr=1,
+            discount=0.99,
+            step_size=0.01,
+        )
+        algo.train()
+
+        tf.reset_default_graph()
+        pkl_file = os.path.join('/tmp/','params.pkl')
         with tf.Session() as sess:
             data = joblib.load(pkl_file)
             policy = data['policy']
@@ -42,5 +73,26 @@ class TestMAMLImprovedGaussPolicy(unittest.TestCase):
             action_after = policy_loaded.get_action(obs)[1]['mean']
 
         diff = np.sum(np.abs(action_before - action_after))
-        print(diff)
+        self.assertAlmostEquals(diff, 0.0, places=3)
 
+
+    def test_get_mean(self):
+
+        env = TfEnv(normalize(PointEnvMAML()))
+        obs = env.reset()
+
+        policy = MAMLImprovedGaussianMLPPolicy(
+            name="policy",
+            env_spec=env.spec,
+            hidden_sizes=(16, 16),
+            hidden_nonlinearity=tf.nn.tanh,
+            trainable_step_size=True,
+            grad_step_size=0.7
+        )
+
+
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+            mean_stepsize_1 = policy.get_mean_step_size()
+
+        self.assertAlmostEquals(mean_stepsize_1, 0.7, places=5)
