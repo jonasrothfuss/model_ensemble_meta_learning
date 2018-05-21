@@ -314,6 +314,17 @@ class HeUniformInitializer(object):
         init_range = math.sqrt(1.0 / n_inputs)
         return tf.random_uniform_initializer(-init_range, init_range, dtype=dtype)(shape)
 
+class GlorotUniformInitializer(object):
+    def __call__(self, shape, dtype=tf.float32, *args, **kwargs):
+        if len(shape) == 2:
+            n_inputs, n_outputs = shape
+            receptive_field_size = 1
+        else:
+            n_inputs,  n_outputs = shape[0], shape[3]
+            receptive_field_size = np.prod(shape[1] * shape[2])
+        init_range = math.sqrt(2.0 / ((n_inputs + n_outputs) * receptive_field_size))
+        return tf.random_uniform_initializer(-init_range, init_range, dtype=dtype)(shape)
+
 
 def py_ortho_init(scale):
     def _init(shape):
