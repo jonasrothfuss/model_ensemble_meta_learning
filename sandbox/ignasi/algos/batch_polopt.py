@@ -153,8 +153,8 @@ class BatchPolopt(RLAlgorithm):
                     params["paths"] = samples_data["paths"]
                 logger.save_itr_params(itr, params)
                 logger.log("Saved")
-                # logger.record_tabular('Time', time.time() - start_time)
-                # logger.record_tabular('ItrTime', time.time() - itr_start_time)
+                logger.record_tabular('Time', time.time() - start_time)
+                logger.record_tabular('ItrTime', time.time() - itr_start_time)
                 logger.dump_tabular(with_prefix=False)
         self.shutdown_worker()
         if created_session:
@@ -186,14 +186,14 @@ class BatchPolopt(RLAlgorithm):
         if itr % self.opt_model_itr == 0:
             logger.log("Obtaining real samples for training the model...")
             if self._first:
-                real_paths = self.obtain_real_samples(itr, batch_size=30000)
-                self._first = False
-            # else:
-            #     real_paths = self.obtain_real_samples(itr, batch_size=3000)
-            #     logger.log("Logging diagnostics...")
-            #     self.log_diagnostics(real_paths)
-            #     logger.log("Processing samples...")
-                _ = self.process_real_samples(itr, real_paths)
+                if self._first:
+                    batch_size = 30000
+                    self._first = False
+                else:
+                    batch_size = 30000
+                real_paths = self.obtain_real_samples(itr, batch_size=batch_size)
+                # self._first = False
+                _ = self.process_real_samples(itr, real_paths, log=False)
             data = self.data_buffer.get_data()
             logger.log("Fitting the model...")
             self.dynamics_model.fit(data['observations'], data['actions'], data['next_observations'], verbose=False)
