@@ -265,7 +265,6 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
             outputs=outputs,
         )
         total_time = time.time() - start
-        logger.record_tabular("ComputeUpdatedDistTime", total_time)
 
     def get_variable_values(self, tensor_dict):
         sess = tf.get_default_session()
