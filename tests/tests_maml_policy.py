@@ -12,7 +12,6 @@ import os
 
 from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
 from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
-from sandbox.jonas.policies.maml_improved_gauss_mlp_policy_param_noise import MAMLImprovedGaussianMLPPolicyParamNoise
 from sandbox.jonas.envs.own_envs import PointEnvMAML
 from sandbox_maml.rocky.tf.envs.base import TfEnv
 from rllab_maml.envs.normalized_env import normalize
@@ -98,68 +97,11 @@ class TestMAMLImprovedGaussPolicy(unittest.TestCase):
 
         self.assertAlmostEquals(mean_stepsize_1, 0.7, places=5)
 
-
-class TestMAMLPolicyParameterNoise(unittest.TestCase):
-    def sample_random_trajectories_point_env(self, env, num_paths=100, horizon=100):
-        env.reset()
-        random_controller = RandomController(env)
-        random_paths = sample(env, random_controller, num_paths=100, horizon=100)
-        return random_paths
-
-    def test_serialization(self):
-        env = TfEnv(normalize(PointEnvMAML()))
-        obs = env.reset()
-
-        policy = MAMLImprovedGaussianMLPPolicyParamNoise(
-            name="policy24",
-            env_spec=env.spec,
-            hidden_sizes=(16, 16),
-            hidden_nonlinearity=tf.nn.tanh,
-        )
-
-        baseline = LinearFeatureBaseline(env_spec=env.spec)
-
-        import rllab.misc.logger as logger
-
-        logger.set_snapshot_dir('/tmp/')
-        logger.set_snapshot_mode('last')
-
-        algo = MAMLTRPO(
-            env=env,
-            policy=policy,
-            baseline=baseline,
-            batch_size=2,
-            max_path_length=10,
-            meta_batch_size=4,
-            num_grad_updates=1,
-            n_itr=1,
-            discount=0.99,
-            step_size=0.01,
-        )
-        algo.train()
-
-        tf.reset_default_graph()
-        pkl_file = os.path.join('/tmp/', 'params.pkl')
-        with tf.Session() as sess:
-            data = joblib.load(pkl_file)
-            policy = data['policy']
-            action_before = policy.get_action(obs)[1]['mean']
-
-            dump_string = pickle.dumps(policy)
-
-        tf.reset_default_graph()
-        with tf.Session() as sess:
-            policy_loaded = pickle.loads(dump_string)
-            action_after = policy_loaded.get_action(obs)[1]['mean']
-
-        diff = np.sum(np.abs(action_before - action_after))
-        self.assertAlmostEquals(diff, 0.0, places=3)
-
     def test_param_space_noise(self):
         env = TfEnv(normalize(PointEnvMAML()))
         obs = env.reset()
 
-        policy = MAMLImprovedGaussianMLPPolicyParamNoise(
+        policy = MAMLImprovedGaussianMLPPolicy(
             name="policy33",
             env_spec=env.spec,
             hidden_sizes=(16, 16),
@@ -188,9 +130,6 @@ class TestMAMLPolicyParameterNoise(unittest.TestCase):
         )
         algo.train()
 
-        paths = self.sample_random_trajectories_point_env(env)
-        obses = [np.concatenate([path['observations'] for path in paths], axis=0) for _ in range(4)]
-
         tf.reset_default_graph()
         pkl_file = os.path.join('/tmp/', 'params.pkl')
         with tf.Session() as sess:
@@ -198,7 +137,7 @@ class TestMAMLPolicyParameterNoise(unittest.TestCase):
             policy = data['policy']
             action_1 = policy.get_action(obs)[1]['mean']
             action_2 = policy.get_action(obs)[1]['mean']
-            diff = np.sum((action_1 - action_2)**2)
+            diff = np.sum((action_1 - action_2) ** 2)
 
             self.assertAlmostEquals(diff, 0.0)
 
