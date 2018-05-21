@@ -103,7 +103,7 @@ class ModelBatchPolopt(RLAlgorithm):
             if self.policy.vectorized and not force_batch_sampler:
                 sampler_cls = EnvVectorizedSampler
             else:
-                sampler_cls = BatchSampler
+                sampler_cls = BatchSampler #TODO: use batch sampler rather than Vectorized Sampler
         if sampler_args is None:
             sampler_args = dict()
         self.env_sampler = sampler_cls(self, **sampler_args)
@@ -198,7 +198,6 @@ class ModelBatchPolopt(RLAlgorithm):
                                         samples_data_dynamics['next_observations_dynamics'],
                                         epochs=epochs)
 
-                prev_mean_reward = -10**8 # set prev reward
                 for gradient_itr in range(self.num_gradient_steps_per_iter):
                     # get imaginary rollouts
                     logger.log("Policy Gradient Step %i of %i - Obtaining samples from the dynamics model..."%(gradient_itr, self.num_gradient_steps_per_iter))
@@ -207,12 +206,21 @@ class ModelBatchPolopt(RLAlgorithm):
                     logger.log("Policy Gradient Step %i of %i - Processing dynamics model samples..."%(gradient_itr, self.num_gradient_steps_per_iter))
                     samples_data_model, mean_reward = self.process_samples_for_policy(itr, new_model_paths, log='reward', log_prefix='%i-DynTrajs-'%gradient_itr, return_reward=True)
 
+                    if gradient_itr == 0:
+                        prev_rolling_reward_mean = mean_reward
+                        rolling_reward_mean = mean_reward
+                    else:
+                        prev_rolling_reward_mean = rolling_reward_mean
+                        rolling_reward_mean = 0.7 * rolling_reward_mean + 0.3 * mean_reward # update rolling mean
+
                     # stop gradient steps when mean_reward decreases
-                    if self.retrain_model_when_reward_decreases and mean_reward < prev_mean_reward:
-                        logger.log("Stopping policy gradients steps since mean reward decreased from %.2f to %.2f"%(prev_mean_reward, mean_reward))
+                    if self.retrain_model_when_reward_decreases and rolling_reward_mean < prev_rolling_reward_mean:
+                        logger.log(
+                            "Stopping policy gradients steps since rolling mean reward decreased from %.2f to %.2f" % (
+                                prev_rolling_reward_mean, rolling_reward_mean))
                         # complete some logging stuff
-                        for i in range(gradient_itr+1, self.num_gradient_steps_per_iter):
-                            logger.record_tabular('%i-DynTrajs-AverageReturn'%i, None)
+                        for i in range(gradient_itr + 1, self.num_gradient_steps_per_iter):
+                            logger.record_tabular('%i-DynTrajs-AverageReturn' % i, None)
                         break
 
                     logger.log("Policy Gradient Step %i of %i - Optimizing policy..."%(gradient_itr, self.num_gradient_steps_per_iter))

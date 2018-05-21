@@ -261,9 +261,6 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                                             samples_data_dynamics['next_observations_dynamics'],
                                             epochs=epochs, verbose=True) #TODO set verbose False
 
-                    prev_mean_reward = -10 ** 22  # set prev reward
-
-
                     ''' MAML steps '''
                     for maml_itr in range(self.num_maml_steps_per_iter):
 
@@ -298,14 +295,23 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                                 logger.log("Computing policy updates...")
                                 self.policy.compute_updated_dists(samples_data)
 
+                        if maml_itr == 0:
+                            prev_rolling_reward_mean = mean_reward
+                            rolling_reward_mean = mean_reward
+                        else:
+                            prev_rolling_reward_mean = rolling_reward_mean
+                            rolling_reward_mean = 0.7 * rolling_reward_mean + 0.3 * mean_reward
+
+
                         # stop gradient steps when mean_reward decreases
-                        if self.retrain_model_when_reward_decreases and mean_reward < prev_mean_reward:
+                        if self.retrain_model_when_reward_decreases and rolling_reward_mean < prev_rolling_reward_mean:
                             logger.log(
-                                "Stopping policy gradients steps since mean reward decreased from %.2f to %.2f" % (
-                                    prev_mean_reward, mean_reward))
+                                "Stopping policy gradients steps since rolling mean reward decreased from %.2f to %.2f" % (
+                                    prev_rolling_reward_mean, rolling_reward_mean))
                             # complete some logging stuff
-                            for i in range(maml_itr + 1, self.num_gradient_steps_per_iter):
-                                logger.record_tabular('%i-DynTrajs-AverageReturn' % i, None)
+                            for i in range(maml_itr + 1, self.num_maml_steps_per_iter):
+                                logger.record_tabular('DynTrajs%ia-AverageReturn' % i, None)
+                                logger.record_tabular('DynTrajs%ib-AverageReturn' % i, None)
                             break
 
                         logger.log("MAML Step %i of %i - Optimizing policy..." % (maml_itr + 1, self.num_maml_steps_per_iter))
