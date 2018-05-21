@@ -45,7 +45,7 @@ class ModelVectorizedSampler(ModelBaseSampler):
         :return:
         """
         # todo: so far, i consider that i have a real world path, and that the agent never dies before the horizon. I just need to add zeros after that, and do some preprocessing
-        pbar = ProgBarCounter(self.algo.batch_size)
+        pbar = ProgBarCounter(len(real_paths) * self.model_max_path_lenght)
         paths = []
         policy = self.algo.policy
         policy_time = 0
@@ -55,7 +55,6 @@ class ModelVectorizedSampler(ModelBaseSampler):
             initial_observations = path['observations']
             initial_observations = obses = np.repeat(initial_observations, self.num_branches, axis=0)
             self.vec_env.num_envs = initial_observations.shape[0]
-            logger.log("obtaining samples for iteration %d..." % itr)
             self.vec_env._wrapped_env._wrapped_env.reset(initial_observations)
             dones = np.asarray([True] * self.vec_env.num_envs)
 
