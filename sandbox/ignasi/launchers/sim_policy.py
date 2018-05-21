@@ -23,7 +23,10 @@ if __name__ == "__main__":
     with tf.Session() as sess:
         data = joblib.load(args.file)
         policy = data['policy']
-        env = data['real_env']
+        if 'real_env' not in data.keys():
+            env = data['env']
+        else:
+            env = data['real_env']
         while True:
             path = rollout(env, policy, max_path_length=args.max_path_length,
                            animated=True, speedup=args.speedup, always_return_paths=True)

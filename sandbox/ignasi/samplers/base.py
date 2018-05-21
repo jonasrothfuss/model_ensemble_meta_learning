@@ -59,10 +59,11 @@ class ModelBaseSampler(Sampler):
         baselines = []
         returns = []
 
+        # TODO: This is slightly wrong. The time dependency is fucked up. Because it's always considering it is the beginning of the traj
         if hasattr(self.algo.baseline, "predict_n"):
             all_path_baselines = self.algo.baseline.predict_n(paths)
         else:
-            all_path_baselines = [self.algo.baseline.predict(path) for path in paths]
+            all_path_baselines = [self.algo.baseline.predict_with_samples(path) for path in paths]
 
         for idx, path in enumerate(paths):
             path_baselines = np.append(all_path_baselines[idx], 0)
@@ -204,26 +205,26 @@ class RealBaseSampler(Sampler):
         baselines = []
         returns = []
 
-        if hasattr(self.algo.baseline, "predict_n"):
-            all_path_baselines = self.algo.baseline.predict_n(paths)
-        else:
-            all_path_baselines = [self.algo.baseline.predict(path) for path in paths]
-
+        # if hasattr(self.algo.baseline, "predict_n"):
+        #     all_path_baselines = self.algo.baseline.predict_n(paths)
+        # else:
+        #     all_path_baselines = [self.algo.baseline.predict(path) for path in paths]
+        #
         for idx, path in enumerate(paths):
-            path_baselines = np.append(all_path_baselines[idx], 0)
-            deltas = path["rewards"] + \
-                     self.algo.discount * path_baselines[1:] - \
-                     path_baselines[:-1]
-            path["advantages"] = special.discount_cumsum(
-                deltas, self.algo.discount * self.algo.gae_lambda)
+        #     path_baselines = np.append(all_path_baselines[idx], 0)
+        #     deltas = path["rewards"] + \
+        #              self.algo.discount * path_baselines[1:] - \
+        #              path_baselines[:-1]
+        #     path["advantages"] = special.discount_cumsum(
+        #         deltas, self.algo.discount * self.algo.gae_lambda)
             path["returns"] = special.discount_cumsum(path["rewards"], self.algo.discount)
-            baselines.append(path_baselines[:-1])
-            returns.append(path["returns"])
-
-        ev = special.explained_variance_1d(
-            np.concatenate(baselines),
-            np.concatenate(returns)
-        )
+        #     baselines.append(path_baselines[:-1])
+        #     returns.append(path["returns"])
+        #
+        # ev = special.explained_variance_1d(
+        #     np.concatenate(baselines),
+        #     np.concatenate(returns)
+        # )
 
         if not self.algo.policy.recurrent:
             observations = tensor_utils.concat_tensor_list([path["observations"][:-1] for path in paths])
@@ -231,15 +232,15 @@ class RealBaseSampler(Sampler):
             actions = tensor_utils.concat_tensor_list([path["actions"][:-1] for path in paths])
             rewards = tensor_utils.concat_tensor_list([path["rewards"] for path in paths])
             returns = tensor_utils.concat_tensor_list([path["returns"] for path in paths])
-            advantages = tensor_utils.concat_tensor_list([path["advantages"] for path in paths])
+            # advantages = tensor_utils.concat_tensor_list([path["advantages"] for path in paths])
             env_infos = tensor_utils.concat_tensor_dict_list([path["env_infos"] for path in paths])
             agent_infos = tensor_utils.concat_tensor_dict_list([path["agent_infos"] for path in paths])
 
-            if self.algo.center_adv:
-                advantages = util.center_advantages(advantages)
-
-            if self.algo.positive_adv:
-                advantages = util.shift_advantages_to_positive(advantages)
+            # if self.algo.center_adv:
+            #     advantages = util.center_advantages(advantages)
+            #
+            # if self.algo.positive_adv:
+            #     advantages = util.shift_advantages_to_positive(advantages)
 
             average_discounted_return = \
                 np.mean([path["returns"][0] for path in paths])
@@ -254,7 +255,7 @@ class RealBaseSampler(Sampler):
                 actions=actions,
                 rewards=rewards,
                 returns=returns,
-                advantages=advantages,
+                # advantages=advantages,
                 env_infos=env_infos,
                 agent_infos=agent_infos,
                 paths=paths,
@@ -317,19 +318,12 @@ class RealBaseSampler(Sampler):
                 paths=paths,
             )
 
-        logger.log("fitting baseline...")
-        if hasattr(self.algo.baseline, 'fit_with_samples'):
-            self.algo.baseline.fit_with_samples(paths, samples_data)
-        else:
-            self.algo.baseline.fit(paths)
-        logger.log("fitted")
-
         if log:
             logger.record_tabular('Iteration', itr)
             logger.record_tabular('AverageDiscountedReturn',
                                   average_discounted_return)
             logger.record_tabular('AverageReturn', np.mean(undiscounted_returns))
-            logger.record_tabular('ExplainedVariance', ev)
+            # logger.record_tabular('ExplainedVariance', ev)
             logger.record_tabular('NumTrajs', len(paths))
             logger.record_tabular('Entropy', ent)
             logger.record_tabular('Perplexity', np.exp(ent))

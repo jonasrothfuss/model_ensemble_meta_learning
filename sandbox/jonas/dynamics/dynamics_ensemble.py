@@ -38,6 +38,7 @@ class MLPDynamicsEnsemble(MLPDynamicsModel):
         self.batch_size = batch_size
         self.step_size = step_size
         self.num_models = num_models
+        self.name = name
 
         # determine dimensionality of state and action space
         self.obs_space_dims = obs_space_dims = env_spec.observation_space.shape[0]
@@ -64,7 +65,7 @@ class MLPDynamicsEnsemble(MLPDynamicsModel):
                               hidden_nonlinearity,
                               output_nonlinearity,
                               input_var=self.nn_input,
-                              input_shape = (obs_space_dims+action_space_dims,),
+                              input_shape=(obs_space_dims+action_space_dims,),
                               weight_normalization=weight_normalization)
                     mlps.append(mlp)
 
@@ -137,6 +138,14 @@ class MLPDynamicsEnsemble(MLPDynamicsModel):
         pred_obs = self.predict(obs, act, pred_type='all')
         assert pred_obs.ndim == 3
         return np.std(pred_obs, axis=2)
+
+    def reinit_model(self):
+        sess = tf.get_default_session()
+        if '_reinit_model_op' not in dir(self):
+            self._reinit_model_op = [tf.variables_initializer(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
+                                    scope=self.name+'/model_{}'.format(i))) for i in range(self.num_models)]
+        sess.run(self._reinit_model_op)
+
 
 def denormalize(data_array, mean, std):
     if data_array.ndim == 3: # assumed shape (batch_size, ndim_obs, n_models)
