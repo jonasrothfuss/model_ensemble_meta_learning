@@ -1,27 +1,15 @@
-from sandbox.ignasi.algos.trpo import VINETRPO
+from sandbox.rocky.tf.algos.trpo import TRPO
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
-from sandbox.ignasi.envs.com_half_cheetah_env import HalfCheetahEnv
+from rllab.envs.mujoco.half_cheetah_env import HalfCheetahEnv
 from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from sandbox.rocky.tf.envs.base import TfEnv
-from sandbox.ignasi.envs.model_env import ModelEnv
-from sandbox.ignasi.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
 from rllab.misc.instrument import VariantGenerator
 from rllab.misc.instrument import run_experiment_lite
 
 
 def main(*args, **kwargs):
     real_env = TfEnv(normalize(HalfCheetahEnv()))
-
-    dynamics_model = MLPDynamicsEnsemble(
-        'dynamics_model',
-        real_env
-    )
-
-    model_env = TfEnv(normalize(ModelEnv(
-        env=HalfCheetahEnv(),
-        dynamics_model=dynamics_model,
-    )))
 
     policy = GaussianMLPPolicy(
         name="policy",
@@ -32,20 +20,17 @@ def main(*args, **kwargs):
 
     baseline = LinearFeatureBaseline(env_spec=real_env.spec)
 
-    algo = VINETRPO(
-        real_env=real_env,
-        model_env=model_env,
+    algo = TRPO(
+        env=real_env,
         policy=policy,
         baseline=baseline,
-        dynamics_model=dynamics_model,
-        num_paths=5,
-        n_itr=10001,
-        discount=1,
-        step_size=0.01,
+        n_itr=1000,
+        discount=0.9,
+        step_size=0.001,
+        batch_size=50000,
+        max_path_length=1000,
 
     )
-
-    mode = 'local'
 
     # subnets = [
     #     'ap-northeast-2a', 'ap-northeast-2c', 'ap-south-1a', 'us-west-1b', 'us-west-1c', 'ap-southeast-1a',
@@ -102,11 +87,12 @@ def main(*args, **kwargs):
     # )
 
 if __name__ == '__main__':
-    log_dir = 'vine_trpo' #osp.join('vine_trpo', datetime.datetime.today().)
+    log_dir = 'trpo' #osp.join('vine_trpo', datetime.datetime.today().)
 
     vg = VariantGenerator()
     # vg.add('env', ['HalfCheetahEnv', 'HumanoidEnv', 'SnakeEnv', 'SwimmerEnv', 'HopperEnv', 'AntEnv', 'Walker2DEnv'])
     vg.add('env', ['HalfCheetahEnv'])
+    vg.add('seed', [0, 10])
 
     for v in vg.variants(randomized=True):
         run_experiment_lite(
@@ -117,8 +103,8 @@ if __name__ == '__main__':
             variant=v,
             snapshot_mode="last",
             mode='local',
-            n_parallel=0,
-            # seed=v['seed'],
+            n_parallel=8,
+            seed=v['seed'],
             use_cloudpickle=True,
             # exp_name='vine_trpo'
             exp_prefix=log_dir,
