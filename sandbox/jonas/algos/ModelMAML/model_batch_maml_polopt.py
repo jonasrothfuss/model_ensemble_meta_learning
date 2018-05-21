@@ -43,7 +43,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
             num_maml_steps_per_iter=10,
             retrain_model_when_reward_decreases=True,
             reset_policy_std=False,
-            reinit_model=0,
+            reinit_model_cycle=0,
             plot=False,
             pause_for_plot=False,
             center_adv=True,
@@ -82,6 +82,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                                         (n_epochs_at_first_iter, n_epochs_after_first_iter)
         :param num_maml_steps_per_iter: number of policy gradients steps before retraining dynamics model
         :param retrain_model_when_reward_decreases: (boolean) if true - stop inner gradient steps when performance decreases
+        :param reinit_model_cycle: number of iterations before re-initializing the dynamics model (if 0 the dynamic model is not re-initialized at all)
         :param plot: Plot evaluation run after each iteration.
         :param pause_for_plot: Whether to pause before contiuing when plotting.
         :param center_adv: Whether to rescale the advantages so that they have mean 0 and standard deviation 1.
@@ -116,7 +117,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         self.num_maml_steps_per_iter = num_maml_steps_per_iter
         self.retrain_model_when_reward_decreases = retrain_model_when_reward_decreases
         self.reset_policy_std = reset_policy_std
-        self.reinit_model = reinit_model
+        self.reinit_model = reinit_model_cycle
 
         self.plot = plot
         self.pause_for_plot = pause_for_plot
