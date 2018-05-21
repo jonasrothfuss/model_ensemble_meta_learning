@@ -42,6 +42,8 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
             dynamic_model_epochs=(30, 10),
             num_maml_steps_per_iter=10,
             retrain_model_when_reward_decreases=True,
+            reset_policy_std=False,
+            reinit_model=0,
             plot=False,
             pause_for_plot=False,
             center_adv=True,
@@ -113,6 +115,8 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         self.dynamic_model_epochs = dynamic_model_epochs
         self.num_maml_steps_per_iter = num_maml_steps_per_iter
         self.retrain_model_when_reward_decreases = retrain_model_when_reward_decreases
+        self.reset_policy_std = reset_policy_std
+        self.reinit_model = reinit_model
 
         self.plot = plot
         self.pause_for_plot = pause_for_plot
@@ -222,10 +226,12 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
 
                         self.all_paths.extend(new_env_paths)
                         samples_data_dynamics = self.random_sampler.process_samples(itr, self.all_paths,
-                                                                                               log=True,
-                                                                                               log_prefix='EnvTrajs-')  # must log in the same way as the model sampler below
+                                                                                    log=True,
+                                                                                    log_prefix='EnvTrajs-')  # must log in the same way as the model sampler below
 
                     else:
+                        if self.reset_policy_std:
+                            self.policy.set_std()
                         logger.log("Obtaining samples from the environment using the policy...")
                         new_env_paths = self.obtain_env_samples(itr, reset_args=learner_env_params,
                                                                 log_prefix='EnvSampler-')
@@ -245,6 +251,9 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                     ''' fit dynamics model '''
 
                     epochs = self.dynamic_model_epochs[min(itr, len(self.dynamic_model_epochs) - 1)]
+                    if self.reinit_model and itr % self.reinit_model == 0:
+                        self.dynamics_model.reinit_model()
+                        epochs = self.dynamic_model_epochs[0] #todo: Probably to cycle through the dynamic_model_epochs
                     logger.log("Training dynamics model for %i epochs ..." % (epochs))
                     self.dynamics_model.fit(samples_data_dynamics['observations_dynamics'],
                                             samples_data_dynamics['actions_dynamics'],
@@ -252,6 +261,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                                             epochs=epochs, verbose=True) #TODO set verbose False
 
                     prev_mean_reward = -10 ** 22  # set prev reward
+
 
                     ''' MAML steps '''
                     for maml_itr in range(self.num_maml_steps_per_iter):
@@ -280,7 +290,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                                                                              flatten_list(new_model_paths.values()),
                                                                              log='reward',
                                                                              log_prefix="DynTrajs%i%s-" % (
-                                                                             maml_itr + 1, chr(97 + step)),
+                                                                                 maml_itr + 1, chr(97 + step)),
                                                                              return_reward=True)
 
                             if step < self.num_grad_updates:
@@ -291,7 +301,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                         if self.retrain_model_when_reward_decreases and mean_reward < prev_mean_reward:
                             logger.log(
                                 "Stopping policy gradients steps since mean reward decreased from %.2f to %.2f" % (
-                                prev_mean_reward, mean_reward))
+                                    prev_mean_reward, mean_reward))
                             # complete some logging stuff
                             for i in range(maml_itr + 1, self.num_gradient_steps_per_iter):
                                 logger.record_tabular('%i-DynTrajs-AverageReturn' % i, None)

@@ -167,6 +167,13 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
     def vectorized(self):
         return True
 
+    def set_std(self, new_std=None):
+        std_params = {"std_param": self.all_params["std_param"]}
+        if new_std is None:
+            new_std = np.zeros(std_params["std_param"].shape)
+        new_std = {"std_param": new_std}
+        self.assign_params(std_params, new_std)
+
     def set_init_surr_obj(self, input_list, surr_objs_tensor):
         """ Set the surrogate objectives used the update the policy
         """
