@@ -82,6 +82,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                                         (n_epochs_at_first_iter, n_epochs_after_first_iter)
         :param num_maml_steps_per_iter: number of policy gradients steps before retraining dynamics model
         :param retrain_model_when_reward_decreases: (boolean) if true - stop inner gradient steps when performance decreases
+        :param reset_policy_std: whether to reset the policy std after each iteration
         :param reinit_model_cycle: number of iterations before re-initializing the dynamics model (if 0 the dynamic model is not re-initialized at all)
         :param plot: Plot evaluation run after each iteration.
         :param pause_for_plot: Whether to pause before contiuing when plotting.
@@ -232,6 +233,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
 
                     else:
                         if self.reset_policy_std:
+                            logger.log("Resetting policy std")
                             self.policy.set_std()
                         logger.log("Obtaining samples from the environment using the policy...")
                         new_env_paths = self.obtain_env_samples(itr, reset_args=learner_env_params,
@@ -254,12 +256,12 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                     epochs = self.dynamic_model_epochs[min(itr, len(self.dynamic_model_epochs) - 1)]
                     if self.reinit_model and itr % self.reinit_model == 0:
                         self.dynamics_model.reinit_model()
-                        epochs = self.dynamic_model_epochs[0] #todo: Probably to cycle through the dynamic_model_epochs
+                        epochs = self.dynamic_model_epochs[0]
                     logger.log("Training dynamics model for %i epochs ..." % (epochs))
                     self.dynamics_model.fit(samples_data_dynamics['observations_dynamics'],
                                             samples_data_dynamics['actions_dynamics'],
                                             samples_data_dynamics['next_observations_dynamics'],
-                                            epochs=epochs, verbose=True) #TODO set verbose False
+                                            epochs=epochs, verbose=True)
 
                     ''' MAML steps '''
                     for maml_itr in range(self.num_maml_steps_per_iter):
@@ -300,7 +302,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                             rolling_reward_mean = mean_reward
                         else:
                             prev_rolling_reward_mean = rolling_reward_mean
-                            rolling_reward_mean = 0.7 * rolling_reward_mean + 0.3 * mean_reward
+                            rolling_reward_mean = 0.8 * rolling_reward_mean + 0.2 * mean_reward
 
 
                         # stop gradient steps when mean_reward decreases
