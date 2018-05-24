@@ -232,7 +232,7 @@ class ModelBatchPolopt(RLAlgorithm):
                                 prev_rolling_reward_mean, rolling_reward_mean))
                         # complete some logging stuff
                         for i in range(gradient_itr + 1, self.num_gradient_steps_per_iter):
-                            logger.record_tabular('%i-DynTrajs-AverageReturn' % i, None)
+                            logger.record_tabular('%i-DynTrajs-AverageReturn' % i, 0.0)
                         break
 
                     logger.log("Policy Gradient Step %i of %i - Optimizing policy..."%(gradient_itr, self.num_gradient_steps_per_iter))

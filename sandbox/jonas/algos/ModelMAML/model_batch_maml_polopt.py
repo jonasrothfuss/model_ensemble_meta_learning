@@ -312,8 +312,8 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                                     prev_rolling_reward_mean, rolling_reward_mean))
                             # complete some logging stuff
                             for i in range(maml_itr + 1, self.num_maml_steps_per_iter):
-                                logger.record_tabular('DynTrajs%ia-AverageReturn' % i, None)
-                                logger.record_tabular('DynTrajs%ib-AverageReturn' % i, None)
+                                logger.record_tabular('DynTrajs%ia-AverageReturn' % i, 0.0)
+                                logger.record_tabular('DynTrajs%ib-AverageReturn' % i, 0.0)
                             break
 
                         logger.log("MAML Step %i of %i - Optimizing policy..." % (maml_itr + 1, self.num_maml_steps_per_iter))
