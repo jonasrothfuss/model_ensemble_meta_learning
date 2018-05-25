@@ -116,6 +116,7 @@ class BatchPolopt(RLAlgorithm):
                 samples_data = self.process_samples(itr, paths)
                 logger.log("Logging diagnostics...")
                 self.log_diagnostics(paths)
+                logger.record_tabular("n_timesteps", (itr+1)*self.batch_size)
                 logger.log("Optimizing policy...")
                 self.optimize_policy(itr, samples_data)
                 logger.log("Saving snapshot...")

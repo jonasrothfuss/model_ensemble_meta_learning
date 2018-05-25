@@ -108,6 +108,6 @@ class RandomVectorizedSampler(RandomBaseSampler, VectorizedSampler):
         if log:
             logger.record_tabular(log_prefix + "PolicyExecTime", policy_time)
             logger.record_tabular(log_prefix + "EnvExecTime", env_time)
-            logger.record_tabular(log_prefix + "EnvProcessExecTime", process_time)
+            logger.record_tabular(log_prefix + "ProcessExecTime", process_time)
 
         return paths

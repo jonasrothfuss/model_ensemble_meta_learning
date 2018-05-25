@@ -4,9 +4,7 @@ from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from sandbox.rocky.tf.algos.trpo import TRPO
 from rllab.misc.instrument import run_experiment_lite
-from rllab.envs.mujoco.half_cheetah_env import HalfCheetahEnv
-from rllab.envs.mujoco.ant_env import AntEnv
-from rllab.envs.mujoco.hopper_env import HopperEnv
+from sandbox.jonas.envs.mujoco import HalfCheetahEnvRandParams, HopperEnvRandParams, AntEnvRandParams
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
 
@@ -17,7 +15,7 @@ import random
 
 EXP_PREFIX = 'trpo-baselines'
 
-ec2_instance = 'm4.4xlarge'
+ec2_instance = 'c4.2xlarge'
 
 # configure instance
 
@@ -33,7 +31,7 @@ config.AWS_SPOT_PRICE = str(info["price"])
 
 
 def run_train_task(vv):
-    env = TfEnv(normalize(vv['env']()))
+    env = TfEnv(normalize(vv['env'](log_scale_limit=0.0)))
 
     policy = GaussianMLPPolicy(
         name="policy",
@@ -50,9 +48,10 @@ def run_train_task(vv):
         baseline=baseline,
         batch_size=vv['batch_size'],
         max_path_length=vv['path_length'],
-        n_itr=vv['n_iter'],
+        n_itr=vv['n_itr'],
         discount=vv['discount'],
         step_size=vv["step_size"],
+        force_batch_sampler=True
     )
     algo.train()
 
@@ -69,15 +68,14 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['HalfCheetahEnv'])
+    vg.add('env', ['AntEnvRandParams', 'HalfCheetahEnvRandParams', 'HopperEnvRandParams'])
     vg.add('n_itr', [500])
-    vg.add('step_size', [0.01, 0.05]) #[0.01,0.05, 0.1])
-    vg.add('seed', [31, 41])
+    vg.add('step_size', [0.01]) #[0.01,0.05, 0.1])
+    vg.add('seed', [1, 11, 21, 31, 41])
     vg.add('discount', [0.99])
-    vg.add('n_iter', [500])
     vg.add('path_length', [100])
-    vg.add('batch_size', [20000])
-    vg.add('hidden_nonlinearity', ['relu', 'tanh'])
+    vg.add('batch_size', [50000])
+    vg.add('hidden_nonlinearity', ['tanh'])
     vg.add('hidden_sizes', [(32, 32)])
 
     variants = vg.variants()
@@ -99,7 +97,7 @@ def run_experiment(argv):
     # ----------------------- TRAINING ---------------------------------------
     exp_ids = random.sample(range(1, 1000), len(variants))
     for v, exp_id in zip(variants, exp_ids):
-        exp_name = "trpo_train_env_%s_%.3f_%i_id_%i" % (v['env'], v['step_size'], v['seed'], exp_id)
+        exp_name = "trpo_%s_%.3f_%i_id_%i" % (v['env'], v['step_size'], v['seed'], exp_id)
         v = instantiate_class_stings(v)
 
         subnet = random.choice(subnets)
@@ -111,6 +109,7 @@ def run_experiment(argv):
         config.AWS_SECURITY_GROUP_IDS = \
             config.ALL_REGION_AWS_SECURITY_GROUP_IDS[
                 config.AWS_REGION_NAME]
+
 
         run_experiment_lite(
             run_train_task,
@@ -127,6 +126,9 @@ def run_experiment(argv):
             seed=v["seed"],
             #sync_all_data_node_to_s3=True,
             python_command="python3", #sys.executable,
+            pre_commands=["yes | pip install tensorflow=='1.6.0'",
+                          "pip list",
+                          "yes | pip install --upgrade cloudpickle"],
             mode=args.mode,
             use_cloudpickle=True,
             variant=v,
