@@ -24,9 +24,6 @@ import random
 
 EXP_PREFIX = 'model-ensemble-maml-hyperparam-search'
 
-ec2_instance = 'm4.2xlarge'
-subnets = cheapest_subnets(ec2_instance, num_subnets=3)
-
 
 def run_train_task(vv):
 

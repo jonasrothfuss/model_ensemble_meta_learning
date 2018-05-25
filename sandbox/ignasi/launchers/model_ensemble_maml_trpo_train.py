@@ -135,11 +135,12 @@ def run_experiment(argv):
 
     # ----------------------- AWS conficuration ---------------------------------
     if args.mode == 'mgpu':
-        script = '/home/ignasi/GitRepos/model_ensemble_meta_learning/sandbox/ignasi/launchers/run_gpu_model_ensemble_maml_trpo_train.py'
+        current_path = os.path.dirname(os.path.abspath(__file__))
+        script_path = os.path.join(current_path, 'run_gpu_model_ensemble_maml_trpo_train.py')
         n_gpu = args.n_gpu
         if n_gpu == 0:
             n_gpu = len(os.listdir('/proc/driver/nvidia/gpus'))
-        run_multi_gpu(script, default_dict, n_gpu=n_gpu, ctx_per_gpu=args.ctx)
+        run_multi_gpu(script_path, default_dict, n_gpu=n_gpu, ctx_per_gpu=args.ctx)
 
     else:
         if args.mode == 'ec2':
