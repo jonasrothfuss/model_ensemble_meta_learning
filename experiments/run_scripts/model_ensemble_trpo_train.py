@@ -8,16 +8,16 @@ from rllab import config
 from experiments.helpers.ec2_helpers import cheapest_subnets
 from sandbox.jonas.dynamics import MLPDynamicsEnsemble
 from sandbox.jonas.algos.ModelTRPO.model_trpo import ModelTRPO
-from sandbox.jonas.envs.mujoco import HalfCheetahEnvRandParams
+from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams
 
 import tensorflow as tf
 import sys
 import argparse
 import random
 
-EXP_PREFIX = 'model-ensemble-trpo-hyperparam-search'
+EXP_PREFIX = 'model-ensemble-trpo'
 
-ec2_instance = 'c4.2xlarge'
+ec2_instance = 'c4.4xlarge'
 subnets = cheapest_subnets(ec2_instance, num_subnets=3)
 
 
@@ -74,26 +74,26 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['HalfCheetahEnvRandParams']) # HalfCheetahEnvRandParams
-    vg.add('n_itr', [20])
+    vg.add('env', ['AntEnvRandParams']) # HalfCheetahEnvRandParams
+    vg.add('n_itr', [100])
     vg.add('log_scale_limit', [0.0])
     vg.add('step_size', [0.01])
-    vg.add('seed', [22, 44, 55]) #TODO set back to [1, 11, 21, 31, 41]
+    vg.add('seed', [22, 33, 55]) #TODO set back to [1, 11, 21, 31, 41]
     vg.add('discount', [0.99])
     vg.add('path_length', [100])
     vg.add('batch_size_env_samples', [5000])
     vg.add('batch_size_dynamics_samples', [50000])
     vg.add('initial_random_samples', [5000])
     vg.add('dynamic_model_epochs', [(100, 50)])
-    vg.add('num_gradient_steps_per_iter', [50, 100])
+    vg.add('num_gradient_steps_per_iter', [50]) #TODO change back to 50
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
-    vg.add('hidden_sizes_policy', [(100, 100)])
-    vg.add('hidden_sizes_model', [(512, 512)])
+    vg.add('hidden_sizes_policy', [(32, 32)])
+    vg.add('hidden_sizes_model', [(1024, 1024)])
     vg.add('weight_normalization_model', [True])
-    vg.add('retrain_model_when_reward_decreases', [True, False])
-    vg.add('reset_policy_std', [False, True])
-    vg.add('reinit_model_cycle', [0, 5])
+    vg.add('retrain_model_when_reward_decreases', [True])
+    vg.add('reset_policy_std', [True])
+    vg.add('reinit_model_cycle', [0])
     vg.add('num_models', [5])
     variants = vg.variants()
 
@@ -117,7 +117,7 @@ def run_experiment(argv):
     # ----------------------- TRAINING ---------------------------------------
     exp_ids = random.sample(range(1, 1000), len(variants))
     for v, exp_id in zip(variants, exp_ids):
-        exp_name = "model_trpo_train_env_%s_%i_%i_%i_id_%i" % (v['env'], v['num_gradient_steps_per_iter'],
+        exp_name = "model_trpo_train_env_%s_%i_%i_%i_%i_id_%i" % (v['env'], v['path_length'], v['num_gradient_steps_per_iter'],
                                                                v['batch_size_env_samples'], v['seed'], exp_id)
         v = instantiate_class_stings(v)
 
@@ -138,15 +138,15 @@ def run_experiment(argv):
             exp_name=exp_name,
             # Number of parallel workers for sampling
             n_parallel=n_parallel,
-            # Only keep the snapshot parameters for the last iteration
-            snapshot_mode="last",
+            snapshot_mode="gap",
+            snapshot_gap=5,
             periodic_sync=True,
             sync_s3_pkl=True,
             sync_s3_log=True,
             # Specifies the seed for the experiment. If this is not provided, a random seed
             # will be used
             seed=v["seed"],
-            python_command="python3", #sys.executable,
+            python_command='python3',
             pre_commands=["yes | pip install tensorflow=='1.6.0'",
                           "pip list",
                           "yes | pip install --upgrade cloudpickle"],

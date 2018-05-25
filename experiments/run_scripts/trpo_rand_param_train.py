@@ -24,7 +24,7 @@ subnets = cheapest_subnets(ec2_instance, num_subnets=3)
 def run_train_task(vv):
 
 
-    env = TfEnv(normalize(vv['env'](log_scale_limit=vv["log_scale_limit"])))
+    env = TfEnv(normalize(vv['env'](log_scale_limit=0.0)))
 
     policy = GaussianMLPPolicy(
         name="policy",
@@ -68,7 +68,7 @@ def run_experiment(argv):
     vg.add('seed', [1, 11, 21, 31, 41])
     vg.add('discount', [0.99])
     vg.add('path_length', [100])
-    vg.add('batch_size', [20000])
+    vg.add('batch_size', [20000, 5000])
     vg.add('hidden_nonlinearity', ['tanh'])
     vg.add('hidden_sizes', [(32, 32)])
 
