@@ -48,7 +48,7 @@ def run_train_task(vv):
         baseline=baseline,
         batch_size=vv['batch_size'],
         max_path_length=vv['path_length'],
-        n_itr=vv['n_iter'],
+        n_itr=vv['n_itr'],
         discount=vv['discount'],
         step_size=vv["step_size"],
         force_batch_sampler=True
@@ -73,7 +73,6 @@ def run_experiment(argv):
     vg.add('step_size', [0.01]) #[0.01,0.05, 0.1])
     vg.add('seed', [1, 11, 21, 31, 41])
     vg.add('discount', [0.99])
-    vg.add('n_iter', [500])
     vg.add('path_length', [100])
     vg.add('batch_size', [50000])
     vg.add('hidden_nonlinearity', ['tanh'])
