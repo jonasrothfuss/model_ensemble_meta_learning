@@ -2,17 +2,17 @@ from rllab.misc.instrument import VariantGenerator
 from rllab import config
 from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab_maml.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
-from rllab_maml.envs.normalized_env import normalize
+from sandbox.jonas.envs.normalized_env import normalize
+from sandbox.jonas.envs.base import TfEnv
 from rllab.misc.instrument import stub, run_experiment_lite
 from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
 from sandbox.jonas.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
 from sandbox.jonas.algos.ModelMAML.model_maml_trpo import ModelMAMLTRPO
-from sandbox_maml.rocky.tf.envs.base import TfEnv
 from experiments.helpers.ec2_helpers import cheapest_subnets
 
 from sandbox.jonas.envs.own_envs import PointEnvMAML
-from sandbox.jonas.envs.mujoco import AntEnvMAMLRandParams, HalfCheetahMAMLEnvRandParams, HopperEnvMAMLRandParams
-from sandbox.jonas.envs.mujoco import Reacher5DofMAMLEnvRandParams
+from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams
+from sandbox.jonas.envs.mujoco import Reacher5DofEnvRandParams
 from sandbox.jonas.envs.mujoco.cheetah_env import HalfCheetahEnv
 
 
@@ -21,15 +21,15 @@ import sys
 import argparse
 import random
 
-EXP_PREFIX = 'model-ensemble-maml'
+EXP_PREFIX = 'model-ensemble-maml-hyperparam-search'
 
-ec2_instance = 'c4.2xlarge'
+ec2_instance = 'm4.2xlarge'
 subnets = cheapest_subnets(ec2_instance, num_subnets=3)
 
 
 def run_train_task(vv):
 
-    env = TfEnv(normalize(vv['env']()))
+    env = TfEnv(normalize(vv['env'](log_scale_limit=vv['log_scale_limit'])))
 
     dynamics_model = MLPDynamicsEnsemble(
         name="dyn_model",
@@ -68,7 +68,9 @@ def run_train_task(vv):
         discount=vv['discount'],
         step_size=vv["meta_step_size"],
         num_grad_updates=1,
-        retrain_model_when_reward_decreases=vv['retrain_model_when_reward_decreases']
+        retrain_model_when_reward_decreases=vv['retrain_model_when_reward_decreases'],
+        reset_policy_std=vv['reset_policy_std'],
+        reinit_model_cycle=vv['reinit_model_cycle']
     )
     algo.train()
 
@@ -85,9 +87,9 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['HalfCheetahEnv'])
-    vg.add('n_itr', [15])
-    #vg.add('log_scale_limit', [0.5])
+    vg.add('env', ['HalfCheetahEnvRandParams'])
+    vg.add('n_itr', [20])
+    vg.add('log_scale_limit', [0.0])
     vg.add('fast_lr', [0.01])
     vg.add('meta_step_size', [0.01])
     vg.add('seed', [22, 44, 55]) #TODO set back to [1, 11, 21, 31, 41]
@@ -96,17 +98,19 @@ def run_experiment(argv):
     vg.add('batch_size_env_samples', [10])
     vg.add('batch_size_dynamics_samples', [100])
     vg.add('initial_random_samples', [5000])
-    vg.add('dynamic_model_epochs', [(100, 50), (60, 30)])
-    vg.add('num_maml_steps_per_iter', [1]) #50, 100
+    vg.add('dynamic_model_epochs', [(100, 50)])
+    vg.add('num_maml_steps_per_iter', [100])
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(100, 100)])
     vg.add('hidden_sizes_model', [(512, 512)])
-    vg.add('weight_normalization_model', [False])
+    vg.add('weight_normalization_model', [True])
+    vg.add('reset_policy_std', [False, True])
+    vg.add('reinit_model_cycle', [0, 5])
     vg.add('optimizer_model', ['adam'])
-    vg.add('retrain_model_when_reward_decreases', [True])
+    vg.add('retrain_model_when_reward_decreases', [True, False])
     vg.add('num_models', [5])
-    vg.add('trainable_step_size', [False, True])
+    vg.add('trainable_step_size', [True, False])
     vg.add('bias_transform', [False])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
 

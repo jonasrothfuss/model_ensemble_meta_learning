@@ -1,21 +1,21 @@
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
-from rllab_maml.envs.normalized_env import normalize
-from sandbox_maml.rocky.tf.envs.base import TfEnv
-from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
+from sandbox.jonas.envs.normalized_env import normalize
+from sandbox.jonas.envs.base import TfEnv
+from sandbox.jonas.policies.improved_gauss_mlp_policy import GaussianMLPPolicy
 from rllab.misc.instrument import run_experiment_lite
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
 from experiments.helpers.ec2_helpers import cheapest_subnets
 from sandbox.jonas.dynamics import MLPDynamicsEnsemble
 from sandbox.jonas.algos.ModelTRPO.model_trpo import ModelTRPO
-from sandbox.jonas.envs.mujoco.cheetah_env import HalfCheetahEnv
+from sandbox.jonas.envs.mujoco import HalfCheetahEnvRandParams
 
 import tensorflow as tf
 import sys
 import argparse
 import random
 
-EXP_PREFIX = 'model-ensemble-trpo'
+EXP_PREFIX = 'model-ensemble-trpo-hyperparam-search'
 
 ec2_instance = 'c4.2xlarge'
 subnets = cheapest_subnets(ec2_instance, num_subnets=3)
@@ -23,7 +23,7 @@ subnets = cheapest_subnets(ec2_instance, num_subnets=3)
 
 def run_train_task(vv):
 
-    env = TfEnv(normalize(vv['env']()))
+    env = TfEnv(normalize(vv['env'](log_scale_limit=vv['log_scale_limit'])))
 
     dynamics_model = MLPDynamicsEnsemble(
         name="dyn_model",
@@ -38,7 +38,6 @@ def run_train_task(vv):
         env_spec=env.spec,
         hidden_sizes=vv['hidden_sizes_policy'],
         hidden_nonlinearity=vv['hidden_nonlinearity_policy'],
-
     )
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
@@ -57,6 +56,8 @@ def run_train_task(vv):
         n_itr=vv['n_itr'],
         discount=vv['discount'],
         step_size=vv["step_size"],
+        reset_policy_std=vv['reset_policy_std'],
+        reinit_model_cycle=vv['reinit_model_cycle']
     )
     algo.train()
 
@@ -73,24 +74,26 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['HalfCheetahEnv']) # HalfCheetahEnvRandParams
-    vg.add('n_itr', [15])
-    #vg.add('log_scale_limit', [0.5])
+    vg.add('env', ['HalfCheetahEnvRandParams']) # HalfCheetahEnvRandParams
+    vg.add('n_itr', [20])
+    vg.add('log_scale_limit', [0.0])
     vg.add('step_size', [0.01])
     vg.add('seed', [22, 44, 55]) #TODO set back to [1, 11, 21, 31, 41]
     vg.add('discount', [0.99])
     vg.add('path_length', [100])
     vg.add('batch_size_env_samples', [5000])
     vg.add('batch_size_dynamics_samples', [50000])
-    vg.add('initial_random_samples', [5000, 10000])
+    vg.add('initial_random_samples', [5000])
     vg.add('dynamic_model_epochs', [(100, 50)])
     vg.add('num_gradient_steps_per_iter', [50, 100])
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(100, 100)])
     vg.add('hidden_sizes_model', [(512, 512)])
-    vg.add('weight_normalization_model', [False])
-    vg.add('retrain_model_when_reward_decreases', [True])
+    vg.add('weight_normalization_model', [True])
+    vg.add('retrain_model_when_reward_decreases', [True, False])
+    vg.add('reset_policy_std', [False, True])
+    vg.add('reinit_model_cycle', [0, 5])
     vg.add('num_models', [5])
     variants = vg.variants()
 

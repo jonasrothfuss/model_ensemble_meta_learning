@@ -8,22 +8,23 @@ from sandbox.rocky.tf.spaces.box import Box
 
 from rllab_maml.core.serializable import Serializable
 from sandbox_maml.rocky.tf.policies.base import StochasticPolicy
-from sandbox_maml.rocky.tf.distributions.diagonal_gaussian import DiagonalGaussian # This is just a util class. No params.
+from sandbox_maml.rocky.tf.distributions.diagonal_gaussian import \
+    DiagonalGaussian  # This is just a util class. No params.
 from rllab_maml.misc.overrides import overrides
 from rllab.misc import logger
 from rllab_maml.misc.tensor_utils import flatten_tensors, unflatten_tensors
 from sandbox_maml.rocky.tf.misc import tensor_utils
-from sandbox.jonas.core.utils import make_dense_layer_with_bias_transform, forward_dense_bias_transform
+from sandbox.jonas.core.utils import make_dense_layer_with_bias_transform, forward_dense_bias_transform, \
+    make_dense_layer
 
 import itertools
 import time
 
 import tensorflow as tf
 from sandbox_maml.rocky.tf.misc.xavier_init import xavier_initializer
-from sandbox_maml.rocky.tf.core.utils import make_input, _create_param, add_param, make_dense_layer, forward_dense_layer, make_param_layer, forward_param_layer
+from sandbox_maml.rocky.tf.core.utils import make_input, make_param_layer, forward_param_layer, forward_dense_layer
 
 load_params = True
-
 
 
 class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
@@ -48,6 +49,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
             grad_step_size=0.1,
             trainable_step_size=True,
             stop_grad=False,
+            param_noise_std=0.00
     ):
         """
         :param env_spec:
@@ -70,7 +72,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         :param grad_step_size: (float) the step size taken in the learner's gradient update
         :param trainable_step_size: boolean indicating whether the inner grad_step_size shall be trainable
         :param stop_grad: whether or not to stop the gradient through the gradient.
-        :return:
+        :param: parameter_space_noise: (boolean) whether parameter space noise shall be used when sampling from the policy
         """
         Serializable.quick_init(self, locals())
         assert isinstance(env_spec.action_space, Box) or isinstance(env_spec.action_space, BoxMAML)
@@ -83,8 +85,11 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         self.input_shape = (None, obs_dim,)
         self.stop_grad = stop_grad
         self.name = name
+        self.param_noise_std = param_noise_std
 
         with tf.variable_scope(self.name):
+            self.param_noise_std_ph = tf.placeholder_with_default(0.0, ())  # default parameter noise std is 0 -> no noise
+
             # create network
             if mean_network is None:
                 self.all_params = self.create_MLP(  # TODO: this should not be a method of the policy! --> helper
@@ -92,13 +97,15 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
                     output_dim=self.action_dim,
                     hidden_sizes=hidden_sizes,
                     bias_transform=bias_transform,
+                    param_noise_std_ph=self.param_noise_std_ph
                 )
                 self.input_tensor, _ = self.forward_MLP('mean_network', self.all_params,
-                                                        reuse=None, # Need to run this for batch norm
+                                                        reuse=None,  # Need to run this for batch norm
                                                         bias_transform=bias_transform,
-                )
+                                                        )
                 forward_mean = lambda x, params, is_train: self.forward_MLP('mean_network', params,
-                        input_tensor=x, is_training=is_train, bias_transform=bias_transform)[1]
+                                                                            input_tensor=x, is_training=is_train,
+                                                                            bias_transform=bias_transform)[1]
             else:
                 raise NotImplementedError('Not supported.')
 
@@ -125,7 +132,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
 
                 # unify forward mean and forward std into a single function
                 self._forward = lambda obs, params, is_train: (
-                        forward_mean(obs, params, is_train), forward_std(obs, params))
+                    forward_mean(obs, params, is_train), forward_std(obs, params))
 
                 self.std_parametrization = std_parametrization
 
@@ -150,29 +157,25 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
 
                 # pre-update policy
                 self._init_f_dist = tensor_utils.compile_function(
-                    inputs=[self.input_tensor],
+                    inputs=[self.input_tensor, self.param_noise_std_ph],
                     outputs=[mean_var, log_std_var],
                 )
                 self._cur_f_dist = self._init_f_dist
 
-                #stepsize for each parameter
+                # stepsize for each parameter
                 self.param_step_sizes = {}
                 with tf.variable_scope("mean_network", reuse=True):
                     for key, param in self.all_params.items():
                         shape = param.get_shape().as_list()
                         init_stepsize = np.ones(shape, dtype=np.float32) * grad_step_size
-                        self.param_step_sizes[key + "_step_size"] = tf.Variable(initial_value=init_stepsize, name='step_size_%s'%key, dtype=tf.float32, trainable=trainable_step_size)
+                        self.param_step_sizes[key + "_step_size"] = tf.Variable(initial_value=init_stepsize,
+                                                                                name='step_size_%s' % key,
+                                                                                dtype=tf.float32,
+                                                                                trainable=trainable_step_size)
 
     @property
     def vectorized(self):
         return True
-
-    def set_std(self, new_std=None):
-        std_params = {"std_param": self.all_params["std_param"]}
-        if new_std is None:
-            new_std = np.zeros(std_params["std_param"].shape)
-        new_std = {"std_param": new_std}
-        self.assign_params(std_params, new_std)
 
     def set_init_surr_obj(self, input_list, surr_objs_tensor):
         """ Set the surrogate objectives used the update the policy
@@ -194,7 +197,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         obs_list, action_list, adv_list = [], [], []
         for i in range(num_tasks):
             inputs = ext.extract(samples[i],
-                    'observations', 'actions', 'advantages')
+                                 'observations', 'actions', 'advantages')
             obs_list.append(inputs[0])
             action_list.append(inputs[1])
             adv_list.append(inputs[2])
@@ -203,29 +206,31 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
 
         # To do a second update, replace self.all_params below with the params that were used to collect the policy.
         init_param_values = None
-        if self.all_param_vals is not None: # skip this in first iteration
+        if self.all_param_vals is not None:  # skip this in first iteration
             init_param_values = self.get_variable_values(self.all_params)
 
         for i in range(num_tasks):
-            if self.all_param_vals is not None: # skip this in first iteration
+            if self.all_param_vals is not None:  # skip this in first iteration
                 self.assign_params(self.all_params, self.all_param_vals[i])
 
-        if 'all_fast_params_tensor' not in dir(self): # only enter if first iteration
+        if 'all_fast_params_tensor' not in dir(self):  # only enter if first iteration
             # make computation graph once
             self.all_fast_params_tensor = []
             # compute gradients for a current task (symbolic)
             for i in range(num_tasks):
                 # compute gradients for a current task (symbolic)
                 gradients = dict(zip(update_param_keys, tf.gradients(self.surr_objs[i],
-                                                                     [self.all_params[key] for key in update_param_keys])))
+                                                                     [self.all_params[key] for key in
+                                                                      update_param_keys])))
 
                 # gradient update for params of current task (symbolic)
                 fast_params_tensor = OrderedDict(zip(update_param_keys,
-                                                     [self.all_params[key] - tf.multiply(self.param_step_sizes[key + "_step_size"], gradients[key]) for key in update_param_keys]))
+                                                     [self.all_params[key] - tf.multiply(
+                                                         self.param_step_sizes[key + "_step_size"], gradients[key]) for
+                                                      key in update_param_keys]))
 
                 # add step sizes to fast_params_tensor
                 fast_params_tensor.update(self.param_step_sizes)
-
 
                 # undo gradient update for no_update_params (symbolic)
                 for k in no_update_param_keys:
@@ -237,10 +242,11 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         # pull new param vals out of tensorflow, so gradient computation only done once ## first is the vars, second the values
         # these are the updated values of the params after the gradient step
 
-        self.all_param_vals = sess.run(self.all_fast_params_tensor, feed_dict=dict(list(zip(self.input_list_for_grad, inputs))))
+        self.all_param_vals = sess.run(self.all_fast_params_tensor,
+                                       feed_dict=dict(list(zip(self.input_list_for_grad, inputs))))
 
         # reset parameters to original ones
-        if init_param_values is not None: # skip this in first iteration
+        if init_param_values is not None:  # skip this in first iteration
             self.assign_params(self.all_params, init_param_values)
 
         # compile the _cur_f_dist with updated params
@@ -250,16 +256,15 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
             # TODO - use a placeholder to feed in the params, so that we don't have to recompile every time.
             task_inp = inputs[i]
             info, _ = self.dist_info_sym(task_inp, dict(), all_params=self.all_param_vals[i],
-                    is_training=False)
+                                         is_training=False)
 
             outputs.append([info['mean'], info['log_std']])
 
         self._cur_f_dist = tensor_utils.compile_function(
-            inputs = [self.input_tensor],
-            outputs = outputs,
+            inputs=[self.input_tensor, self.param_noise_std_ph],
+            outputs=outputs,
         )
         total_time = time.time() - start
-        logger.record_tabular("ComputeUpdatedDistTime", total_time)
 
     def get_variable_values(self, tensor_dict):
         sess = tf.get_default_session()
@@ -275,7 +280,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
                 self.assign_placeholders[key] = tf.placeholder(tf.float32)
                 self.assign_ops[key] = tf.assign(tensor_dict[key], self.assign_placeholders[key])
 
-        feed_dict = {self.assign_placeholders[key]:param_values[key] for key in tensor_dict.keys()}
+        feed_dict = {self.assign_placeholders[key]: param_values[key] for key in tensor_dict.keys()}
         sess = tf.get_default_session()
         sess.run(self.assign_ops, feed_dict)
 
@@ -290,9 +295,9 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         # obs_var - observation tensor
         # mean_var - tensor for policy mean
         # std_param_var - tensor for policy std before output
-        return_params=True
+        return_params = True
         if all_params is None:
-            return_params=False
+            return_params = False
             all_params = self.all_params
 
         mean_var, std_param_var = self._forward(obs_var, all_params, is_training)
@@ -326,41 +331,49 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
             grads = [tf.stop_gradient(grad) for grad in grads]
 
         gradients = dict(zip(update_param_keys, grads))
-        params_dict = dict(zip(update_param_keys, [old_params_dict[key] - tf.multiply(self.param_step_sizes[key + "_step_size"], gradients[key]) for key in update_param_keys]))
+        params_dict = dict(zip(update_param_keys, [
+            old_params_dict[key] - tf.multiply(self.param_step_sizes[key + "_step_size"], gradients[key]) for key in
+            update_param_keys]))
         for k in no_update_param_keys:
             params_dict[k] = old_params_dict[k]
 
         return self.dist_info_sym(new_obs_var, all_params=params_dict, is_training=is_training)
 
     @overrides
-    def get_action(self, observation, idx=None):
+    def get_action(self, observation, idx=None, param_noise_std=None):
         # this function takes a numpy array observations and outputs randomly sampled actions.
         # idx: index corresponding to the task/updated policy.
+        if param_noise_std is None:
+            param_noise_std = self.param_noise_std
+
         flat_obs = self.observation_space.flatten(observation)
         f_dist = self._cur_f_dist
-        mean, log_std = [x[0] for x in f_dist([flat_obs])]
+        mean, log_std = [x[0] for x in f_dist([flat_obs], param_noise_std)]
         rnd = np.random.normal(size=mean.shape)
         action = rnd * np.exp(log_std) + mean
         return action, dict(mean=mean, log_std=log_std)
 
-    def get_actions(self, observations):
+    def get_actions(self, observations, param_noise_std=None):
         # this function takes a numpy array observations and outputs sampled actions.
         # Assumes that there is one observation per post-update policy distr
+        if param_noise_std is None:
+            param_noise_std = self.param_noise_std
+
         flat_obs = self.observation_space.flatten_n(observations)
-        result = self._cur_f_dist(flat_obs)
+        result = self._cur_f_dist(flat_obs, param_noise_std)
 
         if len(result) == 2:
             # NOTE - this code assumes that there aren't 2 meta tasks in a batch
             means, log_stds = result
         else:
-            means = np.array([res[0] for res in result])[:,0,:]
-            log_stds = np.array([res[1] for res in result])[:,0,:]
+            means = np.array([res[0] for res in result])[:, 0, :]
+            log_stds = np.array([res[1] for res in result])[:, 0, :]
 
         rnd = np.random.normal(size=means.shape)
         actions = rnd * np.exp(log_stds) + means
         return actions, dict(mean=means, log_std=log_stds)
 
-    def get_actions_batch(self, observations):
+    def get_actions_batch(self, observations, param_noise_std=None):
         """
 
         :param observations: list of numpy arrays containing a batch of observations corresponding to a task -
@@ -368,6 +381,9 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         :return: actions - shape (batch_size * tasks, ndim_obs)
         """
         batch_size = None
+
+        if param_noise_std is None:
+            param_noise_std = self.param_noise_std
 
         # assert that obs of all tasks have the same batch size
         for obs_batch in observations:
@@ -380,7 +396,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
 
         obs_stack = np.concatenate(observations, axis=0)
 
-        result = self._cur_f_dist(obs_stack)
+        result = self._cur_f_dist(obs_stack, param_noise_std)
 
         if len(result) == 2:
             # NOTE - this code assumes that there aren't 2 meta tasks in a batch
@@ -393,7 +409,6 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         actions = rnd * np.exp(log_stds) + means
         return actions, dict(mean=means, log_std=log_stds)
 
-
     @property
     def distribution(self):
         return self._dist
@@ -404,17 +419,16 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         else:
             params = tf.global_variables(scope=self.name)
 
-        #params = [p for p in params if p.name.startswith('mean_network') or p.name.startswith('output_std_param')]
+        # params = [p for p in params if p.name.startswith('mean_network') or p.name.startswith('output_std_param')]
         params = [p for p in params if 'Adam' not in p.name]
 
         return params
-
 
     # This makes all of the parameters.
     def create_MLP(self, name, output_dim, hidden_sizes,
                    hidden_W_init=xavier_initializer(), hidden_b_init=tf.zeros_initializer(),
                    output_W_init=xavier_initializer(), output_b_init=tf.zeros_initializer(),
-                   weight_normalization=False, bias_transform=False):
+                   weight_normalization=False, bias_transform=False, param_noise_std_ph=None):
 
         all_params = OrderedDict()
 
@@ -436,7 +450,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
                     all_params['b' + str(idx)] = b
                     all_params['bias_transform' + str(idx)] = bias_transform
 
-                #output layer
+                # output layer
                 W, b, bias_transform, _ = make_dense_layer_with_bias_transform(
                     cur_shape,
                     num_units=output_dim,
@@ -445,6 +459,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
                     b=hidden_b_init,
                     bias_transform=hidden_b_init,
                     weight_norm=weight_normalization,
+                    param_noise_std_ph=param_noise_std_ph
                 )
                 all_params['W' + str(len(hidden_sizes))] = W
                 all_params['b' + str(len(hidden_sizes))] = b
@@ -469,9 +484,10 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
                     W=output_W_init,
                     b=output_b_init,
                     weight_norm=weight_normalization,
+                    param_noise_std_ph=param_noise_std_ph
                 )
                 all_params['W' + str(len(hidden_sizes))] = W
-                all_params['b'+str(len(hidden_sizes))] = b
+                all_params['b' + str(len(hidden_sizes))] = b
 
         return all_params
 
@@ -487,21 +503,22 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
 
             l_hid = l_in
 
-
             for idx in range(self.n_hidden):
-                bias_transform_ = all_params['bias_transform'+str(idx)] if bias_transform else None
-                l_hid = forward_dense_bias_transform(l_hid, all_params['W'+str(idx)], all_params['b'+str(idx)],
-                                            bias_transform=bias_transform_,
-                                            batch_norm=batch_normalization,
-                                            nonlinearity=self.hidden_nonlinearity,
-                                            scope=str(idx), reuse=reuse,
-                                            is_training=is_training
-                                            )
+                bias_transform_ = all_params['bias_transform' + str(idx)] if bias_transform else None
+                l_hid = forward_dense_bias_transform(l_hid, all_params['W' + str(idx)], all_params['b' + str(idx)],
+                                                     bias_transform=bias_transform_,
+                                                     batch_norm=batch_normalization,
+                                                     nonlinearity=self.hidden_nonlinearity,
+                                                     scope=str(idx), reuse=reuse,
+                                                     is_training=is_training
+                                                     )
 
             bias_transform = all_params['bias_transform' + str(self.n_hidden)] if bias_transform else None
-            output = forward_dense_bias_transform(l_hid, all_params['W'+str(self.n_hidden)], all_params['b'+str(self.n_hidden)],
-                                         bias_transform=bias_transform, batch_norm=False, nonlinearity=self.output_nonlinearity,
-                                         )
+            output = forward_dense_bias_transform(l_hid, all_params['W' + str(self.n_hidden)],
+                                                  all_params['b' + str(self.n_hidden)],
+                                                  bias_transform=bias_transform, batch_norm=False,
+                                                  nonlinearity=self.output_nonlinearity,
+                                                  )
             return l_in, output
 
     def get_params(self, all_params=False, **tags):
@@ -521,7 +538,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
 
     def log_diagnostics(self, paths, prefix=''):
         log_stds = np.vstack([path["agent_infos"]["log_std"] for path in paths])
-        logger.record_tabular(prefix+'AveragePolicyStd', np.mean(np.exp(log_stds)))
+        logger.record_tabular(prefix + 'AveragePolicyStd', np.mean(np.exp(log_stds)))
 
     #### code largely not used after here except when resuming/loading a policy. ####
     def get_reparam_action_sym(self, obs_var, action_var, old_dist_info_vars):
@@ -534,7 +551,8 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         :return:
         """
         # Not used
-        import pdb; pdb.set_trace()
+        import pdb;
+        pdb.set_trace()
         new_dist_info_vars = self.dist_info_sym(obs_var, action_var)
         new_mean_var, new_log_std_var = new_dist_info_vars["mean"], new_dist_info_vars["log_std"]
         old_mean_var, old_log_std_var = old_dist_info_vars["mean"], old_dist_info_vars["log_std"]
@@ -579,13 +597,21 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
                 print("setting value of %s" % param.name)
         tf.get_default_session().run(ops, feed_dict=feed_dict)
 
+    def set_std(self, new_std=None):
+        std_params = {"std_param": self.all_params["std_param"]}
+        if new_std is None:
+            new_std = np.zeros(std_params["std_param"].shape)
+        new_std = {"std_param": new_std}
+        self.assign_params(std_params, new_std)
+
     def flat_to_params(self, flattened_params, all_params=False, **tags):
         return unflatten_tensors(flattened_params, self.get_param_shapes(all_params, **tags))
 
     def get_mean_step_size(self):
         """ returns the mean gradient stepsize """
         sess = tf.get_default_session()
-        return np.concatenate([sess.run(step_size_values).flatten() for step_size_values in self.param_step_sizes.values()]).mean()
+        return np.concatenate(
+            [sess.run(step_size_values).flatten() for step_size_values in self.param_step_sizes.values()]).mean()
 
     def __getstate__(self):
         d = Serializable.__getstate__(self)

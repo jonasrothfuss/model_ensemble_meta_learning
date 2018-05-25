@@ -33,6 +33,8 @@ class ModelBatchPolopt(RLAlgorithm):
             dynamic_model_epochs=(30, 10),
             num_gradient_steps_per_iter=10,
             retrain_model_when_reward_decreases =True,
+            reset_policy_std=False,
+            reinit_model_cycle=0,
             plot=False,
             pause_for_plot=False,
             center_adv=True,
@@ -67,6 +69,8 @@ class ModelBatchPolopt(RLAlgorithm):
                                         (n_epochs_at_first_iter, n_epochs_after_first_iter)
         :param num_gradient_steps_per_iter: number of policy gradients steps before retraining dynamics model
         :param retrain_model_when_reward_decreases: (boolean) if true - stop inner gradient steps when performance decreases
+        :param reset_policy_std: whether to reset the policy std after each iteration
+        :param reinit_model_cycle: number of iterations before re-initializing the dynamics model (if 0 the dynamic model is not re-initialized at all)
         :param plot: Plot evaluation run after each iteration.
         :param pause_for_plot: Whether to pause before contiuing when plotting.
         :param center_adv: Whether to rescale the advantages so that they have mean 0 and standard deviation 1.
@@ -97,13 +101,15 @@ class ModelBatchPolopt(RLAlgorithm):
         self.store_paths = store_paths
         self.whole_paths = whole_paths
         self.fixed_horizon = fixed_horizon
+        self.reset_policy_std = reset_policy_std
+        self.reinit_model = reinit_model_cycle
 
         # sampler for the environment
         if sampler_cls is None:
             if self.policy.vectorized and not force_batch_sampler:
                 sampler_cls = EnvVectorizedSampler
             else:
-                sampler_cls = BatchSampler
+                sampler_cls = BatchSampler #TODO: use batch sampler rather than Vectorized Sampler
         if sampler_args is None:
             sampler_args = dict()
         self.env_sampler = sampler_cls(self, **sampler_args)
@@ -177,6 +183,9 @@ class ModelBatchPolopt(RLAlgorithm):
                     self.all_paths.extend(new_env_paths)
                     samples_data_dynamics = self.random_sampler.process_samples(itr, self.all_paths, log=True, log_prefix='EnvTrajs-') # must log in the same way as the model sampler below
                 else:
+                    if self.reset_policy_std:
+                        logger.log("Resetting policy std")
+                        self.policy.set_std()
                     logger.log("Obtaining samples from the environment using the policy...")
                     new_env_paths = self.obtain_env_samples(itr)
 
@@ -190,15 +199,17 @@ class ModelBatchPolopt(RLAlgorithm):
 
                     samples_data_dynamics = self.process_samples_for_dynamics(itr, self.all_paths)
 
-                # fit dynamics model
                 epochs = self.dynamic_model_epochs[min(itr, len(self.dynamic_model_epochs) - 1)]
+                # fit dynamics model
+                if self.reinit_model and itr % self.reinit_model == 0:
+                    self.dynamics_model.reinit_model()
+                    epochs = self.dynamic_model_epochs[0]
                 logger.log("Training dynamics model for %i epochs ..." % (epochs))
                 self.dynamics_model.fit(samples_data_dynamics['observations_dynamics'],
                                         samples_data_dynamics['actions_dynamics'],
                                         samples_data_dynamics['next_observations_dynamics'],
-                                        epochs=epochs)
+                                        epochs=epochs, verbose=True)
 
-                prev_mean_reward = -10**8 # set prev reward
                 for gradient_itr in range(self.num_gradient_steps_per_iter):
                     # get imaginary rollouts
                     logger.log("Policy Gradient Step %i of %i - Obtaining samples from the dynamics model..."%(gradient_itr, self.num_gradient_steps_per_iter))
@@ -207,18 +218,25 @@ class ModelBatchPolopt(RLAlgorithm):
                     logger.log("Policy Gradient Step %i of %i - Processing dynamics model samples..."%(gradient_itr, self.num_gradient_steps_per_iter))
                     samples_data_model, mean_reward = self.process_samples_for_policy(itr, new_model_paths, log='reward', log_prefix='%i-DynTrajs-'%gradient_itr, return_reward=True)
 
+                    if gradient_itr == 0:
+                        prev_rolling_reward_mean = mean_reward
+                        rolling_reward_mean = mean_reward
+                    else:
+                        prev_rolling_reward_mean = rolling_reward_mean
+                        rolling_reward_mean = 0.8 * rolling_reward_mean + 0.2 * mean_reward # update rolling mean
+
                     # stop gradient steps when mean_reward decreases
-                    if self.retrain_model_when_reward_decreases and mean_reward < prev_mean_reward:
-                        logger.log("Stopping policy gradients steps since mean reward decreased from %.2f to %.2f"%(prev_mean_reward, mean_reward))
+                    if self.retrain_model_when_reward_decreases and rolling_reward_mean < prev_rolling_reward_mean:
+                        logger.log(
+                            "Stopping policy gradients steps since rolling mean reward decreased from %.2f to %.2f" % (
+                                prev_rolling_reward_mean, rolling_reward_mean))
                         # complete some logging stuff
-                        for i in range(gradient_itr+1, self.num_gradient_steps_per_iter):
-                            logger.record_tabular('%i-DynTrajs-AverageReturn'%i, None)
+                        for i in range(gradient_itr + 1, self.num_gradient_steps_per_iter):
+                            logger.record_tabular('%i-DynTrajs-AverageReturn' % i, 0.0)
                         break
 
                     logger.log("Policy Gradient Step %i of %i - Optimizing policy..."%(gradient_itr, self.num_gradient_steps_per_iter))
                     self.optimize_policy(itr, samples_data_model, log=False)
-
-                    prev_mean_reward = mean_reward
 
 
                 logger.log("Saving snapshot...")

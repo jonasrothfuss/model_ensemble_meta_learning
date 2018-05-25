@@ -31,10 +31,10 @@ class TestMAMLImprovedGaussPolicy(unittest.TestCase):
         obs = env.reset()
 
         policy = MAMLImprovedGaussianMLPPolicy(
-            name="policy",
+            name="policy56",
             env_spec=env.spec,
             hidden_sizes=(16, 16),
-            hidden_nonlinearity=tf.nn.tanh
+            hidden_nonlinearity=tf.nn.tanh,
         )
 
         baseline = LinearFeatureBaseline(env_spec=env.spec)
@@ -76,13 +76,13 @@ class TestMAMLImprovedGaussPolicy(unittest.TestCase):
         self.assertAlmostEquals(diff, 0.0, places=3)
 
 
-    def test_get_mean(self):
+    def test_get_mean_stepsize(self):
 
         env = TfEnv(normalize(PointEnvMAML()))
         obs = env.reset()
 
         policy = MAMLImprovedGaussianMLPPolicy(
-            name="policy",
+            name="policy2",
             env_spec=env.spec,
             hidden_sizes=(16, 16),
             hidden_nonlinearity=tf.nn.tanh,
@@ -96,3 +96,59 @@ class TestMAMLImprovedGaussPolicy(unittest.TestCase):
             mean_stepsize_1 = policy.get_mean_step_size()
 
         self.assertAlmostEquals(mean_stepsize_1, 0.7, places=5)
+
+    def test_param_space_noise(self):
+        env = TfEnv(normalize(PointEnvMAML()))
+        obs = env.reset()
+
+        policy = MAMLImprovedGaussianMLPPolicy(
+            name="policy33",
+            env_spec=env.spec,
+            hidden_sizes=(16, 16),
+            hidden_nonlinearity=tf.nn.tanh,
+            param_noise_std=0.0
+        )
+
+        baseline = LinearFeatureBaseline(env_spec=env.spec)
+
+        import rllab.misc.logger as logger
+
+        logger.set_snapshot_dir('/tmp/')
+        logger.set_snapshot_mode('last')
+
+        algo = MAMLTRPO(
+            env=env,
+            policy=policy,
+            baseline=baseline,
+            batch_size=3,
+            max_path_length=10,
+            meta_batch_size=4,
+            num_grad_updates=1,
+            n_itr=1,
+            discount=0.99,
+            step_size=0.01,
+        )
+        algo.train()
+
+        tf.reset_default_graph()
+        pkl_file = os.path.join('/tmp/', 'params.pkl')
+        with tf.Session() as sess:
+            data = joblib.load(pkl_file)
+            policy = data['policy']
+            action_1 = policy.get_action(obs)[1]['mean']
+            action_2 = policy.get_action(obs)[1]['mean']
+            diff = np.sum((action_1 - action_2) ** 2)
+
+            self.assertAlmostEquals(diff, 0.0)
+
+            action_1 = policy.get_action(obs, param_noise_std=1.0)[1]['mean']
+            action_2 = policy.get_action(obs, param_noise_std=1.0)[1]['mean']
+            diff = np.sum((action_1 - action_2) ** 2)
+
+            self.assertGreaterEqual(diff, 0.1)
+
+            policy.param_noise_std = 1.0
+            action_1 = policy.get_action(obs)[1]['mean']
+            action_2 = policy.get_action(obs)[1]['mean']
+            diff = np.sum((action_1 - action_2) ** 2)
+            self.assertGreaterEqual(diff, 0.1)

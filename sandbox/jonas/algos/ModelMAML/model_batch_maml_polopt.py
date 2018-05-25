@@ -43,7 +43,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
             num_maml_steps_per_iter=10,
             retrain_model_when_reward_decreases=True,
             reset_policy_std=False,
-            reinit_model=0,
+            reinit_model_cycle=0,
             plot=False,
             pause_for_plot=False,
             center_adv=True,
@@ -82,6 +82,8 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                                         (n_epochs_at_first_iter, n_epochs_after_first_iter)
         :param num_maml_steps_per_iter: number of policy gradients steps before retraining dynamics model
         :param retrain_model_when_reward_decreases: (boolean) if true - stop inner gradient steps when performance decreases
+        :param reset_policy_std: whether to reset the policy std after each iteration
+        :param reinit_model_cycle: number of iterations before re-initializing the dynamics model (if 0 the dynamic model is not re-initialized at all)
         :param plot: Plot evaluation run after each iteration.
         :param pause_for_plot: Whether to pause before contiuing when plotting.
         :param center_adv: Whether to rescale the advantages so that they have mean 0 and standard deviation 1.
@@ -116,7 +118,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         self.num_maml_steps_per_iter = num_maml_steps_per_iter
         self.retrain_model_when_reward_decreases = retrain_model_when_reward_decreases
         self.reset_policy_std = reset_policy_std
-        self.reinit_model = reinit_model
+        self.reinit_model = reinit_model_cycle
 
         self.plot = plot
         self.pause_for_plot = pause_for_plot
@@ -231,6 +233,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
 
                     else:
                         if self.reset_policy_std:
+                            logger.log("Resetting policy std")
                             self.policy.set_std()
                         logger.log("Obtaining samples from the environment using the policy...")
                         new_env_paths = self.obtain_env_samples(itr, reset_args=learner_env_params,
@@ -253,15 +256,12 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                     epochs = self.dynamic_model_epochs[min(itr, len(self.dynamic_model_epochs) - 1)]
                     if self.reinit_model and itr % self.reinit_model == 0:
                         self.dynamics_model.reinit_model()
-                        epochs = self.dynamic_model_epochs[0] #todo: Probably to cycle through the dynamic_model_epochs
+                        epochs = self.dynamic_model_epochs[0]
                     logger.log("Training dynamics model for %i epochs ..." % (epochs))
                     self.dynamics_model.fit(samples_data_dynamics['observations_dynamics'],
                                             samples_data_dynamics['actions_dynamics'],
                                             samples_data_dynamics['next_observations_dynamics'],
-                                            epochs=epochs, verbose=True) #TODO set verbose False
-
-                    prev_mean_reward = -10 ** 22  # set prev reward
-
+                                            epochs=epochs, verbose=True)
 
                     ''' MAML steps '''
                     for maml_itr in range(self.num_maml_steps_per_iter):
@@ -297,14 +297,23 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                                 logger.log("Computing policy updates...")
                                 self.policy.compute_updated_dists(samples_data)
 
+                        if maml_itr == 0:
+                            prev_rolling_reward_mean = mean_reward
+                            rolling_reward_mean = mean_reward
+                        else:
+                            prev_rolling_reward_mean = rolling_reward_mean
+                            rolling_reward_mean = 0.8 * rolling_reward_mean + 0.2 * mean_reward
+
+
                         # stop gradient steps when mean_reward decreases
-                        if self.retrain_model_when_reward_decreases and mean_reward < prev_mean_reward:
+                        if self.retrain_model_when_reward_decreases and rolling_reward_mean < prev_rolling_reward_mean:
                             logger.log(
-                                "Stopping policy gradients steps since mean reward decreased from %.2f to %.2f" % (
-                                    prev_mean_reward, mean_reward))
+                                "Stopping policy gradients steps since rolling mean reward decreased from %.2f to %.2f" % (
+                                    prev_rolling_reward_mean, rolling_reward_mean))
                             # complete some logging stuff
-                            for i in range(maml_itr + 1, self.num_gradient_steps_per_iter):
-                                logger.record_tabular('%i-DynTrajs-AverageReturn' % i, None)
+                            for i in range(maml_itr + 1, self.num_maml_steps_per_iter):
+                                logger.record_tabular('DynTrajs%ia-AverageReturn' % i, 0.0)
+                                logger.record_tabular('DynTrajs%ib-AverageReturn' % i, 0.0)
                             break
 
                         logger.log("MAML Step %i of %i - Optimizing policy..." % (maml_itr + 1, self.num_maml_steps_per_iter))

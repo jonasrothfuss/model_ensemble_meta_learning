@@ -15,7 +15,7 @@ import sys
 import argparse
 import random
 
-EXP_PREFIX = 'trpo-rand-param-env-baselines'
+EXP_PREFIX = 'trpo-baselines'
 
 ec2_instance = 'c4.xlarge'
 subnets = cheapest_subnets(ec2_instance, num_subnets=3)
@@ -41,7 +41,7 @@ def run_train_task(vv):
         baseline=baseline,
         batch_size=vv['batch_size'],
         max_path_length=vv['path_length'],
-        n_itr=vv['n_iter'],
+        n_itr=vv['n_itr'],
         discount=vv['discount'],
         step_size=vv["step_size"],
         force_batch_sampler=True
@@ -63,15 +63,14 @@ def run_experiment(argv):
     vg = VariantGenerator()
     vg.add('env', ['HalfCheetahEnvRandParams']) # HalfCheetahEnvRandParams
     vg.add('n_itr', [500])
-    vg.add('log_scale_limit', [0.01, 0.1, 0.3, 0.5])
+    vg.add('log_scale_limit', [0.0])
     vg.add('step_size', [0.01])
-    vg.add('seed', [1, 11]) #TODO set back to [1, 11, 21, 31, 41]
+    vg.add('seed', [1, 11, 21, 31, 41])
     vg.add('discount', [0.99])
-    vg.add('n_iter', [700])
     vg.add('path_length', [100])
-    vg.add('batch_size', [20000, 80000])
+    vg.add('batch_size', [20000])
     vg.add('hidden_nonlinearity', ['tanh'])
-    vg.add('hidden_sizes', [(100, 100)])
+    vg.add('hidden_sizes', [(32, 32)])
 
     variants = vg.variants()
 
