@@ -21,9 +21,9 @@ import sys
 import argparse
 import random
 
-EXP_PREFIX = 'model-ensemble-maml-hyperparam-search'
+EXP_PREFIX = 'model-ensemble-maml'
 
-ec2_instance = 'm4.2xlarge'
+ec2_instance = 'm4.4xlarge'
 subnets = cheapest_subnets(ec2_instance, num_subnets=3)
 
 
@@ -37,7 +37,7 @@ def run_train_task(vv):
         hidden_sizes=vv['hidden_sizes_model'],
         weight_normalization=vv['weight_normalization_model'],
         num_models=vv['num_models'],
-        optimizer=vv['optimizer_model']
+        optimizer=vv['optimizer_model'],
     )
 
     policy = MAMLImprovedGaussianMLPPolicy(
@@ -47,7 +47,8 @@ def run_train_task(vv):
         hidden_nonlinearity=vv['hidden_nonlinearity_policy'],
         grad_step_size=vv['fast_lr'],
         trainable_step_size=vv['trainable_step_size'],
-        bias_transform=vv['bias_transform']
+        bias_transform=vv['bias_transform'],
+        param_noise_std=vv['param_noise_std']
     )
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
@@ -85,10 +86,9 @@ def run_experiment(argv):
     args = parser.parse_args(argv[1:])
 
     # -------------------- Define Variants -----------------------------------
-
     vg = VariantGenerator()
-    vg.add('env', ['HalfCheetahEnvRandParams'])
-    vg.add('n_itr', [20])
+    vg.add('env', ['AntEnvRandParams'])
+    vg.add('n_itr', [100])
     vg.add('log_scale_limit', [0.0])
     vg.add('fast_lr', [0.01])
     vg.add('meta_step_size', [0.01])
@@ -99,18 +99,19 @@ def run_experiment(argv):
     vg.add('batch_size_dynamics_samples', [100])
     vg.add('initial_random_samples', [5000])
     vg.add('dynamic_model_epochs', [(100, 50)])
-    vg.add('num_maml_steps_per_iter', [100])
+    vg.add('num_maml_steps_per_iter', [50])
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
-    vg.add('hidden_sizes_policy', [(100, 100)])
-    vg.add('hidden_sizes_model', [(512, 512)])
+    vg.add('hidden_sizes_policy', [(32, 32)])
+    vg.add('hidden_sizes_model', [(1024, 1024)])
     vg.add('weight_normalization_model', [True])
-    vg.add('reset_policy_std', [False, True])
-    vg.add('reinit_model_cycle', [0, 5])
+    vg.add('reset_policy_std', [False])
+    vg.add('reinit_model_cycle', [0])
     vg.add('optimizer_model', ['adam'])
     vg.add('retrain_model_when_reward_decreases', [True, False])
     vg.add('num_models', [5])
-    vg.add('trainable_step_size', [True, False])
+    vg.add('param_noise_std', [0.0])
+    vg.add('trainable_step_size', [False])
     vg.add('bias_transform', [False])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
 
@@ -136,8 +137,8 @@ def run_experiment(argv):
     # ----------------------- TRAINING ---------------------------------------
     exp_ids = random.sample(range(1, 1000), len(variants))
     for v, exp_id in zip(variants, exp_ids):
-        exp_name = "model_ensemble_maml_train_env_%s_%i_%i_%i_id_%i" % (v['env'], v['num_maml_steps_per_iter'],
-                                                               v['batch_size_env_samples'], v['seed'], exp_id)
+        exp_name = "model_ensemble_maml_train_env_%s_%i_%i_%i_%i_id_%i" % (v['env'], v['path_length'], v['num_maml_steps_per_iter'],
+                                                       v['batch_size_env_samples'], v['seed'], exp_id)
         v = instantiate_class_stings(v)
 
         subnet = random.choice(subnets)
@@ -157,8 +158,8 @@ def run_experiment(argv):
             exp_name=exp_name,
             # Number of parallel workers for sampling
             n_parallel=n_parallel,
-            # Only keep the snapshot parameters for the last iteration
-            snapshot_mode="all",
+            snapshot_mode="gap",
+            snapshot_gap=5,
             periodic_sync=True,
             sync_s3_pkl=True,
             sync_s3_log=True,
