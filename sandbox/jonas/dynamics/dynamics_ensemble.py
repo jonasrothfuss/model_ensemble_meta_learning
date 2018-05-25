@@ -166,7 +166,7 @@ class MLPDynamicsEnsemble(MLPDynamicsModel):
             :return: pred_obs_next_batch: predicted batch of next observations -
                                     shape:  (batch_size_per_model * num_models, ndim_obs)
         """
-        assert obs_batches.shape[0] == act_batches.shape[0]
+        assert obs_batches.shape[0] == act_batches.shape[0] and obs_batches.shape[0] % self.num_models == 0
         assert obs_batches.ndim == 2 and obs_batches.shape[1] == self.obs_space_dims
         assert act_batches.ndim == 2 and act_batches.shape[1] == self.action_space_dims
 
