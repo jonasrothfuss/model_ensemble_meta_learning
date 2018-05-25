@@ -17,17 +17,17 @@ class MLPDynamicsModel(LayersPowered, Serializable):
     Class for MLP continous dynamics model
     """
 
-
     def __init__(self,
                  name,
-                 env,
-                 hidden_sizes=(1024, 1024),
+                 env_spec,
+                 hidden_sizes=(500, 500),
                  hidden_nonlinearity=tf.nn.relu,
                  output_nonlinearity=None,
-                 batch_size=1000,
+                 batch_size=500,
                  step_size=0.001,
-                 weight_normalization=True,
-                 normalize_input=True
+                 weight_normalization=False,
+                 normalize_input=True,
+                 optimizer=tf.train.AdamOptimizer
                  ):
 
         Serializable.quick_init(self, locals())
@@ -40,8 +40,8 @@ class MLPDynamicsModel(LayersPowered, Serializable):
             self.step_size = step_size
 
             # determine dimensionality of state and action space
-            self.obs_space_dims = env.observation_space.shape[0]
-            self.action_space_dims = env.action_space.shape[0]
+            self.obs_space_dims = env_spec.observation_space.shape[0]
+            self.action_space_dims = env_spec.action_space.shape[0]
 
             # placeholders
             self.obs_ph = tf.placeholder(tf.float32, shape=(None, self.obs_space_dims))
@@ -58,14 +58,14 @@ class MLPDynamicsModel(LayersPowered, Serializable):
                       hidden_nonlinearity,
                       output_nonlinearity,
                       input_var=self.nn_input,
-                      input_shape = (self.obs_space_dims+self.action_space_dims,),
+                      input_shape=(self.obs_space_dims+self.action_space_dims,),
                       weight_normalization=weight_normalization)
 
             self.delta_pred = mlp.output
 
             # define loss and train_op
             self.loss = tf.reduce_mean((self.delta_ph - self.delta_pred)**2)
-            self.optimizer = tf.train.AdamOptimizer(self.step_size)
+            self.optimizer = optimizer(self.step_size)
             self.train_op = self.optimizer.minimize(self.loss)
 
             # tensor_utils
@@ -73,12 +73,13 @@ class MLPDynamicsModel(LayersPowered, Serializable):
 
         LayersPowered.__init__(self, [mlp.output_layer])
 
-    def fit(self, obs, act, obs_next, epochs=25, compute_normalization=True, verbose=False):
+
+    def fit(self, obs, act, obs_next, epochs=50, compute_normalization=True, verbose=False, tolerance=1e-6):
         """
         Fits the NN dynamics model
         :param obs: observations - numpy array of shape (n_samples, ndim_obs)
         :param act: actions - numpy array of shape (n_samples, ndim_act)
-        :param obs_next: observations after takeing action - numpy array of shape (n_samples, ndim_obs)
+        :param obs_next: observations after taking action - numpy array of shape (n_samples, ndim_obs)
         :param epochs: number of training epochs
         :param compute_normalization: boolean indicating whether normalization shall be (re-)computed given the data
         :param verbose: logging verbosity
@@ -101,6 +102,7 @@ class MLPDynamicsModel(LayersPowered, Serializable):
 
         # create data queue
         next_batch, iterator = self._data_input_fn(obs, act, delta, batch_size=self.batch_size)
+        last_loss = 1e8
 
         # Training loop
         for epoch in range(epochs):
@@ -124,6 +126,10 @@ class MLPDynamicsModel(LayersPowered, Serializable):
                     if verbose:
                         logger.log("Training NNDynamicsModel - finished epoch {} -- mean loss: {}".format(epoch, np.mean(batch_losses)))
                     break
+            new_loss = np.mean(batch_losses)
+            if abs(last_loss - new_loss) < tolerance:
+                break
+            last_loss = new_loss
 
     def predict(self, obs, act):
         """
