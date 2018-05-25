@@ -68,7 +68,7 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['AntEnvRandParams', 'CheetahEnvRandParams', 'HopperEnvRandParams'])
+    vg.add('env', ['AntEnvRandParams', 'HalfCheetahEnvRandParams', 'HopperEnvRandParams'])
     vg.add('n_itr', [500])
     vg.add('step_size', [0.01]) #[0.01,0.05, 0.1])
     vg.add('seed', [1, 11, 21, 31, 41])
