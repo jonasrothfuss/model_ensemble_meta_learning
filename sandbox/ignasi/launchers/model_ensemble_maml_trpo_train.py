@@ -9,7 +9,8 @@ from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGa
 from sandbox.jonas.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
 from sandbox.jonas.algos.ModelMAML.model_maml_trpo import ModelMAMLTRPO
 from experiments.helpers.ec2_helpers import cheapest_subnets
-from experiments.run_scripts.run_multi_gpu import run_multi_gpu
+from sandbox.ignasi.launchers.run_multi_gpu import run_multi_gpu
+import os
 
 from sandbox.jonas.envs.own_envs import PointEnvMAML
 from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams
@@ -83,6 +84,8 @@ def run_experiment(argv):
     parser.add_argument('--mode', type=str, default='mgpu',
                         help='Mode for running the experiments - local: runs on local machine, '
                              'ec2: runs on AWS ec2 cluster (requires a proper configuration file)')
+    parser.add_argument('-n_gpu', type=int, default=0)
+    parser.add_argument('-ctx', type=int, default=2)
 
     args = parser.parse_args(argv[1:])
 
@@ -101,7 +104,7 @@ def run_experiment(argv):
     vg.add('batch_size_dynamics_samples', [100])
     vg.add('initial_random_samples', [5000])
     vg.add('dynamic_model_epochs', [(100, 50)])
-    vg.add('num_maml_steps_per_iter', [100])
+    vg.add('num_maml_steps_per_iter', [30])
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(100, 100)])
@@ -132,8 +135,11 @@ def run_experiment(argv):
 
     # ----------------------- AWS conficuration ---------------------------------
     if args.mode == 'mgpu':
-        script = '/home/ignasi/GitRepos/model_ensemble_meta_learning/experiments/run_scripts/run_gpu_model_ensemble_maml_trpo_train.py'
-        run_multi_gpu(script, default_dict, 2, 2)
+        script = '/home/ignasi/GitRepos/model_ensemble_meta_learning/sandbox/ignasi/launchers/run_gpu_model_ensemble_maml_trpo_train.py'
+        n_gpu = args.n_gpu
+        if n_gpu == 0:
+            n_gpu = len(os.listdir('/proc/driver/nvidia/gpus'))
+        run_multi_gpu(script, default_dict, n_gpu=n_gpu, ctx_per_gpu=args.ctx)
 
     else:
         if args.mode == 'ec2':

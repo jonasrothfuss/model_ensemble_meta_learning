@@ -12,9 +12,9 @@ import time
 from rllab_maml.algos.base import RLAlgorithm
 from rllab_maml.sampler.stateful_pool import singleton_pool
 
-from sandbox.jonas.sampler import RandomVectorizedSampler, MAMLModelVectorizedSampler, MAMLVectorizedSampler,\
-    MAMLVINEModelVectorizedSampler
-from sandbox.jonas.sampler.base import VINEModelBaseSampler
+from sandbox.ignasi.samplers import RandomVectorizedSampler, MAMLModelVectorizedSampler, MAMLVINEModelVectorizedSampler
+from sandbox.jonas.sampler import MAMLVectorizedSampler
+from sandbox.ignasi.samplers.maml_base import VINEModelBaseSampler
 from sandbox.jonas.sampler.MAML_sampler.maml_batch_sampler import BatchSampler
 
 

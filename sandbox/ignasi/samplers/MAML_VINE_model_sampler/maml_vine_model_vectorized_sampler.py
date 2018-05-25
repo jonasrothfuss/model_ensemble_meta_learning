@@ -1,7 +1,7 @@
 import pickle
 
 from sandbox.jonas.sampler.base import ModelBaseSampler
-from sandbox.jonas.sampler.MAML_VINE_model_sampler.maml_vine_model_vec_env_executor import MAMLVINEModelVecEnvExecutor
+from sandbox.ignasi.samplers.MAML_VINE_model_sampler.maml_vine_model_vec_env_executor import MAMLVINEModelVecEnvExecutor
 from rllab.misc import tensor_utils
 import numpy as np
 from rllab.sampler.stateful_pool import ProgBarCounter
@@ -48,7 +48,7 @@ class MAMLVINEModelVectorizedSampler(ModelBaseSampler):
         dones = np.asarray([True] * self.n_parallel)
         running_paths = [None] * self.n_parallel
 
-        pbar = ProgBarCounter(self.algo.batch_size)
+        pbar = ProgBarCounter(self.algo.vine_max_path_length)
         policy_time = 0
         env_time = 0
         process_time = 0

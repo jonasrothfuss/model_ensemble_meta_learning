@@ -7,7 +7,7 @@ from sandbox.jonas.envs.base import TfEnv
 from rllab.misc.instrument import stub, run_experiment_lite
 from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
 from sandbox.jonas.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
-from sandbox.jonas.algos.ModelMAML.model_maml_trpo import ModelMAMLTRPO
+from sandbox.ignasi.algos.ModelMAML.model_maml_trpo import ModelMAMLTRPO
 from experiments.helpers.ec2_helpers import cheapest_subnets
 
 from sandbox.jonas.envs.own_envs import PointEnvMAML
