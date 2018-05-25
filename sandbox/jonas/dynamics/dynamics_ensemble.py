@@ -44,6 +44,7 @@ class MLPDynamicsEnsemble(MLPDynamicsModel):
         self.obs_space_dims = obs_space_dims = env_spec.observation_space.shape[0]
         self.action_space_dims = action_space_dims = env_spec.action_space.shape[0]
 
+        """ computation graph for training and simple inference """
         with tf.variable_scope(name):
             # placeholders
             self.obs_ph = tf.placeholder(tf.float32, shape=(None, obs_space_dims))
@@ -80,6 +81,37 @@ class MLPDynamicsEnsemble(MLPDynamicsModel):
 
             # tensor_utils
             self.f_delta_pred = tensor_utils.compile_function([self.obs_ph, self.act_ph], self.delta_pred)
+
+        """ computation graph for inference where each of the models receives a different batch"""
+        with tf.variable_scope(name, reuse=True):
+            # placeholders
+            self.obs_model_batches_stack_ph = tf.placeholder(tf.float32, shape=(None, obs_space_dims))
+            self.act_model_batches_stack_ph = tf.placeholder(tf.float32, shape=(None, action_space_dims))
+
+            # split stack into the batches for each model --> assume each model receives a batch of the same size
+            self.obs_model_batches = tf.split(self.obs_model_batches_stack_ph, self.num_models, axis=0)
+            self.act_model_batches = tf.split(self.act_model_batches_stack_ph, self.num_models, axis=0)
+
+            # reuse previously created MLP but each model receives its own batch
+            delta_preds = []
+            self.obs_next_pred = []
+            for i in range(num_models):
+                with tf.variable_scope('model_{}'.format(i), reuse=True):
+                    # concatenate action and observation --> NN input
+                    nn_input = tf.concat([self.obs_model_batches[i], self.act_model_batches[i]], axis=1)
+                    mlp = MLP(name,
+                              obs_space_dims,
+                              hidden_sizes,
+                              hidden_nonlinearity,
+                              output_nonlinearity,
+                              input_var=nn_input,
+                              input_shape=(obs_space_dims+action_space_dims,),
+                              weight_normalization=weight_normalization)
+                delta_preds.append(mlp.output)
+            self.delta_pred_model_batches_stack = tf.concat(delta_preds, axis=0) # shape: (batch_size_per_model*num_models, ndim_obs)
+
+            # tensor_utils
+            self.f_delta_pred_model_batches = tensor_utils.compile_function([self.obs_model_batches_stack_ph, self.act_model_batches_stack_ph], self.delta_pred_model_batches_stack)
 
         LayersPowered.__init__(self, [mlp.output_layer for mlp in mlps])
 
@@ -126,6 +158,34 @@ class MLPDynamicsEnsemble(MLPDynamicsModel):
             NotImplementedError('pred_type must be one of [rand, mean, all]')
         return pred_obs
 
+    def predict_model_batches(self, obs_batches, act_batches):
+        """
+            Predict the batch of next observations for each model given the batch of current observations and actions for each model
+            :param obs_batches: observation batches for each model concatenated along axis 0 - numpy array of shape (batch_size_per_model * num_models, ndim_obs)
+            :param act_batches: action batches for each model concatenated along axis 0 - numpy array of shape (batch_size_per_model * num_models, ndim_act)
+            :return: pred_obs_next_batch: predicted batch of next observations -
+                                    shape:  (batch_size_per_model * num_models, ndim_obs)
+        """
+        assert obs_batches.shape[0] == act_batches.shape[0]
+        assert obs_batches.ndim == 2 and obs_batches.shape[1] == self.obs_space_dims
+        assert act_batches.ndim == 2 and act_batches.shape[1] == self.action_space_dims
+
+        obs_batches_original = obs_batches
+
+        if self.normalize_input:
+            obs_batches, act_batches = self._normalize_data(obs_batches, act_batches)
+            delta_batches = np.array(self.f_delta_pred_model_batches(obs_batches, act_batches))
+            delta_batches = denormalize(delta_batches, self.normalization['delta'][0], self.normalization['delta'][1])
+        else:
+            delta_batches = np.array(self.f_delta_pred(obs_batches, act_batches))
+
+        assert delta_batches.ndim == 2
+
+        pred_obs_batches = obs_batches_original + delta_batches
+        assert pred_obs_batches.shape == obs_batches.shape
+        return pred_obs_batches
+
+
     def predict_std(self, obs, act):
         """
         calculates the std of predicted next observations among the models
@@ -151,4 +211,4 @@ def denormalize(data_array, mean, std):
     if data_array.ndim == 3: # assumed shape (batch_size, ndim_obs, n_models)
         return data_array * (std[None, :, None] + 1e-10) + mean[None, :, None]
     elif data_array.ndim == 2:
-        return data_array * (std[None, :] + 1e-10) + mean[None, :, None]
+        return data_array * (std[None, :] + 1e-10) + mean[None, :]
