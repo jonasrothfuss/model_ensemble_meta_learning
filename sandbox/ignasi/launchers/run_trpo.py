@@ -1,6 +1,6 @@
 from sandbox.rocky.tf.algos.trpo import TRPO
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
-from rllab.envs.mujoco.half_cheetah_env import HalfCheetahEnv
+from sandbox.ignasi.envs.half_cheetah_env import HalfCheetahEnv
 from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from sandbox.rocky.tf.envs.base import TfEnv
@@ -8,14 +8,15 @@ from rllab.misc.instrument import VariantGenerator
 from rllab.misc.instrument import run_experiment_lite
 
 
-def main(*args, **kwargs):
+def main(variant):
     real_env = TfEnv(normalize(HalfCheetahEnv()))
 
     policy = GaussianMLPPolicy(
         name="policy",
         env_spec=real_env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
-        hidden_sizes=(32, 32)
+        hidden_sizes=(32, 32),
+        learn_std=variant['learn_std'],
     )
 
     baseline = LinearFeatureBaseline(env_spec=real_env.spec)
@@ -24,12 +25,11 @@ def main(*args, **kwargs):
         env=real_env,
         policy=policy,
         baseline=baseline,
-        n_itr=1000,
-        discount=0.9,
-        step_size=0.001,
+        n_itr=2000,
+        discount=0.95,
+        step_size=0.05,
         batch_size=50000,
-        max_path_length=1000,
-
+        max_path_length=100,
     )
 
     # subnets = [
@@ -92,6 +92,7 @@ if __name__ == '__main__':
     vg = VariantGenerator()
     # vg.add('env', ['HalfCheetahEnv', 'HumanoidEnv', 'SnakeEnv', 'SwimmerEnv', 'HopperEnv', 'AntEnv', 'Walker2DEnv'])
     vg.add('env', ['HalfCheetahEnv'])
+    vg.add('learn_std', [False])
     vg.add('seed', [0, 10])
 
     for v in vg.variants(randomized=True):

@@ -38,24 +38,26 @@ class ModelVectorizedSampler(ModelBaseSampler):
                  in zip(observations, actions, rewards, env_infos, agent_infos)]
         return paths
 
-    def obtain_samples(self, itr, real_paths):
+    def obtain_samples(self, itr, observations):
         """
         :param itr:
         :param real_path:
         :return:
         """
         # todo: so far, i consider that i have a real world path, and that the agent never dies before the horizon. I just need to add zeros after that, and do some preprocessing
-        pbar = ProgBarCounter(len(real_paths) * self.model_max_path_lenght)
         paths = []
         policy = self.algo.policy
         policy_time = 0
         env_time = 0
         process_time = 0
-        for path in real_paths:
-            initial_observations = path['observations']
-            initial_observations = obses = np.repeat(initial_observations, self.num_branches, axis=0)
-            self.vec_env.num_envs = initial_observations.shape[0]
-            self.vec_env._wrapped_env._wrapped_env.reset(initial_observations)
+        max_obs = int(5e5)
+        initial_observations = np.repeat(observations, self.num_branches, axis=0)
+        num_slices = int(np.ceil(len(initial_observations)/max_obs))
+        pbar = ProgBarCounter(num_slices * self.model_max_path_lenght)
+        for i in range(num_slices):
+            obses = initial_observations[i * max_obs: (i+1) * max_obs]
+            self.vec_env.num_envs = obses.shape[0]
+            self.vec_env._wrapped_env._wrapped_env.reset(init_pos=obses)
             dones = np.asarray([True] * self.vec_env.num_envs)
 
             timestep = 0

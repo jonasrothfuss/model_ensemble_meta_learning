@@ -1,11 +1,13 @@
 from sandbox.ignasi.algos.trpo import VINETRPO
-from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
-from sandbox.ignasi.envs.com_half_cheetah_env import HalfCheetahEnv
+from sandbox.ignasi.baselines.linear_feature_baseline import LinearFeatureBaseline
+from rllab.baselines.zero_baseline import ZeroBaseline
+from sandbox.ignasi.envs.half_cheetah_env import HalfCheetahEnv
+# from sandbox.ignasi.envs.com_half_cheetah_env import HalfCheetahEnv
 from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.ignasi.envs.model_env import ModelEnv
-from sandbox.ignasi.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
+from sandbox.jonas.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
 from rllab.misc.instrument import VariantGenerator
 from rllab.misc.instrument import run_experiment_lite
 from rllab import config
@@ -15,11 +17,18 @@ import sys
 
 def main(variant):
     default_dict = dict(num_paths=5,
-                        step_size=0.01,
+                        kl_step_size=0.01,
                         discount=1,
                         num_branches=10,
                         opt_model_itr=10,
                         model_max_path_length=50,
+                        param_noise=False,
+                        samples_batch_size=5000,
+                        num_init_obs=1000,
+                        max_path_length=100,
+                        itr_to_collect_data=1,
+                        hidden_sizes_model=(512, 512),
+                        baseline_is_mean=True,
                         )
     default_dict.update(variant)
     real_env = TfEnv(normalize(HalfCheetahEnv()))
@@ -27,7 +36,7 @@ def main(variant):
     dynamics_model = MLPDynamicsEnsemble(
         'dynamics_model',
         real_env,
-        hidden_sizes=(512,)*3,
+        hidden_sizes=default_dict['hidden_sizes_model'],
         num_models=5,
     )
 
@@ -44,6 +53,7 @@ def main(variant):
     )
 
     baseline = LinearFeatureBaseline(env_spec=real_env.spec)
+    # baseline = ZeroBaseline(env_spec=real_env.spec)
 
     algo = VINETRPO(
         real_env=real_env,
@@ -52,15 +62,20 @@ def main(variant):
         baseline=baseline,
         dynamics_model=dynamics_model,
         num_paths=default_dict['num_paths'],
-        n_itr=1001,
+        n_itr=100,
+        itr_to_collect_data=default_dict['itr_to_collect_data'],
         discount=default_dict['discount'],
-        step_size=default_dict['step_size'],
+        step_size=default_dict['kl_step_size'],
         num_branches=default_dict['num_branches'],
         model_max_path_length=default_dict['model_max_path_length'],
-        max_path_length=1000,
-        opt_model_itr=default_dict['opt_model_itr']
+        max_path_length=default_dict['max_path_length'],
+        opt_model_itr=default_dict['opt_model_itr'],
+        param_noise=default_dict['param_noise'],
+        use_real_env=False,
+        samples_batch_size=default_dict['samples_batch_size'],
+        num_init_obs=default_dict['num_init_obs'],
+        baseline_is_mean=default_dict['baseline_is_mean']
     )
-
 
     algo.train()
 
@@ -68,13 +83,15 @@ def main(variant):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('-ec2', type=bool, default=False)
+    parser.add_argument('-ec2', action='store_true')
     args = parser.parse_args(sys.argv[1:])
 
     if args.ec2:
         mode = 'ec2'
+        use_gpu=False
     else:
         mode = 'local'
+        use_gpu=True
     log_dir = 'vine_trpo' #osp.join('vine_trpo', datetime.datetime.today().)
     subnets = [
         'ap-northeast-2a', 'ap-northeast-2c', 'ap-south-1a', 'us-west-1b', 'us-west-1c', 'ap-southeast-1a',
@@ -112,11 +129,20 @@ if __name__ == '__main__':
 
     vg = VariantGenerator()
     vg.add('env', ['HalfCheetahEnv'])
-    vg.add('num_paths', [5])
-    vg.add('discount', [1.])
-    vg.add('model_max_path_length', [30])
+    vg.add('num_paths', [1])
+    vg.add('discount', [0.95])
+    vg.add('model_max_path_length', [25])
     vg.add('num_branches', [20])
-    vg.add('seed', [0])
+    vg.add('param_noise', [True, False])
+    vg.add('samples_batch_size', [10000])
+    vg.add('num_init_obs', [10000])
+    vg.add('kl_step_size', [0.05])
+    vg.add('max_path_length', [100])
+    vg.add('itr_to_collect_data', [1])
+    vg.add('hidden_sizes_model', [[512, 512]])
+    vg.add('baseline_is_mean', [True, False])
+    vg.add('seed', [10])
+
 
     print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format('TRPO', len(vg.variants())))
     print('Running on type {}, with price {}, parallel {} on the subnets: '.format(config.AWS_INSTANCE_TYPE,
@@ -126,7 +152,7 @@ if __name__ == '__main__':
     for v in vg.variants(randomized=True):
         run_experiment_lite(
             main,
-            use_gpu=False,
+            use_gpu=use_gpu,
             sync_s3_pkl=True,
             periodic_sync=True,
             variant=v,
