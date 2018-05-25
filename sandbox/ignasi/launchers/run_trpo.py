@@ -25,7 +25,7 @@ def main(variant):
         env=real_env,
         policy=policy,
         baseline=baseline,
-        n_itr=2000,
+        n_itr=2,
         discount=0.95,
         step_size=0.05,
         batch_size=50000,
@@ -111,3 +111,4 @@ if __name__ == '__main__':
             exp_prefix=log_dir,
             # log_dir=log_dir
         )
+        print("dooooone!")
