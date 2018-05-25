@@ -8,7 +8,7 @@ from sandbox.rocky.tf.misc import tensor_utils
 from rllab.misc import logger
 from collections import OrderedDict
 import sandbox.rocky.tf.core.layers as L
-from sandbox.jonas.dynamics import MLPDynamicsModel
+from sandbox.ignasi.dynamics.mlp_dynamics import MLPDynamicsModel
 
 
 class MLPDynamicsEnsemble(MLPDynamicsModel):

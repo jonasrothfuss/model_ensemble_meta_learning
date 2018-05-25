@@ -4,10 +4,10 @@ from rllab.baselines.zero_baseline import ZeroBaseline
 from sandbox.ignasi.envs.half_cheetah_env import HalfCheetahEnv
 # from sandbox.ignasi.envs.com_half_cheetah_env import HalfCheetahEnv
 from rllab.envs.normalized_env import normalize
-from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
+from sandbox.ignasi.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.ignasi.envs.model_env import ModelEnv
-from sandbox.jonas.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
+from sandbox.ignasi.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
 from rllab.misc.instrument import VariantGenerator
 from rllab.misc.instrument import run_experiment_lite
 from rllab import config
