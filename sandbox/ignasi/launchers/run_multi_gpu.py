@@ -1,4 +1,3 @@
-import tensorflow as tf
 import subprocess
 import time
 import os
@@ -6,8 +5,6 @@ import json
 
 
 def launch_GPU_exp(script, run_kwargs, id_gpu, init_cpu, end_cpu):
-    config = tf.ConfigProto()
-    config.gpu_options.per_process_gpu_memory_fraction = 0.4
     kwargs_path = '/tmp/exp_variant.json'
     json.dump(run_kwargs, open(kwargs_path, 'w'))
     run_env = os.environ.copy()

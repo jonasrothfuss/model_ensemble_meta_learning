@@ -36,16 +36,7 @@ class MAMLVINEModelVecEnvExecutor(object):
 
         # use the model to make (predicted) steps
         prev_obs = self.current_obs
-
-        action_batches_per_model = np.split(action_n, self.model.num_models)
-        prev_obs_batches_per_model = np.split(prev_obs, self.model.num_models)
-        next_obs_batches_per_model = []
-        #todo: you don't need a for here
-        for i, (prev_obs_batch, action_batch) in enumerate(zip(prev_obs_batches_per_model, action_batches_per_model)):
-            next_obs_batch = self.model.predict(prev_obs_batch, action_batch, pred_type='all')[:,:,i]
-            next_obs_batches_per_model.append(next_obs_batch)
-
-        next_obs = np.concatenate(next_obs_batches_per_model, axis=0)
+        next_obs = self.model.predict_model_batches(prev_obs, action_n)
         rewards = self.unwrapped_env.reward(prev_obs, action_n, next_obs)
 
         if self.has_done_fn:
