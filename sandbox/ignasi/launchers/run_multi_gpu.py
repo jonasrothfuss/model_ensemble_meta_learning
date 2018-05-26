@@ -4,8 +4,8 @@ import os
 import json
 
 
-def launch_GPU_exp(script, run_kwargs, id_gpu, init_cpu, end_cpu):
-    kwargs_path = '/tmp/exp_variant.json'
+def launch_GPU_exp(script, run_kwargs, id_gpu, init_cpu, end_cpu, run_slot):
+    kwargs_path = '/tmp/exp_variant_%i.json'%run_slot
     json.dump(run_kwargs, open(kwargs_path, 'w'))
     run_env = os.environ.copy()
     run_env["CUDA_VISIBLE_DEVICES"] = str(id_gpu)
@@ -37,7 +37,7 @@ def run_multi_gpu(script, exp_kwargs, n_gpu, ctx_per_gpu):
                     init_cpu = n_parallel * (run_slot // ctx_per_gpu)
                     end_cpu = init_cpu + n_parallel
                     id_gpu = run_slot//ctx_per_gpu
-                    procs[run_slot] = launch_GPU_exp(script, run_kwargs, id_gpu, init_cpu, end_cpu)
+                    procs[run_slot] = launch_GPU_exp(script, run_kwargs, id_gpu, init_cpu, end_cpu, run_slot)
                     launched = True
                     break
             if not launched:

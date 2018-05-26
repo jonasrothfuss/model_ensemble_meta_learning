@@ -26,7 +26,7 @@ import random
 EXP_PREFIX = 'model-ensemble-maml-hyperparam-search'
 
 ec2_instance = 'm4.2xlarge'
-subnets = cheapest_subnets(ec2_instance, num_subnets=3)
+
 
 
 def run_train_task(vv):
@@ -97,7 +97,7 @@ def run_experiment(argv):
     vg.add('log_scale_limit', [0.0])
     vg.add('fast_lr', [0.01])
     vg.add('meta_step_size', [0.01])
-    vg.add('seed', [22, 44, 55]) #TODO set back to [1, 11, 21, 31, 41]
+    vg.add('seed', [0, 10, 30]) #TODO set back to [1, 11, 21, 31, 41]
     vg.add('discount', [0.99])
     vg.add('path_length', [100])
     vg.add('batch_size_env_samples', [10])
@@ -107,7 +107,7 @@ def run_experiment(argv):
     vg.add('num_maml_steps_per_iter', [30])
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
-    vg.add('hidden_sizes_policy', [(100, 100)])
+    vg.add('hidden_sizes_policy', [(32, 32)])
     vg.add('hidden_sizes_model', [(512, 512)])
     vg.add('weight_normalization_model', [True])
     vg.add('reset_policy_std', [False, True])
@@ -155,12 +155,14 @@ def run_experiment(argv):
             config.AWS_INSTANCE_TYPE = ec2_instance
             config.AWS_SPOT_PRICE = str(info["price"])
 
+
             print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format('TRPO', len(variants)))
             print('Running on type {}, with price {}, on the subnets: '.format(config.AWS_INSTANCE_TYPE,
                                                                                config.AWS_SPOT_PRICE, ), str(subnets))
 
         # ----------------------- TRAINING ---------------------------------------
         exp_ids = random.sample(range(1, 1000), len(variants))
+        subnets = cheapest_subnets(ec2_instance, num_subnets=3)
         for v, exp_id in zip(variants, exp_ids):
             exp_name = "model_ensemble_maml_train_env_%s_%i_%i_%i_id_%i" % (v['env'], v['num_maml_steps_per_iter'],
                                                                    v['batch_size_env_samples'], v['seed'], exp_id)
