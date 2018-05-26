@@ -21,7 +21,7 @@ class BaseEnvRandParams(Serializable):
     RAND_PARAMS_EXTENDED = RAND_PARAMS + ['geom_size']
 
 
-    def __init__(self, *args, log_scale_limit=2.0, fix_params=False, rand_params=RAND_PARAMS, random_seed=None, fixed_goal=True, **kwargs):
+    def __init__(self, *args, log_scale_limit=2.0, fix_params=False, rand_params=RAND_PARAMS, random_seed=None, fixed_goal=True, max_path_length=0, **kwargs):
         """
         Half-Cheetah environment with randomized mujoco parameters
         :param log_scale_limit: lower / upper limit for uniform sampling in logspace of base 2
@@ -39,6 +39,13 @@ class BaseEnvRandParams(Serializable):
         self.rand_params = rand_params
         self.fixed_goal = fixed_goal
         self.parameters_already_fixed = False
+        self.n_steps = 0
+        self.reward_range = None
+        self.metadata = None
+        if max_path_length is not None:
+            self.max_path_length = max_path_length
+        else:
+            self.max_path_length = 10**8 #set to a large number
 
         args_all, kwargs_all = get_all_function_arguments(self.__init__, locals())
         Serializable.__init__(*args_all, **kwargs_all)
@@ -53,6 +60,9 @@ class BaseEnvRandParams(Serializable):
         :return: initial observation
         """
         assert reset_args is None or type(reset_args) == dict, "reset_args must be a dict containing mujoco model params"
+
+        # reset number of steps taken
+        self.n_steps = 0
 
         # The first time reset is called -> sample and fix the mujoco parameters
         if self.fix_params and not self.parameters_already_fixed:

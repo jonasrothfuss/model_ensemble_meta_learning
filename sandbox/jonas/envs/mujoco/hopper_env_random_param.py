@@ -14,7 +14,7 @@ class HopperEnvRandParams(BaseEnvRandParams, HopperEnv, Serializable):
 
     FILE = 'hopper.xml'
 
-    def __init__(self, *args, log_scale_limit=2.0, fix_params=False, rand_params=BaseEnvRandParams.RAND_PARAMS, random_seed=None, **kwargs):
+    def __init__(self, *args, log_scale_limit=2.0, fix_params=False, rand_params=BaseEnvRandParams.RAND_PARAMS, random_seed=None, max_path_length=None, **kwargs):
         """
         Half-Cheetah environment with randomized mujoco parameters
         :param log_scale_limit: lower / upper limit for uniform sampling in logspace of base 2
@@ -41,7 +41,8 @@ class HopperEnvRandParams(BaseEnvRandParams, HopperEnv, Serializable):
         notdone = np.isfinite(state).all() and \
             (np.abs(state[3:]) < 100).all() and (state[0] > .7) and \
             (abs(state[2]) < .2)
-        done = not notdone
+        self.n_steps += 1
+        done = not notdone or self.n_steps >= self.max_path_length
         # clip reward in case mujoco sim goes crazy
         reward = np.minimum(np.maximum(-1000.0, reward), 1000.0)
 

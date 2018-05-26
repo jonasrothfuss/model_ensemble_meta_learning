@@ -13,7 +13,7 @@ class HalfCheetahEnvRandParams(BaseEnvRandParams, HalfCheetahEnv, Serializable):
 
     FILE = 'half_cheetah.xml'
 
-    def __init__(self, *args, log_scale_limit=2.0, fix_params=False, rand_params=BaseEnvRandParams.RAND_PARAMS, random_seed=None, **kwargs):
+    def __init__(self, *args, log_scale_limit=2.0, fix_params=False, rand_params=BaseEnvRandParams.RAND_PARAMS, random_seed=None, max_path_length=None, **kwargs):
         """
         Half-Cheetah environment with randomized mujoco parameters
         :param log_scale_limit: lower / upper limit for uniform sampling in logspace of base 2
@@ -36,12 +36,13 @@ class HalfCheetahEnvRandParams(BaseEnvRandParams, HalfCheetahEnv, Serializable):
         run_cost = -1 * self.get_body_comvel("torso")[0]
         cost = ctrl_cost + run_cost
         reward = -cost
-        done = False
+        self.n_steps += 1
+        done = self.n_steps >= self.max_path_length
 
         # clip reward in case mujoco sim goes crazy
         reward = np.minimum(np.maximum(-1000.0, reward), 1000.0)
 
-        return Step(next_obs, reward, done)
+        return Step(next_obs, reward, done, reward_run=-run_cost, reward_ctrl=-ctrl_cost)
 
     def reward(self, obs, action, obs_next):
         if obs.ndim == 2 and action.ndim == 2:
