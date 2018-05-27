@@ -73,7 +73,8 @@ def run_train_task(vv):
         retrain_model_when_reward_decreases=vv['retrain_model_when_reward_decreases'],
         reset_policy_std=vv['reset_policy_std'],
         reinit_model_cycle=vv['reinit_model_cycle'],
-        frac_gpu=vv.get('frac_gpu', 1)
+        frac_gpu=vv.get('frac_gpu', 1),
+
     )
     algo.train()
 
@@ -97,7 +98,7 @@ def run_experiment(argv):
     vg.add('log_scale_limit', [0.0])
     vg.add('fast_lr', [0.01])
     vg.add('meta_step_size', [0.01])
-    vg.add('seed', [0, 10, 30]) #TODO set back to [1, 11, 21, 31, 41]
+    vg.add('seed', [0, 10]) #TODO set back to [1, 11, 21, 31, 41]
     vg.add('discount', [0.99])
     vg.add('path_length', [100])
     vg.add('batch_size_env_samples', [10])
@@ -110,14 +111,17 @@ def run_experiment(argv):
     vg.add('hidden_sizes_policy', [(32, 32)])
     vg.add('hidden_sizes_model', [(512, 512)])
     vg.add('weight_normalization_model', [True])
-    vg.add('reset_policy_std', [False, True])
-    vg.add('reinit_model_cycle', [0, 5])
+    vg.add('reset_policy_std', [False])
+    vg.add('reinit_model_cycle', [0])
     vg.add('optimizer_model', ['adam'])
-    vg.add('retrain_model_when_reward_decreases', [True, False])
+    vg.add('retrain_model_when_reward_decreases', [False])
     vg.add('num_models', [5])
-    vg.add('trainable_step_size', [True, False])
+    vg.add('trainable_step_size', [False])
     vg.add('bias_transform', [False])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
+    vg.add('vine_max_path_length', [25, 20])
+    vg.add('n_vine_branch', [3, 5])
+    vg.add('n_vine_init_obs', [5000, 1000])
 
     variants = vg.variants()
 

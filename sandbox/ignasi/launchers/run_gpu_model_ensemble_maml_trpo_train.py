@@ -69,7 +69,10 @@ def run_train_task(vv):
         retrain_model_when_reward_decreases=vv['retrain_model_when_reward_decreases'],
         reset_policy_std=vv['reset_policy_std'],
         reinit_model_cycle=vv['reinit_model_cycle'],
-        frac_gpu=vv.get('frac_gpu', 1)
+        frac_gpu=vv.get('frac_gpu', 1),
+        vine_max_path_length=vv['vine_max_path_length'],
+        n_vine_branch=vv['n_vine_branch'],
+        n_vine_init_obs=vv['n_vine_init_obs'],
     )
     algo.train()
 
