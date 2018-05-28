@@ -82,8 +82,8 @@ def run_experiment(vargs):
     kwargs = json.load(open(vargs[1], 'r'))
     exp_id = random.sample(range(1, 1000), 1)[0]
     v = kwargs['variant']
-    exp_name = "model_ensemble_maml_train_env_%s_%i_%i_%i_id_%i" % (v['env'], v['num_maml_steps_per_iter'],
-                                                           v['batch_size_env_samples'], v['seed'], exp_id)
+    exp_name = "%s_vine_mp%i_vine_b%i_vine_init_obs%i_seed%i_id_%i" % (v['env'], v['vine_max_path_length'],
+                                                           v['n_vine_branch'], v['n_vine_init_obs'], v['seed'], exp_id)
     v = instantiate_class_stings(v)
     kwargs['variant'] = v
 
