@@ -122,9 +122,9 @@ def run_experiment(argv):
     vg.add('trainable_step_size', [False])
     vg.add('bias_transform', [False])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
-    vg.add('vine_max_path_length', [20])
-    vg.add('n_vine_branch', [3])
-    vg.add('n_vine_init_obs', [2000])
+    vg.add('vine_max_path_length', [10, 20])
+    vg.add('n_vine_branch', [3, 5])
+    vg.add('n_vine_init_obs', [5000, 10000])
 
     variants = vg.variants()
 
