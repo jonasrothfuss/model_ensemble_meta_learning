@@ -86,4 +86,4 @@ class MAMLVINEModelVectorizedSampler(ModelBaseSampler):
             logger.record_tabular(log_prefix + "EnvExecTime", env_time)
             logger.record_tabular(log_prefix + "ProcessExecTime", process_time)
 
-        return dict(observations=init_obs, actions=init_actions, agent_infos=init_agent_infos, returns=returns)
+        return dict(observations=self.init_obs, actions=init_actions, agent_infos=init_agent_infos, returns=returns)

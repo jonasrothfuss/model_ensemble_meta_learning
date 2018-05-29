@@ -76,6 +76,7 @@ def run_train_task(vv):
         vine_max_path_length=vv['vine_max_path_length'],
         n_vine_branch=vv['n_vine_branch'],
         n_vine_init_obs=vv['n_vine_init_obs'],
+        # optimizer_args={'cg_iters': 15}
 
     )
     algo.train()
@@ -122,8 +123,8 @@ def run_experiment(argv):
     vg.add('bias_transform', [False])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
     vg.add('vine_max_path_length', [20])
-    vg.add('n_vine_branch', [5])
-    vg.add('n_vine_init_obs', [5000])
+    vg.add('n_vine_branch', [3])
+    vg.add('n_vine_init_obs', [2000])
 
     variants = vg.variants()
 
