@@ -252,6 +252,7 @@ class ModelBaseSampler(Sampler):
             skip the last step of a path while next_observations_dynamics skips the first step of a path
         """
 
+        assert len(paths) > 0
         # compute discounted rewards - > returns
         returns = []
         for idx, path in enumerate(paths):
