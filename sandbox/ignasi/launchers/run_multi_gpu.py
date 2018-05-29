@@ -2,7 +2,8 @@ import subprocess
 import time
 import os
 import json
-
+import dateutil.tz
+import datetime
 
 def launch_GPU_exp(script, run_kwargs, id_gpu, init_cpu, end_cpu, run_slot):
     kwargs_path = '/tmp/exp_variant_%i.json'%run_slot
@@ -26,9 +27,12 @@ def run_multi_gpu(script, exp_kwargs, n_gpu, ctx_per_gpu):
     run_kwargs = exp_kwargs.copy()
     del run_kwargs['variants']
     run_kwargs['n_parallel'] = n_parallel
-    for v in exp_kwargs['variants']:
+    now = datetime.datetime.now(dateutil.tz.tzlocal())
+    timestamp = now.strftime('%Y_%m_%d_%H_%M_%S')
+    for id, v in enumerate(exp_kwargs['variants']):
         v['frac_gpu'] = frac_gpu
         run_kwargs['variant'] = v
+        run_kwargs['variant']['exp_name'] = "%s_%04d" % (timestamp, id)
         run_kwargs['seed'] = v.get('seed', None)
         launched = False
         while not launched:
