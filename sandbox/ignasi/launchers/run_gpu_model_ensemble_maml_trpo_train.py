@@ -15,7 +15,8 @@ from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams
 from sandbox.jonas.envs.mujoco import Reacher5DofEnvRandParams
 from sandbox.jonas.envs.mujoco.cheetah_env import HalfCheetahEnv
 import json
-
+import dateutil.tz
+import datetime
 
 import tensorflow as tf
 import sys
@@ -80,10 +81,8 @@ def run_experiment(vargs):
 
     # ----------------------- TRAINING ---------------------------------------
     kwargs = json.load(open(vargs[1], 'r'))
-    exp_id = random.sample(range(1, 1000), 1)[0]
     v = kwargs['variant']
-    exp_name = "%s_vine_mp%i_vine_b%i_vine_init_obs%i_seed%i_id_%i" % (v['env'], v['vine_max_path_length'],
-                                                           v['n_vine_branch'], v['n_vine_init_obs'], v['seed'], exp_id)
+    exp_name = kwargs['variant']['exp_name']
     v = instantiate_class_stings(v)
     kwargs['variant'] = v
 
