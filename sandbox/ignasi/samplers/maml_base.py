@@ -309,64 +309,28 @@ class VINEModelBaseSampler(Sampler):
                 _d[k] = v[0][None]
         return _d
 
-    def process_samples(self, itr, paths, log=True, log_prefix='', return_reward=False):
-        returns = []
+    def process_samples(self, itr, d, log=True, log_prefix='', return_reward=False):
+        all_samples_data = dict([(i, {}) for i in range(self.n_models)])
+        mean_reward = []
+        all_indeces = np.reshape(np.arange(0, len(d['observations'])), (-1, self.n_branch_per_model))
+        for i in range(self.n_models):
+            idxs = np.reshape(all_indeces[i::self.n_models], -1)
+            all_samples_data[i]['observations'] = d['observations'][idxs]
+            all_samples_data[i]['actions'] = d['actions'][idxs]
+            returns = d['returns'][idxs]
+            mean_reward.append(np.mean(returns))
+            all_samples_data[i]['returns'] = returns
+            all_samples_data[i]['env_infos'] = {}
+            all_samples_data[i]['agent_infos'] = dict([(k, v[idxs]) for k, v in d['agent_infos'].items()])
 
-        for idx, path in enumerate(paths):
-            path["returns"] = special.discount_cumsum(path["rewards"], self.algo.discount)
-            returns.append(path["returns"])
+            mean_returns = np.repeat(np.mean(np.reshape(returns, (-1, self.n_branch_per_model)), axis=1),
+                                     self.n_branch_per_model, axis=0)
+            std_returns = np.repeat(np.std(np.reshape(returns, (-1, self.n_branch_per_model)), axis=1),
+                                    self.n_branch_per_model, axis=0)
+            advantages = (returns - mean_returns)/(std_returns + 1e-8)
+            all_samples_data[i]['advantages'] = advantages
 
-        observations = tensor_utils.concat_tensor_list([path["observations"][0][None] for path in paths])
-        actions = tensor_utils.concat_tensor_list([path["actions"][0][None] for path in paths])
-        rewards = tensor_utils.concat_tensor_list([path["rewards"][0][None] for path in paths])
-        returns = tensor_utils.concat_tensor_list([path["returns"][0][None] for path in paths])
-
-        mean_returns = np.repeat(np.mean(np.reshape(returns, (-1, self.n_models * self.n_branch_per_model)), axis=1),
-                                         self.n_models * self.n_branch_per_model, axis=0)
-        std_returns = np.repeat(np.std(np.reshape(returns, (-1, self.n_models * self.n_branch_per_model)), axis=1),
-                                self.n_models * self.n_branch_per_model, axis=0)
-        advantages = (returns - mean_returns)/(std_returns + 1e-8)
-
-        env_infos = tensor_utils.concat_tensor_dict_list([self.get_dict_w_first_element(path["env_infos"]) for path in paths])
-        agent_infos = tensor_utils.concat_tensor_dict_list([self.get_dict_w_first_element(path["agent_infos"]) for path in paths])
-
-        if self.algo.positive_adv:
-            advantages = util.shift_advantages_to_positive(advantages)
-
-        average_discounted_return = \
-            np.mean([path["returns"][0] for path in paths])
-
-        undiscounted_returns = [sum(path["rewards"]) for path in paths]
-
-        ent = np.mean(self.algo.policy.distribution.entropy(agent_infos))
-
-        samples_data = dict(
-            observations=observations,
-            actions=actions,
-            rewards=rewards,
-            returns=returns,
-            advantages=advantages,
-            env_infos=env_infos,
-            agent_infos=agent_infos,
-            paths=paths,
-        )
-
-        if log == 'reward':
-            logger.record_tabular(log_prefix + 'AverageReturn', np.mean(undiscounted_returns))
-        elif log == 'all' or log is True:
-            logger.record_tabular('Iteration', itr)
-            logger.record_tabular(log_prefix + 'AverageDiscountedReturn',
-                                  average_discounted_return)
-            logger.record_tabular(log_prefix + 'AverageReturn', np.mean(undiscounted_returns))
-            logger.record_tabular(log_prefix + 'NumTrajs', len(paths))
-            logger.record_tabular(log_prefix + 'StdReturn', np.std(undiscounted_returns))
-            logger.record_tabular(log_prefix + 'MaxReturn', np.max(undiscounted_returns))
-            logger.record_tabular(log_prefix + 'MinReturn', np.min(undiscounted_returns))
-
-        if return_reward:
-            return samples_data, np.mean(undiscounted_returns)
-        else:
-            return samples_data
+        return all_samples_data, np.mean(mean_reward)
 
 
 class MAMLBaseSampler(Sampler):

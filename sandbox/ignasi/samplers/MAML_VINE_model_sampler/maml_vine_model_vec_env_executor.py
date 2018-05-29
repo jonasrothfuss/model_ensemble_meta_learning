@@ -45,21 +45,17 @@ class MAMLVINEModelVecEnvExecutor(object):
         else:
             dones = np.asarray([False for _ in range(self.n_parallel)])
 
-        env_infos = [{} for _ in range(action_n.shape[0])]
+        env_infos = {} #dict() for _ in range(action_n.shape[0])]
 
         self.ts += 1
         if self.max_path_length is not None:
             dones[self.ts >= self.max_path_length] = True
-        for (i, done) in enumerate(dones):
-            if done:
-                next_obs[i] = self.init_obs[i]
-                self.ts[i] = 0
-
+        next_obs[dones] = self.init_obs[dones]
+        self.ts[dones] = 0
         self.current_obs = next_obs
 
         # transform obs to lists
-        next_obs = [np.squeeze(o) for o in np.vsplit(next_obs, next_obs.shape[0])]
-        return next_obs, list(rewards), list(dones), tensor_utils.stack_tensor_dict_list(env_infos) #lists
+        return next_obs, rewards, dones, env_infos #tensor_utils.stack_tensor_dict_list(env_infos) #lists
 
     def reset(self):
         results = [self.env.reset() for _ in range(self.n_parallel)] # get initial observation from environment

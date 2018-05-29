@@ -1,13 +1,12 @@
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
 from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
-from rllab_maml.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
 from sandbox.jonas.envs.normalized_env import normalize
 from sandbox.jonas.envs.base import TfEnv
 from rllab.misc.instrument import stub, run_experiment_lite
 from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
 from sandbox.jonas.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
-from sandbox.jonas.algos.ModelMAML.model_maml_trpo import ModelMAMLTRPO
+from sandbox.ignasi.algos.ModelMAML.model_maml_trpo import ModelMAMLTRPO
 from experiments.helpers.ec2_helpers import cheapest_subnets
 from sandbox.ignasi.launchers.run_multi_gpu import run_multi_gpu
 import os
@@ -74,6 +73,9 @@ def run_train_task(vv):
         reset_policy_std=vv['reset_policy_std'],
         reinit_model_cycle=vv['reinit_model_cycle'],
         frac_gpu=vv.get('frac_gpu', 1),
+        vine_max_path_length=vv['vine_max_path_length'],
+        n_vine_branch=vv['n_vine_branch'],
+        n_vine_init_obs=vv['n_vine_init_obs'],
 
     )
     algo.train()
@@ -104,7 +106,7 @@ def run_experiment(argv):
     vg.add('batch_size_env_samples', [10])
     vg.add('batch_size_dynamics_samples', [100])
     vg.add('initial_random_samples', [5000])
-    vg.add('dynamic_model_epochs', [(100, 50)])
+    vg.add('dynamic_model_epochs', [(10, 50)])
     vg.add('num_maml_steps_per_iter', [30])
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
@@ -168,8 +170,9 @@ def run_experiment(argv):
         exp_ids = random.sample(range(1, 1000), len(variants))
         subnets = cheapest_subnets(ec2_instance, num_subnets=3)
         for v, exp_id in zip(variants, exp_ids):
-            exp_name = "model_ensemble_maml_train_env_%s_%i_%i_%i_id_%i" % (v['env'], v['num_maml_steps_per_iter'],
-                                                                   v['batch_size_env_samples'], v['seed'], exp_id)
+            exp_name = "%s_vine_mp%i_vine_b%i_vine_init_obs%i_seed%i_id_%i" % (v['env'], v['vine_max_path_length'],
+                                                                               v['n_vine_branch'], v['n_vine_init_obs'],
+                                                                               v['seed'], exp_id)
             v = instantiate_class_stings(v)
 
             subnet = random.choice(subnets)
