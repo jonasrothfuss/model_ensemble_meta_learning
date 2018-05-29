@@ -55,7 +55,7 @@ class MAMLModelVectorizedSampler(ModelBaseSampler):
         policy = self.algo.policy
         import time
 
-        while n_samples < self.algo.batch_size:
+        while n_samples < self.algo.batch_size_dynamics_samples:
             t = time.time()
             policy.reset(dones)
 
