@@ -309,30 +309,17 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
 
                         self.policy.switch_to_init_dist()  # Switch to pre-update policy
 
-                        all_samples_data_maml_iter, all_paths_maml_iter = [], []
+                        all_samples_data_maml_iter = []
                         for step in range(self.num_grad_updates + 1):
 
                             logger.log("MAML Step %i%s of %i - Obtaining samples from the dynamics model..." % (
                                 maml_itr + 1, chr(97 + step), self.num_maml_steps_per_iter))
 
                             new_model_paths = self.obtain_model_samples(itr, data=samples_data_dynamics)
-                            assert type(new_model_paths) == dict and len(new_model_paths) == self.num_models
-                            all_paths_maml_iter.append(new_model_paths)
 
                             logger.log("Processing samples...")
-                            samples_data = {}
-                            for key in new_model_paths.keys():  # the keys are the tasks
-                                # don't log because this will spam the consol with every task.
-                                samples_data[key] = self.process_samples_for_policy(itr, new_model_paths[key], log=False)
+                            samples_data, mean_reward = self.process_samples_for_policy(itr, new_model_paths)
                             all_samples_data_maml_iter.append(samples_data)
-
-                            # for logging purposes
-                            _, mean_reward = self.process_samples_for_policy(itr,
-                                                                             flatten_list(new_model_paths.values()),
-                                                                             log='reward',
-                                                                             log_prefix="DynTrajs%i%s-" % (
-                                                                                 maml_itr + 1, chr(97 + step)),
-                                                                             return_reward=True)
 
                             if step < self.num_grad_updates:
                                 logger.log("Computing policy updates...")
@@ -345,16 +332,8 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                             prev_rolling_reward_mean = rolling_reward_mean
                             rolling_reward_mean = 0.8 * rolling_reward_mean + 0.2 * mean_reward
 
-
                         # stop gradient steps when mean_reward decreases
                         if self.retrain_model_when_reward_decreases and rolling_reward_mean < prev_rolling_reward_mean:
-                            logger.log(
-                                "Stopping policy gradients steps since rolling mean reward decreased from %.2f to %.2f" % (
-                                    prev_rolling_reward_mean, rolling_reward_mean))
-                            # complete some logging stuff
-                            for i in range(maml_itr + 1, self.num_maml_steps_per_iter):
-                                logger.record_tabular('DynTrajs%ia-AverageReturn' % (i+1), 0.0)
-                                logger.record_tabular('DynTrajs%ib-AverageReturn' % (i+1), 0.0)
                             break
 
                         logger.log("MAML Step %i of %i - Optimizing policy..." % (maml_itr + 1, self.num_maml_steps_per_iter))
