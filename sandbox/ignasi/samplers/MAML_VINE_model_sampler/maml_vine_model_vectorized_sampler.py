@@ -7,6 +7,8 @@ import numpy as np
 from rllab.sampler.stateful_pool import ProgBarCounter
 import rllab.misc.logger as logger
 import itertools
+import time
+
 
 class MAMLVINEModelVectorizedSampler(ModelBaseSampler):
 
@@ -34,17 +36,18 @@ class MAMLVINEModelVectorizedSampler(ModelBaseSampler):
     def obtain_samples(self, itr, init_obs, return_dict=False, log=True, log_prefix=''):
         # return_dict: whether or not to return a dictionary or list form of paths
 
-        paths = {}
-        for i in range(self.n_models):
-            paths[i] = []
+        paths = dict([(i, []) for i in range(self.n_models)])
 
-        self.vec_env.current_obs = self.vec_env.init_obs = self.init_obs = np.repeat(init_obs, self.n_branch_per_model * self.n_models, axis=0)
-        # self.n_parallel = len(self.init_obs)
+        self.vec_env.current_obs = self.vec_env.init_obs =\
+            self.init_obs = np.repeat(init_obs, self.n_branch_per_model * self.n_models, axis=0)
+        self.n_parallel = len(self.init_obs)
+        self.vec_env.n_parallel = self.n_parallel
         n_samples = 0
         n_parallel_per_task = self.vec_env.num_envs // self.n_models
 
         # todo: put the reset function the observations they need to reset
         obses = self.init_obs
+        self.vec_env.ts = np.zeros(self.n_parallel, dtype='int')
         dones = np.asarray([True] * self.n_parallel)
         running_paths = [None] * self.n_parallel
 
@@ -55,7 +58,6 @@ class MAMLVINEModelVectorizedSampler(ModelBaseSampler):
         _time_step = 0
 
         policy = self.algo.policy
-        import time
 
 
         while _time_step < self.algo.vine_max_path_length:
@@ -71,7 +73,7 @@ class MAMLVINEModelVectorizedSampler(ModelBaseSampler):
 
             policy_time += time.time() - t
             t = time.time()
-            next_obses, rewards, dones, env_infos = self.vec_env.step(actions)
+            next_obses, rewards, ones, env_infos = self.vec_env.step(actions)
             env_time += time.time() - t
 
             t = time.time()

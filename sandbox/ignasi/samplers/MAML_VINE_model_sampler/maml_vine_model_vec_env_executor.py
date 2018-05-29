@@ -32,6 +32,7 @@ class MAMLVINEModelVecEnvExecutor(object):
         :return: predicted observations (n_models * batch_per_model, ndim_obs)
         """
 
+        self.n_parallel = action_n.shape[0]
         assert action_n.shape[0] == self.n_parallel
 
         # use the model to make (predicted) steps
