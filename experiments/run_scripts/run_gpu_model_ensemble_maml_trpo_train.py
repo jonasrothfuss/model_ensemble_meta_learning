@@ -9,6 +9,7 @@ from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGa
 from sandbox.jonas.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
 from sandbox.jonas.algos.ModelMAML.model_maml_trpo import ModelMAMLTRPO
 from experiments.helpers.ec2_helpers import cheapest_subnets
+from rllab import config
 
 from sandbox.jonas.envs.own_envs import PointEnvMAML
 from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams
@@ -21,10 +22,14 @@ import sys
 import argparse
 import random
 import json
-EXP_PREFIX = 'model-ensemble-maml-hyperparam-search'
-
+import os
+EXP_PREFIX = 'model-ensemble-maml'
 
 def run_train_task(vv):
+    import sys
+    sysout_log_path = os.path.join(config.LOG_DIR, 'local', EXP_PREFIX, vv['exp_name'], 'stdout.log')
+    sysout_log_file = open(sysout_log_path, 'w')
+    sys.stdout = sysout_log_file
 
     env = TfEnv(normalize(vv['env'](log_scale_limit=vv['log_scale_limit'])))
 
@@ -71,6 +76,9 @@ def run_train_task(vv):
         frac_gpu=vv.get('frac_gpu', 1),
     )
     algo.train()
+
+    sysout_log_file.close()
+
 
 def run_experiment(vargs):
 
