@@ -56,6 +56,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
             force_batch_sampler=False,
             use_maml=True,
             load_policy=None,
+            frac_gpu=0.85,
             **kwargs
     ):
         """
@@ -90,6 +91,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         :param positive_adv: Whether to shift the advantages so that they are always positive. When used in
         conjunction with center_adv the advantages will be standardized before shifting.
         :param store_paths: Whether to save all paths data to the snapshot.
+        :param frac_gpu: memory fraction of the gpu that shall be used for this task
         :return:
         """
         self.env = env
@@ -128,6 +130,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         self.whole_paths = whole_paths
         self.fixed_horizon = fixed_horizon
         self.num_grad_updates = num_grad_updates # number of gradient steps during training
+        self.frac_gpu = frac_gpu
 
         ''' setup sampler classes '''
 
@@ -188,7 +191,10 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         # TODO - make this a util
         flatten_list = lambda l: [item for sublist in l for item in sublist]
 
-        with tf.Session() as sess:
+        config = tf.ConfigProto()
+        config.gpu_options.per_process_gpu_memory_fraction = self.frac_gpu
+
+        with tf.Session(config=config) as sess:
             # Code for loading a previous policy. Somewhat hacky because needs to be in sess.
             if self.load_policy is not None:
                 import joblib

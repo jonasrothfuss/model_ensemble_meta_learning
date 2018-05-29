@@ -20,11 +20,8 @@ import tensorflow as tf
 import sys
 import argparse
 import random
-
+import json
 EXP_PREFIX = 'model-ensemble-maml-hyperparam-search'
-
-ec2_instance = 'm4.2xlarge'
-subnets = cheapest_subnets(ec2_instance, num_subnets=3)
 
 
 def run_train_task(vv):
@@ -71,109 +68,27 @@ def run_train_task(vv):
         retrain_model_when_reward_decreases=vv['retrain_model_when_reward_decreases'],
         reset_policy_std=vv['reset_policy_std'],
         reinit_model_cycle=vv['reinit_model_cycle'],
-        frac_gpu=vv.get('frac_gpu', 1)
+        frac_gpu=vv.get('frac_gpu', 1),
     )
     algo.train()
 
-def run_experiment(argv):
-
-    # -------------------- Parse Arguments -----------------------------------
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--mode', type=str, default='local',
-                        help='Mode for running the experiments - local: runs on local machine, '
-                             'ec2: runs on AWS ec2 cluster (requires a proper configuration file)')
-
-    args = parser.parse_args(argv[1:])
-
-    # -------------------- Define Variants -----------------------------------
-
-    vg = VariantGenerator()
-    vg.add('env', ['HalfCheetahEnvRandParams'])
-    vg.add('n_itr', [20])
-    vg.add('log_scale_limit', [0.0])
-    vg.add('fast_lr', [0.01])
-    vg.add('meta_step_size', [0.01])
-    vg.add('seed', [22, 44, 55]) #TODO set back to [1, 11, 21, 31, 41]
-    vg.add('discount', [0.99])
-    vg.add('path_length', [100])
-    vg.add('batch_size_env_samples', [10])
-    vg.add('batch_size_dynamics_samples', [100])
-    vg.add('initial_random_samples', [5000])
-    vg.add('dynamic_model_epochs', [(100, 50)])
-    vg.add('num_maml_steps_per_iter', [100])
-    vg.add('hidden_nonlinearity_policy', ['tanh'])
-    vg.add('hidden_nonlinearity_model', ['relu'])
-    vg.add('hidden_sizes_policy', [(100, 100)])
-    vg.add('hidden_sizes_model', [(512, 512)])
-    vg.add('weight_normalization_model', [True])
-    vg.add('reset_policy_std', [False, True])
-    vg.add('reinit_model_cycle', [0, 5])
-    vg.add('optimizer_model', ['adam'])
-    vg.add('retrain_model_when_reward_decreases', [True, False])
-    vg.add('num_models', [5])
-    vg.add('trainable_step_size', [True, False])
-    vg.add('bias_transform', [False])
-    vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
-
-    variants = vg.variants()
-
-    # ----------------------- AWS conficuration ---------------------------------
-    if args.mode == 'ec2':
-        info = config.INSTANCE_TYPE_INFO[ec2_instance]
-        n_parallel = int(info["vCPU"])
-    else:
-        n_parallel = 12
-
-    if args.mode == 'ec2':
-
-
-        config.AWS_INSTANCE_TYPE = ec2_instance
-        config.AWS_SPOT_PRICE = str(info["price"])
-
-        print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format('TRPO', len(variants)))
-        print('Running on type {}, with price {}, on the subnets: '.format(config.AWS_INSTANCE_TYPE,
-                                                                           config.AWS_SPOT_PRICE, ), str(subnets))
+def run_experiment(vargs):
 
     # ----------------------- TRAINING ---------------------------------------
-    exp_ids = random.sample(range(1, 1000), len(variants))
-    for v, exp_id in zip(variants, exp_ids):
-        exp_name = "model_ensemble_maml_train_env_%s_%i_%i_%i_id_%i" % (v['env'], v['num_maml_steps_per_iter'],
-                                                               v['batch_size_env_samples'], v['seed'], exp_id)
-        v = instantiate_class_stings(v)
+    kwargs = json.load(open(vargs[1], 'r'))
+    exp_id = random.sample(range(1, 1000), 1)[0]
+    v = kwargs['variant']
+    exp_name = "model_ensemble_maml_train_env_%s_%i_%i_%i_%i_id_%i" % (
+                v['env'], v['path_length'], v['num_maml_steps_per_iter'],
+                v['batch_size_env_samples'], v['seed'], exp_id)
+    v = instantiate_class_stings(v)
+    kwargs['variant'] = v
 
-        subnet = random.choice(subnets)
-        config.AWS_REGION_NAME = subnet[:-1]
-        config.AWS_KEY_NAME = config.ALL_REGION_AWS_KEY_NAMES[
-            config.AWS_REGION_NAME]
-        config.AWS_IMAGE_ID = config.ALL_REGION_AWS_IMAGE_IDS[
-            config.AWS_REGION_NAME]
-        config.AWS_SECURITY_GROUP_IDS = \
-            config.ALL_REGION_AWS_SECURITY_GROUP_IDS[
-                config.AWS_REGION_NAME]
-
-
-        run_experiment_lite(
-            run_train_task,
-            exp_prefix=EXP_PREFIX,
-            exp_name=exp_name,
-            # Number of parallel workers for sampling
-            n_parallel=n_parallel,
-            # Only keep the snapshot parameters for the last iteration
-            snapshot_mode="all",
-            periodic_sync=True,
-            sync_s3_pkl=True,
-            sync_s3_log=True,
-            # Specifies the seed for the experiment. If this is not provided, a random seed
-            # will be used
-            seed=v["seed"],
-            python_command="python3",
-            pre_commands=["yes | pip install tensorflow=='1.6.0'",
-                          "pip list",
-                          "yes | pip install --upgrade cloudpickle"],
-            mode=args.mode,
-            use_cloudpickle=True,
-            variant=v,
-        )
+    run_experiment_lite(
+        run_train_task,
+        exp_name=exp_name,
+        **kwargs
+    )
 
 
 def instantiate_class_stings(v):
