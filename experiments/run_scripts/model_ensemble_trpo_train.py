@@ -18,8 +18,7 @@ import random
 EXP_PREFIX = 'model-ensemble-trpo'
 
 ec2_instance = 'c4.4xlarge'
-subnets = cheapest_subnets(ec2_instance, num_subnets=3)
-
+NUM_EC2_SUBNETS = 3
 
 def run_train_task(vv):
 
@@ -109,6 +108,7 @@ def run_experiment(argv):
 
         config.AWS_INSTANCE_TYPE = ec2_instance
         config.AWS_SPOT_PRICE = str(info["price"])
+        subnets = cheapest_subnets(ec2_instance, num_subnets=NUM_EC2_SUBNETS)
 
         print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format('TRPO', len(variants)))
         print('Running on type {}, with price {}, on the subnets: '.format(config.AWS_INSTANCE_TYPE,

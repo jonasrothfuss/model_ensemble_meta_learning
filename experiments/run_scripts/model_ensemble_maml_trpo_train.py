@@ -26,7 +26,7 @@ import os
 EXP_PREFIX = 'model-ensemble-maml'
 
 ec2_instance = 'm4.4xlarge'
-subnets = cheapest_subnets(ec2_instance, num_subnets=3)
+NUM_EC2_SUBNETS = 3
 
 
 def run_train_task(vv):
@@ -157,7 +157,7 @@ def run_experiment(argv):
 
             config.AWS_INSTANCE_TYPE = ec2_instance
             config.AWS_SPOT_PRICE = str(info["price"])
-
+            subnets = cheapest_subnets(ec2_instance, num_subnets=NUM_EC2_SUBNETS)
             print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format('TRPO', len(variants)))
             print('Running on type {}, with price {}, on the subnets: '.format(config.AWS_INSTANCE_TYPE,
                                                                                config.AWS_SPOT_PRICE, ), str(subnets))
@@ -169,15 +169,16 @@ def run_experiment(argv):
                                                            v['batch_size_env_samples'], v['seed'], exp_id)
             v = instantiate_class_stings(v)
 
-            subnet = random.choice(subnets)
-            config.AWS_REGION_NAME = subnet[:-1]
-            config.AWS_KEY_NAME = config.ALL_REGION_AWS_KEY_NAMES[
-                config.AWS_REGION_NAME]
-            config.AWS_IMAGE_ID = config.ALL_REGION_AWS_IMAGE_IDS[
-                config.AWS_REGION_NAME]
-            config.AWS_SECURITY_GROUP_IDS = \
-                config.ALL_REGION_AWS_SECURITY_GROUP_IDS[
+            if args.mode == 'ec2':
+                subnet = random.choice(subnets)
+                config.AWS_REGION_NAME = subnet[:-1]
+                config.AWS_KEY_NAME = config.ALL_REGION_AWS_KEY_NAMES[
                     config.AWS_REGION_NAME]
+                config.AWS_IMAGE_ID = config.ALL_REGION_AWS_IMAGE_IDS[
+                    config.AWS_REGION_NAME]
+                config.AWS_SECURITY_GROUP_IDS = \
+                    config.ALL_REGION_AWS_SECURITY_GROUP_IDS[
+                        config.AWS_REGION_NAME]
 
 
             run_experiment_lite(
