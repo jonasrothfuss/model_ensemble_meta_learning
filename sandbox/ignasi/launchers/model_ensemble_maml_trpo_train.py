@@ -96,19 +96,19 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['HalfCheetahEnvRandParams'])
+    vg.add('env', ['AntEnvRandParam', 'HopperEnvRandParams', 'HalfCheetahEnvRandParams'])
     vg.add('n_itr', [20])
     vg.add('log_scale_limit', [0.0])
     vg.add('fast_lr', [0.01])
     vg.add('meta_step_size', [0.01])
     vg.add('seed', [0, 10]) #TODO set back to [1, 11, 21, 31, 41]
     vg.add('discount', [0.99])
-    vg.add('path_length', [1000])
+    vg.add('path_length', [100])
     vg.add('batch_size_env_samples', [10])
     vg.add('batch_size_dynamics_samples', [100])
     vg.add('initial_random_samples', [5000])
     vg.add('dynamic_model_epochs', [(100, 50)])
-    vg.add('num_maml_steps_per_iter', [5])
+    vg.add('num_maml_steps_per_iter', [5, 30])
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(32, 32)])
@@ -122,9 +122,9 @@ def run_experiment(argv):
     vg.add('trainable_step_size', [False])
     vg.add('bias_transform', [False])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
-    vg.add('vine_max_path_length', [50, 100])
-    vg.add('n_vine_branch', [5, 10])
-    vg.add('n_vine_init_obs', [10000])
+    vg.add('vine_max_path_length', [50])
+    vg.add('n_vine_branch', [5])
+    vg.add('n_vine_init_obs', [5000, 10000])
 
     variants = vg.variants()
 
