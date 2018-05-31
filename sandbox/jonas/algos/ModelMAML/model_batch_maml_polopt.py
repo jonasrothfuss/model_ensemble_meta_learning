@@ -34,6 +34,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
             # Defaults are 10 trajectories of length 500 for gradient update
             batch_size_env_samples=10,
             batch_size_dynamics_samples=100,
+            meta_batch_size=None,
             initial_random_samples=None,
             max_path_length=100,
             num_grad_updates=1,
@@ -70,12 +71,12 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         :param start_itr: Starting iteration.
         :param batch_size_env_samples: Number of policy rollouts for each model/policy
         :param batch_size_dynamics_samples: Number of (imaginary) policy rollouts with each dynamics model
+        :param meta_batch_size: Number of meta-tasks (default - meta_batch_size-dynamics_model.num_models)
         :param initial_random_samples: either None -> use initial policy to sample from env
                                        or int: number of random samples at first iteration to train dynamics model
                                                if provided, in the first iteration no samples from the env are generated
                                                with the policy
         :param max_path_length: Maximum length of a single rollout.
-        :param meta_batch_size: Number of tasks sampled per meta-update
         :param num_grad_updates: Number of fast gradient updates
         :param discount: Discount.
         :param gae_lambda: Lambda used for generalized advantage estimation.
@@ -103,12 +104,17 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         self.n_itr = n_itr
         self.start_itr = start_itr
 
+        # meta batch size and number of dynamics models
         self.num_models = dynamics_model.num_models
-        self.meta_batch_size = self.num_models # set meta_batch_size to number of dynamic models
+        if meta_batch_size is None:
+            self.meta_batch_size = self.num_models # set meta_batch_size to number of dynamic models
+        else:
+            assert meta_batch_size % self.num_models == 0, "meta_batch_size must a multiple the number of models in the dynamics ensemble"
+            self.meta_batch_size = meta_batch_size
 
         # batch_size is the number of trajectories for one fast grad update.
         self.batch_size = batch_size_env_samples * max_path_length * self.num_models # batch_size for env sampling
-        self.batch_size_dynamics_samples = batch_size_dynamics_samples * max_path_length * self.num_models # batch_size for model sampling
+        self.batch_size_dynamics_samples = batch_size_dynamics_samples * max_path_length * self.meta_batch_size # batch_size for model sampling
         self.initial_random_samples = initial_random_samples
 
         # self.batch_size is the number of total transitions to collect.
@@ -281,11 +287,13 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                                 maml_itr + 1, chr(97 + step), self.num_maml_steps_per_iter))
 
                             new_model_paths = self.obtain_model_samples(itr)
-                            assert type(new_model_paths) == dict and len(new_model_paths) == self.num_models
+                            assert type(new_model_paths) == dict and len(new_model_paths) == self.meta_batch_size
                             all_paths_maml_iter.append(new_model_paths)
 
                             logger.log("Processing samples...")
                             samples_data = {}
+
+                            t4 = time.time()
                             for key in new_model_paths.keys():  # the keys are the tasks
                                 # don't log because this will spam the consol with every task.
                                 samples_data[key] = self.process_samples_for_policy(itr, new_model_paths[key], log=False)
@@ -298,6 +306,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                                                                              log_prefix="DynTrajs%i%s-" % (
                                                                                  maml_itr + 1, chr(97 + step)),
                                                                              return_reward=True)
+                            print('------- TIME FOR PROCESSING SAMPLES', time.time() - t4)
 
                             if step < self.num_grad_updates:
                                 logger.log("Computing policy updates...")
