@@ -41,7 +41,6 @@ class SwimmerEnvRandParams(BaseEnvRandParams, SwimmerEnv, Serializable):
         ctrl_cost = 0.5 * self.ctrl_cost_coeff * np.sum(
             np.square(action / scaling))
         forward_reward = self.get_body_comvel("torso")[0]
-        print("vel", forward_reward)
         reward = forward_reward - ctrl_cost
         done = False
         return Step(next_obs, reward, done)
