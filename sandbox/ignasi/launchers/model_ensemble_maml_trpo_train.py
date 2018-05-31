@@ -101,7 +101,7 @@ def run_experiment(argv):
     vg.add('log_scale_limit', [0.0])
     vg.add('fast_lr', [0.01, 0.05])
     vg.add('meta_step_size', [0.01])
-    vg.add('seed', [0, 10]) #TODO set back to [1, 11, 21, 31, 41]
+    vg.add('seed', [0, 11]) #TODO set back to [1, 11, 21, 31, 41]
     vg.add('discount', [0.99])
     vg.add('path_length', [100])
     vg.add('batch_size_env_samples', [10])
