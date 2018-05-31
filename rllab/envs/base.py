@@ -65,6 +65,7 @@ class Env(object):
         return EnvSpec(
             observation_space=self.observation_space,
             action_space=self.action_space,
+            id=self.__class__.__name__
         )
 
     @property
