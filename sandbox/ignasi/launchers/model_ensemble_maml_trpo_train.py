@@ -96,12 +96,12 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['HalfCheetahEnvRandParams'])
+    vg.add('env', ['AntEnvRandParams'])
     vg.add('n_itr', [20])
     vg.add('log_scale_limit', [0.0])
-    vg.add('fast_lr', [0.01])
+    vg.add('fast_lr', [0.01, 0.05])
     vg.add('meta_step_size', [0.01])
-    vg.add('seed', [0, 10]) #TODO set back to [1, 11, 21, 31, 41]
+    vg.add('seed', [0, 11]) #TODO set back to [1, 11, 21, 31, 41]
     vg.add('discount', [0.99])
     vg.add('path_length', [100])
     vg.add('batch_size_env_samples', [10])
@@ -118,13 +118,13 @@ def run_experiment(argv):
     vg.add('reinit_model_cycle', [0])
     vg.add('optimizer_model', ['adam'])
     vg.add('retrain_model_when_reward_decreases', [False])
-    vg.add('num_models', [5, 10])
+    vg.add('num_models', [10])
     vg.add('trainable_step_size', [False])
     vg.add('bias_transform', [False])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
-    vg.add('vine_max_path_length', [25, 50])
+    vg.add('vine_max_path_length', [30, 50])
     vg.add('n_vine_branch', [5, 10])
-    vg.add('n_vine_init_obs', [10000])
+    vg.add('n_vine_init_obs', [5000])
 
     variants = vg.variants()
 
