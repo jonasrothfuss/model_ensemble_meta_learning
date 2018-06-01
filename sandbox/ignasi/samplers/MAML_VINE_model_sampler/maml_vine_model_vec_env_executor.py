@@ -2,6 +2,7 @@ import numpy as np
 import pickle as pickle
 from sandbox.rocky.tf.misc import tensor_utils
 import copy
+import time
 
 
 class MAMLVINEModelVecEnvExecutor(object):
@@ -53,7 +54,6 @@ class MAMLVINEModelVecEnvExecutor(object):
         next_obs[dones] = self.init_obs[dones]
         self.ts[dones] = 0
         self.current_obs = next_obs
-
         # transform obs to lists
         return next_obs, rewards, dones, env_infos #tensor_utils.stack_tensor_dict_list(env_infos) #lists
 

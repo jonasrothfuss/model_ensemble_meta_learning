@@ -75,6 +75,7 @@ def run_train_task(vv):
         n_vine_branch=vv['n_vine_branch'],
         n_vine_init_obs=vv['n_vine_init_obs'],
         noise_init_obs=vv['noise_init_obs'],
+        log_real_data=True,
     )
     algo.train()
 

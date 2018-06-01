@@ -60,9 +60,8 @@ class AntEnvRandParams(BaseEnvRandParams, AntEnv, Serializable):
             assert obs.shape == obs_next.shape and action.shape[0] == obs.shape[0]
             forward_vel = (obs_next[:, -3] - obs[:, -3])/ 0.02
             ctrl_cost = 0.5 * 1e-2 * np.sum(np.square(action / scaling), axis=1)
-            contact_cost = 0.5 * 1e-3 * np.sum(np.square(obs_next[:, 29:29+84]), axis=1)
             survive_reward = 0.05
-            return forward_vel - ctrl_cost - contact_cost + survive_reward
+            return forward_vel - ctrl_cost + survive_reward
         else:
             return self.reward(np.array([obs]), np.array([action]), np.array([obs_next]))[0]
 

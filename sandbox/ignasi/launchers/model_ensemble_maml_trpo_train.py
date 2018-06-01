@@ -77,7 +77,7 @@ def run_train_task(vv):
         n_vine_branch=vv['n_vine_branch'],
         n_vine_init_obs=vv['n_vine_init_obs'],
         noise_init_obs=vv['noise_init_obs'],
-        log_real_data=False,
+        log_real_data=True,
         # optimizer_args={'cg_iters': 15}
 
     )
@@ -110,7 +110,7 @@ def run_experiment(argv):
     vg.add('batch_size_dynamics_samples', [100])
     vg.add('initial_random_samples', [5000])
     vg.add('dynamic_model_epochs', [(100, 50)])
-    vg.add('num_maml_steps_per_iter', [30, 50])
+    vg.add('num_maml_steps_per_iter', [10])
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(32, 32)])
@@ -120,13 +120,13 @@ def run_experiment(argv):
     vg.add('reinit_model_cycle', [0])
     vg.add('optimizer_model', ['adam'])
     vg.add('retrain_model_when_reward_decreases', [False])
-    vg.add('num_models', [10, 20])
+    vg.add('num_models', [10])
     vg.add('trainable_step_size', [False])
     vg.add('bias_transform', [False])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
-    vg.add('vine_max_path_length', [30])
-    vg.add('n_vine_branch', [5])
-    vg.add('n_vine_init_obs', [10000])
+    vg.add('vine_max_path_length', [30, 50])
+    vg.add('n_vine_branch', [3, 5])
+    vg.add('n_vine_init_obs', [5000])
     vg.add('noise_init_obs', [0])
 
     variants = vg.variants()
@@ -156,8 +156,10 @@ def run_experiment(argv):
         if args.mode == 'ec2':
             info = config.INSTANCE_TYPE_INFO[ec2_instance]
             n_parallel = int(info["vCPU"])
+            use_gpu = False
         else:
             n_parallel = 12
+            use_gpu = False
 
         if args.mode == 'ec2':
 
@@ -194,6 +196,7 @@ def run_experiment(argv):
                 run_train_task,
                 exp_prefix=EXP_PREFIX,
                 exp_name=exp_name,
+                use_gpu=use_gpu,
                 # Number of parallel workers for sampling
                 n_parallel=n_parallel,
                 # Only keep the snapshot parameters for the last iteration
