@@ -66,7 +66,8 @@ def run_train_task(vv):
         initial_random_samples=vv['initial_random_samples'],
         dynamic_model_epochs=vv['dynamic_model_epochs'],
         num_maml_steps_per_iter=vv['num_maml_steps_per_iter'],
-        max_path_length=vv['path_length'],
+        max_path_length_env=vv['path_length_env'],
+        max_path_length_dyn=vv.get('path_length_dyn', None),
         discount=vv['discount'],
         step_size=vv["meta_step_size"],
         num_grad_updates=1,
@@ -87,7 +88,7 @@ def run_experiment(vargs):
     exp_id = random.sample(range(1, 1000), 1)[0]
     v = kwargs['variant']
     exp_name = "model_ensemble_maml_train_env_%s_%i_%i_%i_%i_id_%i" % (
-                v['env'], v['path_length'], v['num_maml_steps_per_iter'],
+                v['env'], v['path_length_env'], v['num_maml_steps_per_iter'],
                 v['batch_size_env_samples'], v['seed'], exp_id)
     v = instantiate_class_stings(v)
     kwargs['variant'] = v
