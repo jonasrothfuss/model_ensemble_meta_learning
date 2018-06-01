@@ -23,11 +23,12 @@ import argparse
 import random
 import json
 import os
-EXP_PREFIX = 'model-ensemble-maml'
+
 
 def run_train_task(vv):
     import sys
-    sysout_log_path = os.path.join(config.LOG_DIR, 'local', EXP_PREFIX, vv['exp_name'], 'stdout.log')
+    print(vv['exp_prefix'])
+    sysout_log_path = os.path.join(config.LOG_DIR, 'local', vv['exp_prefix'], vv['exp_name'], 'stdout.log')
     sysout_log_file = open(sysout_log_path, 'w')
     sys.stdout = sysout_log_file
 

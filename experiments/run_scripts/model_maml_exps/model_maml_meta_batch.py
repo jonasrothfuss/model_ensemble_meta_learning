@@ -134,7 +134,8 @@ def run_experiment(argv):
     vg.add('param_noise_std', [0.0])
 
     vg.add('meta_batch_sample_tuple', [(5, 10, 100), (10, 5, 50), (20, 3, 25), (50, 1, 2)])
-
+    # other stuff
+    vg.add('exp_prefix', [EXP_PREFIX])
 
 
     variants = vg.variants()

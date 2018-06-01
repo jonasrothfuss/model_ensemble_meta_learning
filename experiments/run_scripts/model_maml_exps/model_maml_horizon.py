@@ -134,6 +134,9 @@ def run_experiment(argv):
     vg.add('bias_transform', [False])
     vg.add('param_noise_std', [0.0])
 
+    # other stuff
+    vg.add('exp_prefix', [EXP_PREFIX])
+
 
 
     variants = vg.variants()
@@ -152,7 +155,7 @@ def run_experiment(argv):
                         variants=variants)
 
     if args.mode == 'mgpu':
-        current_path = os.path.dirname(os.path.abspath(__file__))
+        current_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         script_path = os.path.join(current_path, 'run_gpu_model_ensemble_maml_trpo_train.py')
         n_gpu = args.n_gpu
         if n_gpu == 0:
