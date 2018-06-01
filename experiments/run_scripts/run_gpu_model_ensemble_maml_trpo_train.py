@@ -69,6 +69,7 @@ def run_train_task(vv):
         num_maml_steps_per_iter=vv['num_maml_steps_per_iter'],
         max_path_length_env=vv['path_length_env'],
         max_path_length_dyn=vv.get('path_length_dyn', None),
+        reset_from_env_traj=vv.get('reset_from_env_traj', False),
         discount=vv['discount'],
         step_size=vv["meta_step_size"],
         num_grad_updates=1,
