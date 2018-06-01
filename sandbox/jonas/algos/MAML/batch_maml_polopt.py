@@ -99,6 +99,7 @@ class BatchMAMLPolopt(RLAlgorithm):
         self.num_grad_updates = num_grad_updates # number of gradient steps during training
 
         if sampler_cls is None:
+            singleton_pool.n_parallel = 1 # Use vectorized sampler since batch sampler is buggy
             if singleton_pool.n_parallel > 1:
                 sampler_cls = BatchSampler
                 sampler_args = dict(n_envs=self.meta_batch_size)
