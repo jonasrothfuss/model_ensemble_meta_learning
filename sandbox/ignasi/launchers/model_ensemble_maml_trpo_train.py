@@ -76,6 +76,8 @@ def run_train_task(vv):
         vine_max_path_length=vv['vine_max_path_length'],
         n_vine_branch=vv['n_vine_branch'],
         n_vine_init_obs=vv['n_vine_init_obs'],
+        noise_init_obs=vv['noise_init_obs'],
+        log_real_data=True,
         # optimizer_args={'cg_iters': 15}
 
     )
@@ -97,34 +99,34 @@ def run_experiment(argv):
 
     vg = VariantGenerator()
     vg.add('env', ['AntEnvRandParams'])
-    vg.add('n_itr', [20])
+    vg.add('n_itr', [80])
     vg.add('log_scale_limit', [0.0])
-    vg.add('fast_lr', [0.01, 0.05])
+    vg.add('fast_lr', [0.01])
     vg.add('meta_step_size', [0.01])
-    vg.add('seed', [0, 11]) #TODO set back to [1, 11, 21, 31, 41]
+    vg.add('seed', [0, 10]) #TODO set back to [1, 11, 21, 31, 41]
     vg.add('discount', [0.99])
     vg.add('path_length', [100])
     vg.add('batch_size_env_samples', [10])
     vg.add('batch_size_dynamics_samples', [100])
     vg.add('initial_random_samples', [5000])
     vg.add('dynamic_model_epochs', [(100, 50)])
-    vg.add('num_maml_steps_per_iter', [5, 30])
+    vg.add('num_maml_steps_per_iter', [30, 50])
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(32, 32)])
-    vg.add('hidden_sizes_model', [(512, 512)])
+    vg.add('hidden_sizes_model', [(1024, 1024)])
     vg.add('weight_normalization_model', [True])
     vg.add('reset_policy_std', [False])
     vg.add('reinit_model_cycle', [0])
     vg.add('optimizer_model', ['adam'])
     vg.add('retrain_model_when_reward_decreases', [False])
-    vg.add('num_models', [10])
+    vg.add('num_models', [10, 20])
     vg.add('trainable_step_size', [False])
     vg.add('bias_transform', [False])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
-    vg.add('vine_max_path_length', [30, 50])
-    vg.add('n_vine_branch', [5, 10])
-    vg.add('n_vine_init_obs', [5000])
+    vg.add('vine_max_path_length', [30])
+    vg.add('n_vine_branch', [5])
+    vg.add('n_vine_init_obs', [10000])
 
     variants = vg.variants()
 
