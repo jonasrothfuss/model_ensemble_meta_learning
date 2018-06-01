@@ -77,7 +77,7 @@ def run_train_task(vv):
         n_vine_branch=vv['n_vine_branch'],
         n_vine_init_obs=vv['n_vine_init_obs'],
         noise_init_obs=vv['noise_init_obs'],
-        log_real_data=True,
+        log_real_data=False,
         # optimizer_args={'cg_iters': 15}
 
     )
@@ -127,6 +127,7 @@ def run_experiment(argv):
     vg.add('vine_max_path_length', [30])
     vg.add('n_vine_branch', [5])
     vg.add('n_vine_init_obs', [10000])
+    vg.add('noise_init_obs', [0])
 
     variants = vg.variants()
 
