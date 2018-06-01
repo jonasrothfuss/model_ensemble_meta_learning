@@ -145,12 +145,8 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
 
         # env sampler - get samples from environment using the policy
         if sampler_cls is None:
-            if singleton_pool.n_parallel > 1:
-                sampler_cls = BatchSampler
-                sampler_args = dict(n_envs=self.meta_batch_size)
-            else:
-                sampler_cls = MAMLVectorizedSampler
-                sampler_args = dict(n_tasks=self.meta_batch_size, n_envs=self.meta_batch_size * batch_size_env_samples)
+            sampler_cls = MAMLVectorizedSampler
+            sampler_args = dict(n_tasks=self.meta_batch_size, n_envs=self.meta_batch_size * batch_size_env_samples)
         self.env_sampler = sampler_cls(self, **sampler_args)
 
         # model sampler - makes (imaginary) rollouts with the estimated dynamics model ensemble
@@ -300,7 +296,6 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                             logger.log("Processing samples...")
                             samples_data = {}
 
-                            t4 = time.time()
                             for key in new_model_paths.keys():  # the keys are the tasks
                                 # don't log because this will spam the consol with every task.
                                 samples_data[key] = self.process_samples_for_policy(itr, new_model_paths[key], log=False)
@@ -313,8 +308,6 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                                                                              log_prefix="DynTrajs%i%s-" % (
                                                                                  maml_itr + 1, chr(97 + step)),
                                                                              return_reward=True)
-                            print('------- TIME FOR PROCESSING SAMPLES', time.time() - t4)
-
                             if step < self.num_grad_updates:
                                 logger.log("Computing policy updates...")
                                 self.policy.compute_updated_dists(samples_data)
