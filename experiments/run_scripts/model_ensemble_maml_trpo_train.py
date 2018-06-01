@@ -12,7 +12,7 @@ from experiments.helpers.ec2_helpers import cheapest_subnets
 from experiments.helpers.run_multi_gpu import run_multi_gpu
 
 from sandbox.jonas.envs.own_envs import PointEnvMAML
-from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams
+from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams
 from sandbox.jonas.envs.mujoco import Reacher5DofEnvRandParams
 from sandbox.jonas.envs.mujoco.cheetah_env import HalfCheetahEnv
 
@@ -64,9 +64,11 @@ def run_train_task(vv):
         n_iter=vv['n_itr'],
         batch_size_env_samples=vv['batch_size_env_samples'],
         batch_size_dynamics_samples=vv['batch_size_dynamics_samples'],
+        meta_batch_size=vv['meta_batch_size'],
         initial_random_samples=vv['initial_random_samples'],
         dynamic_model_epochs=vv['dynamic_model_epochs'],
         num_maml_steps_per_iter=vv['num_maml_steps_per_iter'],
+        reset_from_env_traj=vv['reset_from_env_traj'],
         max_path_length=vv['path_length'],
         discount=vv['discount'],
         step_size=vv["meta_step_size"],
@@ -94,38 +96,50 @@ def run_experiment(argv):
 
     # -------------------- Define Variants -----------------------------------
     vg = VariantGenerator()
-    vg.add('env', ['AntEnvRandParams'])
-    vg.add('n_itr', [100])
+
+    vg.add('seed', [23, 43, 53]) #TODO set back to [1, 11, 21, 31, 41]
+
+    # env spec
+    vg.add('env', ['SwimmerEnvRandParams'])
     vg.add('log_scale_limit', [0.0])
+    vg.add('path_length', [200])
+
+    # Model-based MAML algo spec
+    vg.add('n_itr', [20])
     vg.add('fast_lr', [0.01])
     vg.add('meta_step_size', [0.01])
-    vg.add('seed', [22, 44, 55]) #TODO set back to [1, 11, 21, 31, 41]
+    vg.add('meta_batch_size', [15]) # must be a multiple of num_models
     vg.add('discount', [0.99])
-    vg.add('path_length', [100])
-    vg.add('batch_size_env_samples', [10])
-    vg.add('batch_size_dynamics_samples', [100])
+    vg.add('batch_size_env_samples', [4])
+    vg.add('batch_size_dynamics_samples', [40])
     vg.add('initial_random_samples', [5000])
     vg.add('dynamic_model_epochs', [(100, 50)])
     vg.add('num_maml_steps_per_iter', [30, 50])
+    vg.add('retrain_model_when_reward_decreases', [False])
+    vg.add('reset_from_env_traj', [True])
+    vg.add('num_models', [5])
+    vg.add('trainable_step_size', [False])
+
+    # neural network configuration
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(32, 32)])
     vg.add('hidden_sizes_model', [(1024, 1024)])
     vg.add('weight_normalization_model', [True])
-    vg.add('reset_policy_std', [True, False])
-    vg.add('reinit_model_cycle', [0, 5])
+    vg.add('reset_policy_std', [False])
+    vg.add('reinit_model_cycle', [5])
     vg.add('optimizer_model', ['adam'])
-    vg.add('retrain_model_when_reward_decreases', [True, False])
-    vg.add('num_models', [5])
-    vg.add('param_noise_std', [0.0])
-    vg.add('trainable_step_size', [False])
-    vg.add('bias_transform', [False])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
+    vg.add('bias_transform', [False])
+    vg.add('param_noise_std', [0.0])
+
+
 
     variants = vg.variants()
 
     default_dict = dict(exp_prefix=EXP_PREFIX,
-                        snapshot_mode="all",
+                        snapshot_mode="gap",
+                        snapshot_gap=5,
                         periodic_sync=True,
                         sync_s3_pkl=True,
                         sync_s3_log=True,

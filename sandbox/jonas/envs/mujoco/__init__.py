@@ -2,3 +2,4 @@ from .cheetah_env_rand_param import HalfCheetahEnvRandParams
 from .ant_env_random_param import AntEnvRandParams
 from .hopper_env_random_param import HopperEnvRandParams
 from .reacher_env_random_param import Reacher5DofEnvRandParams
+from .swimmer_env_random_param import SwimmerEnvRandParams

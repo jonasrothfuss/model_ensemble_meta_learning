@@ -66,7 +66,6 @@ class HopperEnvRandParams(BaseEnvRandParams, HopperEnv, Serializable):
             assert obs.shape == obs_next.shape and action.shape[0] == obs.shape[0]
             vel = (obs_next[:, -3] - obs[:, -3]) / 0.02
             ctrl_cost = 0.5 * self.ctrl_cost_coeff * np.sum(np.square(action / scaling), axis=1)
-            vel + self.alive_coeff - ctrl_cost
             return vel + self.alive_coeff - ctrl_cost
         else:
             vel = (obs_next[-3] - obs[-3])/0.02

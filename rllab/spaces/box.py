@@ -41,6 +41,10 @@ class Box(Space):
         return np.prod(self.low.shape)
 
     @property
+    def dtype(self):
+        return np.float32
+
+    @property
     def bounds(self):
         return self.low, self.high
 

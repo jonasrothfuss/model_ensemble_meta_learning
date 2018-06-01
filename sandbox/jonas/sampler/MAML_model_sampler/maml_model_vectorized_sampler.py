@@ -11,8 +11,13 @@ import itertools
 class MAMLModelVectorizedSampler(ModelBaseSampler):
 
     def __init__(self, algo, n_parallel=None):
+        """
+        :param algo: RL algo
+        :param n_parallel: number of trajectories samples in parallel
+        """
         super(MAMLModelVectorizedSampler, self).__init__(algo)
         self.n_models = self.algo.dynamics_model.num_models
+        self.meta_batch_size = self.algo.meta_batch_size
         if n_parallel is None:
             self.n_parallel = self.algo.batch_size_dynamics_samples // self.algo.max_path_length
         else:
@@ -26,24 +31,35 @@ class MAMLModelVectorizedSampler(ModelBaseSampler):
             env=env,
             model=self.algo.dynamics_model,
             max_path_length=self.algo.max_path_length,
-            n_parallel=self.n_parallel
+            n_parallel=self.n_parallel,
         )
         self.env_spec = self.algo.env.spec
 
     def shutdown_worker(self):
         self.vec_env.terminate()
 
-    def obtain_samples(self, itr, return_dict=False, log=True, log_prefix=''):
+    def obtain_samples(self, itr, return_dict=False, log=True, log_prefix='', traj_starting_obs=None):
+        """
+
+        :param itr: current iteration (int) for logging purposes
+        :param return_dict: (boolean) weather to return a dict or a list
+        :param log: (boolean) indicates whether to log
+        :param log_prefix: (str) prefix to prepend to the log keys
+        :param traj_starting_obs: (optional) starting observations to randomly choose from for rolling out trajectories [numpy array of shape (n_observations, ndim_obs),
+                                    if env.reset() is called to get a initial observations
+        :return:
+        """
         # return_dict: whether or not to return a dictionary or list form of paths
+        assert traj_starting_obs is None or traj_starting_obs.ndim == 2
 
         paths = {}
-        for i in range(self.n_models):
+        for i in range(self.meta_batch_size):
             paths[i] = []
 
         n_samples = 0
-        n_parallel_per_task = self.vec_env.num_envs // self.n_models
+        n_parallel_per_task = self.vec_env.num_envs // self.meta_batch_size
 
-        obses = self.vec_env.reset()
+        obses = self.vec_env.reset(traj_starting_obs=traj_starting_obs)
         dones = np.asarray([True] * self.n_parallel)
         running_paths = [None] * self.n_parallel
 
@@ -60,14 +76,14 @@ class MAMLModelVectorizedSampler(ModelBaseSampler):
             policy.reset(dones)
 
             # get actions from MAML policy
-            obs_per_task = np.split(np.asarray(obses), self.n_models)
+            obs_per_task = np.split(np.asarray(obses), self.meta_batch_size)
             actions, agent_infos = policy.get_actions_batch(obs_per_task)
 
             assert actions.shape[0] == self.n_parallel
 
             policy_time += time.time() - t
             t = time.time()
-            next_obses, rewards, dones, env_infos = self.vec_env.step(actions)
+            next_obses, rewards, dones, env_infos = self.vec_env.step(actions, traj_starting_obs=traj_starting_obs)
             env_time += time.time() - t
 
             t = time.time()
@@ -120,5 +136,5 @@ class MAMLModelVectorizedSampler(ModelBaseSampler):
             paths = flatten_list(paths.values())
             # path_keys = flatten_list([[key]*len(paths[key]) for key in paths.keys()])
         else:
-            assert len(paths) == self.n_models
+            assert len(paths) == self.meta_batch_size
         return paths

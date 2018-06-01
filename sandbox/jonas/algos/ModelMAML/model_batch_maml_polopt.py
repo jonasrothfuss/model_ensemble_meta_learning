@@ -34,6 +34,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
             # Defaults are 10 trajectories of length 500 for gradient update
             batch_size_env_samples=10,
             batch_size_dynamics_samples=100,
+            meta_batch_size=None,
             initial_random_samples=None,
             max_path_length=100,
             num_grad_updates=1,
@@ -41,6 +42,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
             gae_lambda=1,
             dynamic_model_epochs=(30, 10),
             num_maml_steps_per_iter=10,
+            reset_from_env_traj=False,
             retrain_model_when_reward_decreases=True,
             reset_policy_std=False,
             reinit_model_cycle=0,
@@ -70,18 +72,19 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         :param start_itr: Starting iteration.
         :param batch_size_env_samples: Number of policy rollouts for each model/policy
         :param batch_size_dynamics_samples: Number of (imaginary) policy rollouts with each dynamics model
+        :param meta_batch_size: Number of meta-tasks (default - meta_batch_size-dynamics_model.num_models)
         :param initial_random_samples: either None -> use initial policy to sample from env
                                        or int: number of random samples at first iteration to train dynamics model
                                                if provided, in the first iteration no samples from the env are generated
                                                with the policy
         :param max_path_length: Maximum length of a single rollout.
-        :param meta_batch_size: Number of tasks sampled per meta-update
         :param num_grad_updates: Number of fast gradient updates
         :param discount: Discount.
         :param gae_lambda: Lambda used for generalized advantage estimation.
         :param dynamic_model_epochs: (2-tuple) number of epochs to train the dynamics model
                                         (n_epochs_at_first_iter, n_epochs_after_first_iter)
         :param num_maml_steps_per_iter: number of policy gradients steps before retraining dynamics model
+        :param reset_from_env_traj: (boolean) whether to use the real environment observations for resetting the imaginary dynamics model rollouts
         :param retrain_model_when_reward_decreases: (boolean) if true - stop inner gradient steps when performance decreases
         :param reset_policy_std: whether to reset the policy std after each iteration
         :param reinit_model_cycle: number of iterations before re-initializing the dynamics model (if 0 the dynamic model is not re-initialized at all)
@@ -103,12 +106,17 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         self.n_itr = n_itr
         self.start_itr = start_itr
 
+        # meta batch size and number of dynamics models
         self.num_models = dynamics_model.num_models
-        self.meta_batch_size = self.num_models # set meta_batch_size to number of dynamic models
+        if meta_batch_size is None:
+            self.meta_batch_size = self.num_models # set meta_batch_size to number of dynamic models
+        else:
+            assert meta_batch_size % self.num_models == 0, "meta_batch_size must a multiple the number of models in the dynamics ensemble"
+            self.meta_batch_size = meta_batch_size
 
         # batch_size is the number of trajectories for one fast grad update.
         self.batch_size = batch_size_env_samples * max_path_length * self.num_models # batch_size for env sampling
-        self.batch_size_dynamics_samples = batch_size_dynamics_samples * max_path_length * self.num_models # batch_size for model sampling
+        self.batch_size_dynamics_samples = batch_size_dynamics_samples * max_path_length * self.meta_batch_size # batch_size for model sampling
         self.initial_random_samples = initial_random_samples
 
         # self.batch_size is the number of total transitions to collect.
@@ -118,6 +126,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
 
         self.dynamic_model_epochs = dynamic_model_epochs
         self.num_maml_steps_per_iter = num_maml_steps_per_iter
+        self.reset_from_env_traj = reset_from_env_traj
         self.retrain_model_when_reward_decreases = retrain_model_when_reward_decreases
         self.reset_policy_std = reset_policy_std
         self.reinit_model = reinit_model_cycle
@@ -172,8 +181,8 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         assert type(paths) == dict
         return paths
 
-    def obtain_model_samples(self, itr, log=False):
-        return self.model_sampler.obtain_samples(itr, log=log, return_dict=True)
+    def obtain_model_samples(self, itr, log=False, traj_starting_obs=None):
+        return self.model_sampler.obtain_samples(itr, log=log, return_dict=True, traj_starting_obs=traj_starting_obs)
 
     def obtain_random_samples(self, itr, log=False):
         assert self.random_sampler is not None
@@ -280,12 +289,18 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                             logger.log("MAML Step %i%s of %i - Obtaining samples from the dynamics model..." % (
                                 maml_itr + 1, chr(97 + step), self.num_maml_steps_per_iter))
 
-                            new_model_paths = self.obtain_model_samples(itr)
-                            assert type(new_model_paths) == dict and len(new_model_paths) == self.num_models
+                            if self.reset_from_env_traj and maml_itr > 0:
+                                new_model_paths = self.obtain_model_samples(itr, traj_starting_obs=samples_data_dynamics['observations_dynamics'])
+                            else:
+                                new_model_paths = self.obtain_model_samples(itr)
+
+                            assert type(new_model_paths) == dict and len(new_model_paths) == self.meta_batch_size
                             all_paths_maml_iter.append(new_model_paths)
 
                             logger.log("Processing samples...")
                             samples_data = {}
+
+                            t4 = time.time()
                             for key in new_model_paths.keys():  # the keys are the tasks
                                 # don't log because this will spam the consol with every task.
                                 samples_data[key] = self.process_samples_for_policy(itr, new_model_paths[key], log=False)
@@ -298,6 +313,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                                                                              log_prefix="DynTrajs%i%s-" % (
                                                                                  maml_itr + 1, chr(97 + step)),
                                                                              return_reward=True)
+                            print('------- TIME FOR PROCESSING SAMPLES', time.time() - t4)
 
                             if step < self.num_grad_updates:
                                 logger.log("Computing policy updates...")

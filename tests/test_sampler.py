@@ -223,6 +223,7 @@ class TestModelSampler(unittest.TestCase):
                 discount=0.99,
                 step_size=0.01,
             )
+            algo.meta_batch_size = dynamics_model.num_models
 
             algo.batch_size_dynamics_samples = algo.batch_size
 
@@ -269,6 +270,7 @@ class TestModelSampler(unittest.TestCase):
                 discount=0.99,
                 step_size=0.01,
             )
+            algo.meta_batch_size = dynamics_dummy.num_models
 
             algo.batch_size_dynamics_samples = algo.batch_size
             algo.dynamics_model = dynamics_dummy
@@ -286,6 +288,114 @@ class TestModelSampler(unittest.TestCase):
             for i in range(dynamics_dummy.num_models):
                 for path in paths[i]:
                     self.assertTrue((np.logical_or(path['observations'] == 1.0, path['observations'] == i*0.01)).all())
+
+    def test_model_sampling_with_dummy_different_meta_batch_size(self):
+        env = DummyEnv()
+        dynamics_dummy = DummyDynamicsEnsemble("dyn_model4", env, num_models=4)
+        env = TfEnv(normalize(DummyEnv()))
+
+        policy = MAMLImprovedGaussianMLPPolicy(
+            name="policy4",
+            env_spec=env.spec,
+            hidden_sizes=(100, 100),
+            grad_step_size=0.1,
+            hidden_nonlinearity=tf.nn.tanh,
+            trainable_step_size=False,
+            bias_transform=False
+        )
+
+        from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
+        baseline = LinearFeatureBaseline(env_spec=env.spec)
+
+        # fit dynamics model
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+
+            algo = TRPO(
+                env=env,
+                policy=policy,
+                baseline=baseline,
+                batch_size=20000,
+                max_path_length=100,
+                n_itr=10,
+                discount=0.99,
+                step_size=0.01,
+            )
+            algo.meta_batch_size = dynamics_dummy.num_models * 2
+
+            algo.batch_size_dynamics_samples = algo.batch_size
+            algo.dynamics_model = dynamics_dummy
+
+            itr = 1
+
+            model_sampler = MAMLModelVectorizedSampler(algo)
+            model_sampler.start_worker()
+            paths = model_sampler.obtain_samples(itr, return_dict=True)
+
+            n_steps_per_model = np.array(
+                [np.sum([path['observations'].shape[0] for path in model_paths]) for model_paths in paths.values()])
+
+            self.assertTrue(
+                all(np.abs(n_steps_per_model - algo.batch_size // algo.meta_batch_size) <= algo.max_path_length))
+
+            for i in range(dynamics_dummy.num_models):
+                for path in paths[i]:
+                    self.assertTrue(
+                        (np.logical_or(path['observations'] == 1.0, path['observations'] == i//2 * 0.01)).all())
+
+    def test_model_sampling_with_given_traj_starting_obs(self):
+        env = DummyEnv()
+        dynamics_dummy = DummyDynamicsEnsemble("dyn_model4", env, num_models=4)
+        env = TfEnv(normalize(DummyEnv()))
+
+        policy = MAMLImprovedGaussianMLPPolicy(
+            name="policy4",
+            env_spec=env.spec,
+            hidden_sizes=(100, 100),
+            grad_step_size=0.1,
+            hidden_nonlinearity=tf.nn.tanh,
+            trainable_step_size=False,
+            bias_transform=False
+        )
+
+        from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
+        baseline = LinearFeatureBaseline(env_spec=env.spec)
+
+        # fit dynamics model
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+
+            algo = TRPO(
+                env=env,
+                policy=policy,
+                baseline=baseline,
+                batch_size=20000,
+                max_path_length=100,
+                n_itr=10,
+                discount=0.99,
+                step_size=0.01,
+            )
+            algo.meta_batch_size = dynamics_dummy.num_models * 2
+
+            algo.batch_size_dynamics_samples = algo.batch_size
+            algo.dynamics_model = dynamics_dummy
+
+            itr = 1
+
+            model_sampler = MAMLModelVectorizedSampler(algo)
+            model_sampler.start_worker()
+
+            traj_starting_obs = np.array([[-1, -1],[-0.5, -0.5]])
+            paths = model_sampler.obtain_samples(itr, return_dict=True, traj_starting_obs=traj_starting_obs)
+
+            for i in range(dynamics_dummy.num_models):
+                for path in paths[i]:
+                    print(path['observations'][0])
+                    print(np.abs(np.mean(path['observations'][0]) + 1.0) < 0.001)
+                    self.assertTrue(
+                        np.abs(np.mean(path['observations'][0]) + 1.0) < 0.001 or np.abs(np.mean(path['observations'][0])+0.5) < 0.001)
+
+
 
 
 if __name__ == '__main__':
