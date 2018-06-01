@@ -25,7 +25,7 @@ class MAMLModelVecEnvExecutor(object):
         self.ts = np.zeros(n_parallel, dtype='int')
         self.max_path_length = max_path_length
 
-    def step(self, action_n):
+    def step(self, action_n, traj_starting_obs=None):
         """
         :param action_n: batches of actions for all models/taks stacked on top of each other (n_models * batch_per_model, ndim_act)
         :return: predicted observations (n_models * batch_per_model, ndim_obs)
@@ -50,7 +50,10 @@ class MAMLModelVecEnvExecutor(object):
             dones[self.ts >= self.max_path_length] = True
         for (i, done) in enumerate(dones):
             if done:
-                next_obs[i] = self.env.reset()
+                if traj_starting_obs is None:
+                    next_obs[i] = self.env.reset()
+                else:
+                    next_obs[i] = traj_starting_obs[np.random.randint(traj_starting_obs.shape[0]), :]
                 self.ts[i] = 0
 
         self.current_obs = next_obs
@@ -59,8 +62,11 @@ class MAMLModelVecEnvExecutor(object):
         next_obs = [np.squeeze(o) for o in np.vsplit(next_obs, next_obs.shape[0])]
         return next_obs, list(rewards), list(dones), tensor_utils.stack_tensor_dict_list(env_infos) #lists
 
-    def reset(self):
-        results = [self.env.reset() for _ in range(self.n_parallel)] # get initial observation from environment
+    def reset(self, traj_starting_obs=None):
+        if traj_starting_obs is not None:
+            results = [traj_starting_obs[np.random.randint(traj_starting_obs.shape[0]), :] for _ in range(self.n_parallel)] # randomly relect one observation of traj_starting_obs as initial obs
+        else:
+            results = [self.env.reset() for _ in range(self.n_parallel)] # get initial observation from environment
         self.current_obs = np.stack(results, axis=0)
         assert self.current_obs.ndim == 2
         self.ts[:] = 0

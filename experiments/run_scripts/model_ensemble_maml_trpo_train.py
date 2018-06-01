@@ -68,6 +68,7 @@ def run_train_task(vv):
         initial_random_samples=vv['initial_random_samples'],
         dynamic_model_epochs=vv['dynamic_model_epochs'],
         num_maml_steps_per_iter=vv['num_maml_steps_per_iter'],
+        reset_from_env_traj=vv['reset_from_env_traj'],
         max_path_length=vv['path_length'],
         discount=vv['discount'],
         step_size=vv["meta_step_size"],
@@ -115,6 +116,7 @@ def run_experiment(argv):
     vg.add('dynamic_model_epochs', [(100, 50)])
     vg.add('num_maml_steps_per_iter', [30, 50])
     vg.add('retrain_model_when_reward_decreases', [False])
+    vg.add('reset_from_env_traj', [True])
     vg.add('num_models', [5])
     vg.add('trainable_step_size', [False])
 

@@ -42,6 +42,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
             gae_lambda=1,
             dynamic_model_epochs=(30, 10),
             num_maml_steps_per_iter=10,
+            reset_from_env_traj=False,
             retrain_model_when_reward_decreases=True,
             reset_policy_std=False,
             reinit_model_cycle=0,
@@ -83,6 +84,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         :param dynamic_model_epochs: (2-tuple) number of epochs to train the dynamics model
                                         (n_epochs_at_first_iter, n_epochs_after_first_iter)
         :param num_maml_steps_per_iter: number of policy gradients steps before retraining dynamics model
+        :param reset_from_env_traj: (boolean) whether to use the real environment observations for resetting the imaginary dynamics model rollouts
         :param retrain_model_when_reward_decreases: (boolean) if true - stop inner gradient steps when performance decreases
         :param reset_policy_std: whether to reset the policy std after each iteration
         :param reinit_model_cycle: number of iterations before re-initializing the dynamics model (if 0 the dynamic model is not re-initialized at all)
@@ -124,6 +126,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
 
         self.dynamic_model_epochs = dynamic_model_epochs
         self.num_maml_steps_per_iter = num_maml_steps_per_iter
+        self.reset_from_env_traj = reset_from_env_traj
         self.retrain_model_when_reward_decreases = retrain_model_when_reward_decreases
         self.reset_policy_std = reset_policy_std
         self.reinit_model = reinit_model_cycle
@@ -178,8 +181,8 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         assert type(paths) == dict
         return paths
 
-    def obtain_model_samples(self, itr, log=False):
-        return self.model_sampler.obtain_samples(itr, log=log, return_dict=True)
+    def obtain_model_samples(self, itr, log=False, traj_starting_obs=None):
+        return self.model_sampler.obtain_samples(itr, log=log, return_dict=True, traj_starting_obs=traj_starting_obs)
 
     def obtain_random_samples(self, itr, log=False):
         assert self.random_sampler is not None
@@ -286,7 +289,11 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                             logger.log("MAML Step %i%s of %i - Obtaining samples from the dynamics model..." % (
                                 maml_itr + 1, chr(97 + step), self.num_maml_steps_per_iter))
 
-                            new_model_paths = self.obtain_model_samples(itr)
+                            if self.reset_from_env_traj and maml_itr > 0:
+                                new_model_paths = self.obtain_model_samples(itr, traj_starting_obs=samples_data_dynamics['observations_dynamics'])
+                            else:
+                                new_model_paths = self.obtain_model_samples(itr)
+
                             assert type(new_model_paths) == dict and len(new_model_paths) == self.meta_batch_size
                             all_paths_maml_iter.append(new_model_paths)
 
