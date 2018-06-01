@@ -80,6 +80,9 @@ class MAMLVINEModelVectorizedSampler(ModelBaseSampler):
             _time_step += 1
 
         pbar.stop()
+        print("PolicyExecTime", policy_time)
+        print("EnvExecTime", env_time)
+        print("ProcessExecTime", process_time)
 
         if log:
             logger.record_tabular(log_prefix + "PolicyExecTime", policy_time)

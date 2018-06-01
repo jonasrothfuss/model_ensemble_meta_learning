@@ -64,6 +64,8 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
             n_vine_branch=5,
             n_vine_init_obs=4000,
             frac_gpu=1,
+            noise_init_obs=0,
+            log_real_data=False,
             **kwargs
     ):
         """
@@ -133,6 +135,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         self.vine_max_path_length = vine_max_path_length
         self.n_vine_branch = n_vine_branch
         self.n_vine_init_obs = n_vine_init_obs
+        self.noise_init_obs = noise_init_obs
 
         self.plot = plot
         self.pause_for_plot = pause_for_plot
@@ -143,6 +146,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         self.fixed_horizon = fixed_horizon
         self.num_grad_updates = num_grad_updates # number of gradient steps during training
         self.frac_gpu = frac_gpu
+        self.log_real_data = log_real_data
 
         ''' setup sampler classes '''
 
@@ -191,6 +195,8 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
     def obtain_model_samples(self, itr, data=None, log=False, mode='last'):
         if self.use_vine:
             init_obs = self.get_init_obs(data, mode=mode)
+            if self.noise_init_obs > 0:
+                init_obs += np.random.normal(0.0, self.noise_init_obs, size=init_obs.shape)
             return self.model_sampler.obtain_samples(itr, init_obs, log=log, return_dict=True)
         else:
             return self.model_sampler.obtain_samples(itr, log=log, return_dict=True)
@@ -204,8 +210,8 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
     def process_samples_for_dynamics(self, itr, paths):
         return self.model_sampler.process_samples(itr, paths, log=False)
 
-    def process_samples_for_policy(self, itr, paths, log=True, log_prefix='DynTrajs-', return_reward=False):
-        if self.use_vine:
+    def process_samples_for_policy(self, itr, paths, log=True, log_prefix='DynTrajs-', return_reward=False, use_vine=True):
+        if use_vine and self.use_vine:
             return self.policy_sampler_processor.process_samples(itr, paths, log=log, log_prefix=log_prefix, return_reward=return_reward)
         else:
             return self.env_sampler.process_samples(itr, paths, log=log, log_prefix=log_prefix, return_reward=return_reward)
@@ -290,6 +296,23 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                         self.model_sampler.process_samples(itr, new_env_paths, log=True, log_prefix='EnvTrajs-')
 
                         samples_data_dynamics = self.process_samples_for_dynamics(itr, self.all_paths)
+
+                    if self.log_real_data:
+                        logger.log("Evaluating the performance of the real policy")
+                        self.policy.switch_to_init_dist()
+                        new_env_paths = self.obtain_env_samples(itr, reset_args=learner_env_params[0],
+                                                                log_prefix='PrePolicy-')
+                        samples_data = {}
+                        for key in new_env_paths.keys():
+                            samples_data[key] = self.process_samples_for_policy(itr, new_env_paths[key], use_vine=False, log_prefix='PrePolicyProc', log=True)
+                        self.policy.compute_updated_dists(samples_data)
+                        new_env_paths = self.obtain_env_samples(itr, reset_args=learner_env_params,
+                                                                log_prefix='PostPolicy-')
+                        _ = self.process_samples_for_policy(itr,  flatten_list(new_env_paths.values()), use_vine=False,
+                                                            log_prefix='PostPolicyProc')
+
+
+
 
 
                     ''' fit dynamics model '''
