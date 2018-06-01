@@ -36,7 +36,8 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
             batch_size_dynamics_samples=100,
             meta_batch_size=None,
             initial_random_samples=None,
-            max_path_length=100,
+            max_path_length_env=100,
+            max_path_length_dyn=None,
             num_grad_updates=1,
             discount=0.99,
             gae_lambda=1,
@@ -77,7 +78,8 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                                        or int: number of random samples at first iteration to train dynamics model
                                                if provided, in the first iteration no samples from the env are generated
                                                with the policy
-        :param max_path_length: Maximum length of a single rollout.
+        :param max_path_length_env: Maximum length of a single rollout in the environment
+        :param max_path_length_dyn: Maximum path length of a single (imaginary) rollout with the dynamics model
         :param num_grad_updates: Number of fast gradient updates
         :param discount: Discount.
         :param gae_lambda: Lambda used for generalized advantage estimation.
@@ -114,13 +116,13 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
             assert meta_batch_size % self.num_models == 0, "meta_batch_size must a multiple the number of models in the dynamics ensemble"
             self.meta_batch_size = meta_batch_size
 
-        # batch_size is the number of trajectories for one fast grad update.
-        self.batch_size = batch_size_env_samples * max_path_length * self.num_models # batch_size for env sampling
-        self.batch_size_dynamics_samples = batch_size_dynamics_samples * max_path_length * self.meta_batch_size # batch_size for model sampling
-        self.initial_random_samples = initial_random_samples
+        self.max_path_length = max_path_length_env
+        self.max_path_length_dyn = max_path_length_dyn if max_path_length_dyn is not None else max_path_length_env
 
-        # self.batch_size is the number of total transitions to collect.
-        self.max_path_length = max_path_length
+        # batch_size is the number of trajectories for one fast grad update.
+        self.batch_size = batch_size_env_samples * max_path_length_env * self.num_models # batch_size for env sampling
+        self.batch_size_dynamics_samples = batch_size_dynamics_samples * self.max_path_length_dyn * self.meta_batch_size # batch_size for model sampling
+        self.initial_random_samples = initial_random_samples
         self.discount = discount
         self.gae_lambda = gae_lambda
 
@@ -150,7 +152,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         self.env_sampler = sampler_cls(self, **sampler_args)
 
         # model sampler - makes (imaginary) rollouts with the estimated dynamics model ensemble
-        self.model_sampler = MAMLModelVectorizedSampler(self)
+        self.model_sampler = MAMLModelVectorizedSampler(self, max_path_length=max_path_length_dyn)
 
         # random sampler - (initially) collects random samples from the environment to train the dynamics model
         if self.initial_random_samples:
