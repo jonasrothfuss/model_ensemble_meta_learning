@@ -300,16 +300,16 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                     if self.log_real_data:
                         logger.log("Evaluating the performance of the real policy")
                         self.policy.switch_to_init_dist()
-                        new_env_paths = self.obtain_env_samples(itr, reset_args=learner_env_params[0],
+                        new_env_paths = self.obtain_env_samples(itr, reset_args=learner_env_params,
                                                                 log_prefix='PrePolicy-')
                         samples_data = {}
                         for key in new_env_paths.keys():
-                            samples_data[key] = self.process_samples_for_policy(itr, new_env_paths[key], use_vine=False, log_prefix='PrePolicyProc', log=True)
+                            samples_data[key] = self.process_samples_for_policy(itr, new_env_paths[key], use_vine=False, log_prefix='PrePolicy-%i'%key, log=True)
                         self.policy.compute_updated_dists(samples_data)
                         new_env_paths = self.obtain_env_samples(itr, reset_args=learner_env_params,
-                                                                log_prefix='PostPolicy-')
+                                                                log_prefix='PostPolicy-',)
                         _ = self.process_samples_for_policy(itr,  flatten_list(new_env_paths.values()), use_vine=False,
-                                                            log_prefix='PostPolicyProc')
+                                                            log_prefix='PostPolicy-')
 
 
 

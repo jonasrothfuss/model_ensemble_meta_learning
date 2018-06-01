@@ -2,6 +2,7 @@ import numpy as np
 import pickle as pickle
 from sandbox.rocky.tf.misc import tensor_utils
 import copy
+import time
 
 
 class MAMLVINEModelVecEnvExecutor(object):
@@ -37,8 +38,11 @@ class MAMLVINEModelVecEnvExecutor(object):
 
         # use the model to make (predicted) steps
         prev_obs = self.current_obs
+        t0 = time.time()
         next_obs = self.model.predict_model_batches(prev_obs, action_n)
+        t1 = time.time()
         rewards = self.unwrapped_env.reward(prev_obs, action_n, next_obs)
+        t2 = time.time()
 
         if self.has_done_fn:
             dones = self.unwrapped_env.done(next_obs)
@@ -53,6 +57,10 @@ class MAMLVINEModelVecEnvExecutor(object):
         next_obs[dones] = self.init_obs[dones]
         self.ts[dones] = 0
         self.current_obs = next_obs
+        t3 = time.time()
+        print('time computing pred', t1 - t0)
+        print('time computing reward', t2 - t1)
+        print('time computing shit', t3 - t2)
 
         # transform obs to lists
         return next_obs, rewards, dones, env_infos #tensor_utils.stack_tensor_dict_list(env_infos) #lists
