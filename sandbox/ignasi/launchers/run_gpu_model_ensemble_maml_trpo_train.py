@@ -86,7 +86,7 @@ def run_experiment(exp_args):
     if type(exp_args) is dict:
         kwargs = exp_args
     else:
-       kwargs = json.load(open(exp_args, 'r'))
+       kwargs = json.load(open(exp_args[0], 'r'))
     v = kwargs['variant']
     exp_name = kwargs['variant']['exp_name']
     v = instantiate_class_stings(v)
