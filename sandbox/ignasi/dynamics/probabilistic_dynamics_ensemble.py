@@ -50,13 +50,13 @@ class MLPProbabilisticDynamicsEnsemble(MLPDynamicsModel):
             self.obs_ph = tf.placeholder(tf.float32, shape=(None, obs_space_dims), name='obs_ph')
             self.act_ph = tf.placeholder(tf.float32, shape=(None, action_space_dims), name='act_ph')
             self.delta_ph = tf.placeholder(tf.float32, shape=(None, obs_space_dims), name='delta_ph')
-            self.min_logvar_ph = tf.placeholder(tf.float32, shape=(obs_space_dims, 1), name='min_logvar_ph')
-            self.max_logvar_ph = tf.placeholder(tf.float32, shape=(obs_space_dims, 1), name='maxlogvar_ph')
+            self.min_logvar_ph = tf.placeholder(tf.float32, shape=(obs_space_dims,), name='min_logvar_ph')
+            self.max_logvar_ph = tf.placeholder(tf.float32, shape=(obs_space_dims,), name='maxlogvar_ph')
 
-            self.min_logvar = tf.get_variable("min_logvar", (obs_space_dims, 1),
+            self.min_logvar = tf.get_variable("min_logvar", (obs_space_dims,),
                                               dtype=tf.float32, initializer=tf.zeros_initializer, trainable=False)
 
-            self.max_logvar = tf.get_variable("max_logvar", (obs_space_dims, 1),
+            self.max_logvar = tf.get_variable("max_logvar", (obs_space_dims,),
                                               dtype=tf.float32, initializer=tf.zeros_initializer, trainable=False)
 
             self._set_logvar = [tf.assign(self.min_logvar, self.min_logvar_ph),
@@ -88,8 +88,8 @@ class MLPProbabilisticDynamicsEnsemble(MLPDynamicsModel):
 
             self.mean_delta = tf.stack(means_delta, axis=2) # shape: (batch_size, ndim_obs, n_models)
             logvar_delta = tf.stack(logvars_delta, axis=2) # shape: (batch_size, ndim_obs, n_models)
-            logvar_delta = self.max_logvar - tf.nn.softplus(self.max_logvar - logvar_delta)
-            logvar_delta = self.min_logvar + tf.nn.softplus(logvar_delta - self.min_logvar)
+            logvar_delta = self.max_logvar - tf.nn.softplus(tf.reshape(self.max_logvar, (-1, 1)) - logvar_delta)
+            logvar_delta = self.min_logvar + tf.nn.softplus(logvar_delta - tf.reshape(self.min_logvar, (-1, 1)))
             self.var_delta = tf.exp(logvar_delta)
 
 
@@ -152,10 +152,10 @@ class MLPProbabilisticDynamicsEnsemble(MLPDynamicsModel):
     def fit(self, obs, act, obs_next, epochs=50, compute_normalization=True, verbose=False):
         sess = tf.get_default_session()
         if self.normalize_input:
-            max_logvar = np.zeros((obs.shape[-1], 1))
+            max_logvar = np.zeros((obs.shape[-1],))
             min_logvar = max_logvar - 2 * np.log(10)
         else:
-            max_logvar = 2 * np.log(np.std(obs, axis=0))[:, None]
+            max_logvar = 2 * np.log(np.std(obs, axis=0))
             min_logvar = max_logvar - 2 * np.log(10)
         feed_dict = {self.max_logvar_ph: max_logvar,
                      self.min_logvar_ph: min_logvar}
