@@ -35,13 +35,12 @@ class AntEnv(MujocoEnv, Serializable):
         survive_reward = 1.0
         reward = forward_reward - ctrl_cost - contact_cost + survive_reward
         ob = self.get_current_obs()
-        notdone = np.isfinite(ob).all() \
-                  and ob[2] >= 0.2 and ob[2] <= 1.0
+        notdone = np.isfinite(ob).all() and ob[2] <= 1.0
         done = not notdone
 
 
-        # clip reward in case mujoco sim goes crazy
         reward = np.minimum(np.maximum(-1000.0, reward), 1000.0)
+        import pdb; pdb.set_trace()
 
         return ob, reward, done, dict(
             reward_forward=forward_reward,

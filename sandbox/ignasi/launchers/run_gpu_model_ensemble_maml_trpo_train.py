@@ -14,7 +14,6 @@ from experiments.helpers.ec2_helpers import cheapest_subnets
 from sandbox.jonas.envs.own_envs import PointEnvMAML
 from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams
 from sandbox.jonas.envs.mujoco import Reacher5DofEnvRandParams
-from sandbox.jonas.envs.mujoco.cheetah_env import HalfCheetahEnv
 import json
 import dateutil.tz
 import datetime

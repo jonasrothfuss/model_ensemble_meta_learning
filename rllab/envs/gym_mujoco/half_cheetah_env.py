@@ -34,9 +34,9 @@ class HalfCheetahEnv(MujocoEnv, Serializable):
         return self.model.data.com_subtree[idx]
 
     def step(self, action):
-        xposbefore = self.model.data.qpos[0]
+        xposbefore = self.model.data.qpos[0, 0]
         self.forward_dynamics(action)
-        xposafter = self.model.data.qpos[0]
+        xposafter = self.model.data.qpos[0, 0]
         ob = self.get_current_obs()
         reward_ctrl = - 0.1 * np.square(action).sum()
         reward_run = (xposafter - xposbefore) / self.dt
