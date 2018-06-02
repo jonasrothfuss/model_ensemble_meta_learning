@@ -35,7 +35,9 @@ class AntEnvRandParams(BaseEnvRandParams, AntEnv, Serializable):
         if obs.ndim == 2 and action.ndim == 2:
             assert obs.shape == obs_next.shape and action.shape[0] == obs.shape[0]
             forward_vel = obs_next[:, 13]
-            ctrl_cost = .5 * np.square(action).sum()
+            lb, ub = self.action_bounds
+            scaling = (ub - lb) * 0.5
+            ctrl_cost = .5 * 1e-2 * np.square(action/scaling).sum()
             survive_reward = 1.0
             return forward_vel - ctrl_cost + survive_reward
         else:
