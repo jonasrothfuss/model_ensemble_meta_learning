@@ -23,11 +23,12 @@ import argparse
 import random
 import json
 import os
-EXP_PREFIX = 'model-ensemble-maml'
+
 
 def run_train_task(vv):
     import sys
-    sysout_log_path = os.path.join(config.LOG_DIR, 'local', EXP_PREFIX, vv['exp_name'], 'stdout.log')
+    print(vv['exp_prefix'])
+    sysout_log_path = os.path.join(config.LOG_DIR, 'local', vv['exp_prefix'], vv['exp_name'], 'stdout.log')
     sysout_log_file = open(sysout_log_path, 'w')
     sys.stdout = sysout_log_file
 
@@ -66,7 +67,9 @@ def run_train_task(vv):
         initial_random_samples=vv['initial_random_samples'],
         dynamic_model_epochs=vv['dynamic_model_epochs'],
         num_maml_steps_per_iter=vv['num_maml_steps_per_iter'],
-        max_path_length=vv['path_length'],
+        max_path_length_env=vv['path_length_env'],
+        max_path_length_dyn=vv.get('path_length_dyn', None),
+        reset_from_env_traj=vv.get('reset_from_env_traj', False),
         discount=vv['discount'],
         step_size=vv["meta_step_size"],
         num_grad_updates=1,
@@ -87,7 +90,7 @@ def run_experiment(vargs):
     exp_id = random.sample(range(1, 1000), 1)[0]
     v = kwargs['variant']
     exp_name = "model_ensemble_maml_train_env_%s_%i_%i_%i_%i_id_%i" % (
-                v['env'], v['path_length'], v['num_maml_steps_per_iter'],
+                v['env'], v['path_length_env'], v['num_maml_steps_per_iter'],
                 v['batch_size_env_samples'], v['seed'], exp_id)
     v = instantiate_class_stings(v)
     kwargs['variant'] = v
