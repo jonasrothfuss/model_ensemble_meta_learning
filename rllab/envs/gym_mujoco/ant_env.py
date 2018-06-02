@@ -29,7 +29,9 @@ class AntEnv(MujocoEnv, Serializable):
         self.forward_dynamics(action)
         xposafter = self.get_body_com("torso")[0]
         forward_reward = (xposafter - xposbefore) / self.dt
-        ctrl_cost = .5 * np.square(action).sum()
+        lb, ub = self.action_bounds
+        scaling = (ub - lb) * 0.5
+        ctrl_cost = .5 * 1e-2 * np.square(action/scaling).sum()
         contact_cost = 0.5 * 1e-3 * np.sum(
             np.square(np.clip(self.model.data.cfrc_ext, -1, 1)))
         survive_reward = 1.0
@@ -37,7 +39,6 @@ class AntEnv(MujocoEnv, Serializable):
         ob = self.get_current_obs()
         notdone = np.isfinite(ob).all() and ob[2] <= 1.0
         done = not notdone
-
 
         reward = np.minimum(np.maximum(-1000.0, reward), 1000.0)
 
