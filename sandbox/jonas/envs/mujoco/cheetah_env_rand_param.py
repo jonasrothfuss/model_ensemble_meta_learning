@@ -1,4 +1,4 @@
-from rllab.envs.mujoco.half_cheetah_env import HalfCheetahEnv
+from rllab.envs.gym_mujoco.half_cheetah_env import HalfCheetahEnv
 from rllab.core.serializable import Serializable
 from sandbox.jonas.envs.mujoco.base_env_rand_param import BaseEnvRandParams
 from sandbox.jonas.envs.helpers import get_all_function_arguments
@@ -21,38 +21,20 @@ class HalfCheetahEnvRandParams(BaseEnvRandParams, HalfCheetahEnv, Serializable):
         :param fix_params: boolean indicating whether the mujoco parameters shall be fixed
         :param rand_params: mujoco model parameters to sample
         """
-        self.ctrl_cost_coeff = 1e-1
         args_all, kwargs_all = get_all_function_arguments(self.__init__, locals())
         BaseEnvRandParams.__init__(*args_all, **kwargs_all)
         HalfCheetahEnv.__init__(self, *args, **kwargs)
         Serializable.__init__(*args_all, **kwargs_all)
 
-    @overrides
-    def step(self, action):
-        self.forward_dynamics(action)
-        next_obs = self.get_current_obs()
-        action = np.clip(action, *self.action_bounds)
-        ctrl_cost = self.ctrl_cost_coeff * 0.5 * np.sum(np.square(action))
-        run_cost = -1 * self.get_body_comvel("torso")[0]
-        cost = ctrl_cost + run_cost
-        reward = -cost
-        self.n_steps += 1
-        done = self.n_steps >= self.max_path_length
-
-        # clip reward in case mujoco sim goes crazy
-        reward = np.minimum(np.maximum(-1000.0, reward), 1000.0)
-
-        return Step(next_obs, reward, done, reward_run=-run_cost, reward_ctrl=-ctrl_cost)
-
     def reward(self, obs, action, obs_next):
         if obs.ndim == 2 and action.ndim == 2:
             assert obs.shape == obs_next.shape and action.shape[0] == obs.shape[0]
-            forward_vel = (obs_next[:, -3] - obs[:, -3]) / 0.01
-            ctrl_cost = self.ctrl_cost_coeff * 0.5 * np.sum(np.square(action), axis=1)
+            forward_vel = obs_next[:, 8]
+            ctrl_cost = 0.1 * np.sum(np.square(action), axis=1)
             return forward_vel - ctrl_cost
         else:
-            forward_vel = (obs_next[-3] - obs[-3]) / 0.01
-            ctrl_cost = self.ctrl_cost_coeff * 0.5 * np.sum(np.square(action))
+            forward_vel = obs_next[8]
+            ctrl_cost = 0.1 * np.square(action).sum()
             return forward_vel - ctrl_cost
 
     @overrides
