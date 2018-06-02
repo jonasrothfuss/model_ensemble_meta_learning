@@ -7,6 +7,7 @@ from sandbox.jonas.envs.base import TfEnv
 from rllab.misc.instrument import stub, run_experiment_lite
 from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
 from sandbox.jonas.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
+from sandbox.ignasi.dynamics.probabilistic_dynamics_ensemble import MLPProbabilisticDynamicsEnsemble
 from sandbox.ignasi.algos.ModelMAML.model_maml_trpo import ModelMAMLTRPO
 from experiments.helpers.ec2_helpers import cheapest_subnets
 
@@ -30,7 +31,7 @@ def run_train_task(vv):
 
     env = TfEnv(normalize(vv['env'](log_scale_limit=vv['log_scale_limit'])))
 
-    dynamics_model = MLPDynamicsEnsemble(
+    dynamics_model = MLPProbabilisticDynamicsEnsemble(
         name="dyn_model",
         env_spec=env.spec,
         hidden_sizes=vv['hidden_sizes_model'],
@@ -79,10 +80,13 @@ def run_train_task(vv):
     )
     algo.train()
 
-def run_experiment(vargs):
+def run_experiment(exp_args):
 
-    # ----------------------- TRAINING ---------------------------------------
-    kwargs = json.load(open(vargs[1], 'r'))
+    # ----------------------- TRAINING -------------------------------------
+    if type(exp_args) is dict:
+        kwargs = exp_args
+    else:
+       kwargs = json.load(open(exp_args, 'r'))
     v = kwargs['variant']
     exp_name = kwargs['variant']['exp_name']
     v = instantiate_class_stings(v)
@@ -120,4 +124,4 @@ def instantiate_class_stings(v):
 
 
 if __name__ == "__main__":
-    run_experiment(sys.argv)
+    run_experiment(sys.argv[1:])
