@@ -15,7 +15,7 @@ from sandbox.ignasi.launchers.run_gpu_model_ensemble_maml_trpo_train import run_
 from sandbox.jonas.envs.own_envs import PointEnvMAML
 from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams
 from sandbox.jonas.envs.mujoco import Reacher5DofEnvRandParams
-from sandbox.jonas.envs.mujoco.cheetah_env import HalfCheetahEnv
+from sandbox.jonas.envs.mujoco.cheetah_env_rand_param import HalfCheetahEnv
 import datetime
 import dateutil.tz
 
