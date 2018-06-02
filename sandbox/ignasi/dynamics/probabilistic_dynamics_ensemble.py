@@ -134,13 +134,17 @@ class MLPProbabilisticDynamicsEnsemble(MLPDynamicsModel):
                 means_delta.append(mean_delta)
                 logvars_delta.append(var_delta)
             self.mean_delta_model_batches_stack = tf.concat(means_delta, axis=0) # shape: (batch_size_per_model*num_models, ndim_obs)
-            self.logvar_delta_model_batches_stack = tf.concat(logvars_delta, axis=0) # shape: (batch_size_per_model*num_models, ndim_obs)
+            logvar_delta_model_batches_stack = tf.concat(logvars_delta, axis=0) # shape: (batch_size_per_model*num_models, ndim_obs)
+            logvar_delta_model_batches_stack = self.max_logvar - tf.nn.softplus(self.max_logvar
+                                                                                - logvar_delta_model_batches_stack)
+            logvar_delta_model_batches_stack = self.min_logvar + tf.nn.softplus(logvar_delta_model_batches_stack - self.min_logvar)
+            self.var_delta_model_batches_stack  = tf.exp(logvar_delta_model_batches_stack )
 
             # tensor_utils
             self.f_delta_pred_model_batches = tensor_utils.compile_function([self.obs_model_batches_stack_ph,
                                                                              self.act_model_batches_stack_ph],
                                                                             [self.mean_delta_model_batches_stack,
-                                                                            self.logvar_delta_model_batches_stack]
+                                                                            self.var_delta_model_batches_stack]
                                                                             )
 
         LayersPowered.__init__(self, [mlp.output_layer for mlp in mlps])
@@ -229,6 +233,9 @@ class MLPProbabilisticDynamicsEnsemble(MLPDynamicsModel):
         assert mean_delta_batches.ndim == 2 and var_delta_batches.ndim == 2
 
         pred_obs_batches = obs_batches_original + delta_batches
+        print("VARIANCE: ", np.max(var_delta_batches), np.min(var_delta_batches))
+        print("PREDICTIONS: ", np.max(pred_obs_batches), np.min(pred_obs_batches))
+        import pdb; pdb.set_trace()
         assert pred_obs_batches.shape == obs_batches.shape
         return pred_obs_batches
 
