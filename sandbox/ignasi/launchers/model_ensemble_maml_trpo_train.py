@@ -15,7 +15,6 @@ from sandbox.ignasi.launchers.run_gpu_model_ensemble_maml_trpo_train import run_
 from sandbox.jonas.envs.own_envs import PointEnvMAML
 from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams
 from sandbox.jonas.envs.mujoco import Reacher5DofEnvRandParams
-from sandbox.jonas.envs.mujoco.cheetah_env_rand_param import HalfCheetahEnv
 import datetime
 import dateutil.tz
 
@@ -66,7 +65,7 @@ def run_script(argv):
     vg.add('reinit_model_cycle', [0])
     vg.add('optimizer_model', ['adam'])
     vg.add('retrain_model_when_reward_decreases', [False])
-    vg.add('num_models', [5, 10])
+    vg.add('num_models', [10])
     vg.add('trainable_step_size', [False])
     vg.add('bias_transform', [False])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
