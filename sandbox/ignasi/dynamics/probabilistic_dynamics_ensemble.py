@@ -88,8 +88,8 @@ class MLPProbabilisticDynamicsEnsemble(MLPDynamicsModel):
 
             self.mean_delta = tf.stack(means_delta, axis=2) # shape: (batch_size, ndim_obs, n_models)
             logvar_delta = tf.stack(logvars_delta, axis=2) # shape: (batch_size, ndim_obs, n_models)
-            logvar_delta = self.max_logvar - tf.nn.softplus(tf.reshape(self.max_logvar, (-1, 1)) - logvar_delta)
-            logvar_delta = self.min_logvar + tf.nn.softplus(logvar_delta - tf.reshape(self.min_logvar, (-1, 1)))
+            logvar_delta = tf.reshape(self.max_logvar, (-1, 1)) - tf.nn.softplus(tf.reshape(self.max_logvar, (-1, 1)) - logvar_delta)
+            logvar_delta = tf.reshape(self.min_logvar, (-1, 1)) + tf.nn.softplus(logvar_delta - tf.reshape(self.min_logvar, (-1, 1)))
             self.var_delta = tf.exp(logvar_delta)
 
 
