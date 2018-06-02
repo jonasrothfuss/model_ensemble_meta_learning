@@ -34,7 +34,7 @@ class AntEnv(MujocoEnv, Serializable):
         ctrl_cost = .5 * 1e-2 * np.square(action/scaling).sum()
         contact_cost = 0.5 * 1e-3 * np.sum(
             np.square(np.clip(self.model.data.cfrc_ext, -1, 1)))
-        survive_reward = 1.0
+        survive_reward = 0.05
         reward = forward_reward - ctrl_cost - contact_cost + survive_reward
         ob = self.get_current_obs()
         notdone = np.isfinite(ob).all() and ob[2] <= 1.0
