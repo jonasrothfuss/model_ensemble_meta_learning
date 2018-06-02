@@ -2,7 +2,7 @@ import numpy as np
 
 from rllab.core.serializable import Serializable
 from rllab.envs.base import Step
-from rllab_maml.envs.mujoco.mujoco_env import MujocoEnv
+from rllab.envs.gym_mujoco.mujoco_env import MujocoEnv
 from rllab.misc import logger
 from rllab.misc.overrides import overrides
 
@@ -16,7 +16,6 @@ class HalfCheetahEnv(MujocoEnv, Serializable):
     FILE = 'half_cheetah.xml'
 
     def __init__(self, *args, **kwargs):
-        self.ctrl_cost_coeff = 1e-1
         super(HalfCheetahEnv, self).__init__(*args, **kwargs)
         Serializable.__init__(self, *args, **kwargs)
 
@@ -24,7 +23,6 @@ class HalfCheetahEnv(MujocoEnv, Serializable):
         return np.concatenate([
             self.model.data.qpos.flatten()[1:],
             self.model.data.qvel.flat,
-            self.get_body_com("torso").flat,
         ])
 
     def get_body_xmat(self, body_name):
@@ -36,27 +34,19 @@ class HalfCheetahEnv(MujocoEnv, Serializable):
         return self.model.data.com_subtree[idx]
 
     def step(self, action):
+        xposbefore = self.model.data.qpos[0]
         self.forward_dynamics(action)
-        next_obs = self.get_current_obs()
-        action = np.clip(action, *self.action_bounds)
-        ctrl_cost = self.ctrl_cost_coeff * 0.5 * np.sum(np.square(action))
-        run_cost = -1 * self.get_body_comvel("torso")[0]
-        cost = ctrl_cost + run_cost
-        reward = -cost
+        xposafter = self.model.data.qpos[0]
+        ob = self.get_current_obs()
+        reward_ctrl = - 0.1 * np.square(action).sum()
+        reward_run = (xposafter - xposbefore) / self.dt
+        reward = reward_ctrl + reward_run
         done = False
-        return Step(next_obs, reward, done)
 
-    def reward(self, obs, action, obs_next):
-        if obs.ndim == 2 and action.ndim == 2:
-            assert obs.shape == obs_next.shape and action.shape[0] == obs.shape[0]
-            forward_vel = (obs_next[:, -3] - obs[:, -3]) / 0.01
-            ctrl_cost = self.ctrl_cost_coeff * 0.5 * np.sum(np.square(action), axis=1)
-            return forward_vel - ctrl_cost
-        else:
-            forward_vel = (obs_next[-3] - obs[-3]) / 0.01
-            ctrl_cost = self.ctrl_cost_coeff * 0.5 * np.sum(np.square(action))
-            return forward_vel - ctrl_cost
+        # clip reward in case mujoco sim goes crazy
+        reward = np.minimum(np.maximum(-1000.0, reward), 1000.0)
 
+        return ob, reward, done, dict(reward_run=reward_run, reward_ctrl=reward_ctrl)
 
     @overrides
     def log_diagnostics(self, paths):
@@ -68,16 +58,3 @@ class HalfCheetahEnv(MujocoEnv, Serializable):
         logger.record_tabular('MaxForwardProgress', np.max(progs))
         logger.record_tabular('MinForwardProgress', np.min(progs))
         logger.record_tabular('StdForwardProgress', np.std(progs))
-
-    def sample_env_params(self, num_param_sets, log_scale_limit=None):
-      return [{} for _ in range(num_param_sets)]
-
-
-
-if __name__ == "__main__":
-    env = HalfCheetahEnv()
-    env.reset()
-    print(env.model.body_mass)
-    for _ in range(1000):
-        env.render()
-        env.step(env.action_space.sample())  # take a random action

@@ -87,7 +87,6 @@ class BaseEnvRandParams(Serializable):
         return obs
 
     def reset_mujoco_parameters(self, param_dict):
-        assert isinstance(self, MujocoEnv) or isinstance(self, MujocoEnvMAML), "Must be a Mujoco Environment"
         for param, param_val in param_dict.items():
             param_variable = getattr(self.model, param)
             assert param_variable.shape == param_val.shape, 'shapes of new parameter value and old one must match'

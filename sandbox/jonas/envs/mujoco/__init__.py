@@ -4,3 +4,4 @@ from .hopper_env_random_param import HopperEnvRandParams
 from .reacher_env_random_param import Reacher5DofEnvRandParams
 from .swimmer_env_random_param import SwimmerEnvRandParams
 from .snake_env_random_param import SnakeEnvRandParams
+from. walker_env_random_param import WalkerEnvRandomParams

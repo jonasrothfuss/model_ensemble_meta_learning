@@ -8,14 +8,12 @@ from rllab_maml.envs.base import Step
 
 from rllab.core.serializable import Serializable
 from sandbox.jonas.envs.mujoco.base_env_rand_param import BaseEnvRandParams
-from rllab.envs.gym_mujoco.swimmer_env import SwimmerEnv
+from rllab.envs.gym_mujoco.walker2d_env import Walker2DEnv
 from sandbox.jonas.envs.helpers import get_all_function_arguments
 
 
 
-class SwimmerEnvRandParams(BaseEnvRandParams, SwimmerEnv, Serializable):
-
-    FILE = 'swimmer.xml'
+class WalkerEnvRandomParams(BaseEnvRandParams, Walker2DEnv, Serializable):
 
     def __init__(self, *args, log_scale_limit=2.0, fix_params=False, rand_params=BaseEnvRandParams.RAND_PARAMS, random_seed=None, max_path_length=None, **kwargs):
         """
@@ -28,18 +26,24 @@ class SwimmerEnvRandParams(BaseEnvRandParams, SwimmerEnv, Serializable):
 
         args_all, kwargs_all = get_all_function_arguments(self.__init__, locals())
         BaseEnvRandParams.__init__(*args_all, **kwargs_all)
-        SwimmerEnv.__init__(self, *args, **kwargs)
+        Walker2DEnv.__init__(self, *args, **kwargs)
         Serializable.__init__(*args_all, **kwargs_all)
 
     def reward(self, obs, action, obs_next):
-        ctrl_cost_coeff = 0.0001
         if obs.ndim == 2 and action.ndim == 2:
-            vel = obs_next[:, 3]
-            print('VEL:', vel)
-            ctrl_cost = ctrl_cost_coeff * np.sum(np.square(action), axis=1)
-            return vel - ctrl_cost
+            vel = obs_next[:, 8]
+            alive_bonus = 1.0
+            ctrl_cost = 1e-3 * np.sum(np.square(action), axis=1)
+            return vel - ctrl_cost + alive_bonus
         else:
             return self.reward(np.array([obs]), np.array([action]), np.array([obs_next]))[0]
+
+    def done(self, obs):
+        if obs.ndim == 2:
+            notdone = (obs[:, 0] > 0.8) *  (obs[:, 0] < 2.0) * (obs[:, 1] > -1.0) * (obs[:, 1] < 1.0)
+            return np.logical_not(notdone)
+        else:
+            return not (obs[0] > 0.8 and obs[0] < 2.0 and obs[1] > -1.0 and obs[1] < 1.0)
 
 
     @overrides
