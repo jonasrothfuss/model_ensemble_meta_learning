@@ -55,7 +55,7 @@ def run_script(argv):
     vg.add('batch_size_env_samples', [10])
     vg.add('batch_size_dynamics_samples', [100])
     vg.add('initial_random_samples', [5000])
-    vg.add('dynamic_model_epochs', [(100, 50)])
+    vg.add('dynamic_model_epochs', [(10, 50)])
     vg.add('num_maml_steps_per_iter', [10])
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])

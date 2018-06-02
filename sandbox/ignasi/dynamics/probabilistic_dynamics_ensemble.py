@@ -47,11 +47,11 @@ class MLPProbabilisticDynamicsEnsemble(MLPDynamicsModel):
         """ computation graph for training and simple inference """
         with tf.variable_scope(name):
             # placeholders
-            self.obs_ph = tf.placeholder(tf.float32, shape=(None, obs_space_dims))
-            self.act_ph = tf.placeholder(tf.float32, shape=(None, action_space_dims))
-            self.delta_ph = tf.placeholder(tf.float32, shape=(None, obs_space_dims))
-            self.min_logvar_ph = tf.placeholder(tf.float32, shape=(obs_space_dims, 1))
-            self.max_logvar_ph = tf.placeholder(tf.float32, shape=(obs_space_dims, 1))
+            self.obs_ph = tf.placeholder(tf.float32, shape=(None, obs_space_dims), name='obs_ph')
+            self.act_ph = tf.placeholder(tf.float32, shape=(None, action_space_dims), name='act_ph')
+            self.delta_ph = tf.placeholder(tf.float32, shape=(None, obs_space_dims), name='delta_ph')
+            self.min_logvar_ph = tf.placeholder(tf.float32, shape=(obs_space_dims, 1), name='min_logvar_ph')
+            self.max_logvar_ph = tf.placeholder(tf.float32, shape=(obs_space_dims, 1), name='maxlogvar_ph')
 
             self.min_logvar = tf.get_variable("min_logvar", (obs_space_dims, 1),
                                               dtype=tf.float32, initializer=tf.zeros_initializer, trainable=False)
@@ -116,6 +116,7 @@ class MLPProbabilisticDynamicsEnsemble(MLPDynamicsModel):
 
             # reuse previously created MLP but each model receives its own batch
             means_delta = []
+            logvars_delta = []
             self.obs_next_pred = []
             for i in range(num_models):
                 with tf.variable_scope('model_{}'.format(i), reuse=True):
