@@ -233,9 +233,6 @@ class MLPProbabilisticDynamicsEnsemble(MLPDynamicsModel):
         assert mean_delta_batches.ndim == 2 and var_delta_batches.ndim == 2
 
         pred_obs_batches = obs_batches_original + delta_batches
-        print("VARIANCE: ", np.max(var_delta_batches), np.min(var_delta_batches))
-        print("PREDICTIONS: ", np.max(pred_obs_batches), np.min(pred_obs_batches))
-        import pdb; pdb.set_trace()
         assert pred_obs_batches.shape == obs_batches.shape
         return pred_obs_batches
 
