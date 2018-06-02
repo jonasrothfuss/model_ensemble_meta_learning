@@ -40,7 +40,6 @@ class AntEnv(MujocoEnv, Serializable):
 
 
         reward = np.minimum(np.maximum(-1000.0, reward), 1000.0)
-        import pdb; pdb.set_trace()
 
         return ob, reward, done, dict(
             reward_forward=forward_reward,
