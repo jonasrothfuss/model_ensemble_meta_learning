@@ -52,10 +52,10 @@ def run_script(argv):
     vg.add('seed', [0, 10]) #TODO set back to [1, 11, 21, 31, 41]
     vg.add('discount', [0.99])
     vg.add('path_length', [100])
-    vg.add('batch_size_env_samples', [10])
+    vg.add('batch_size_env_samples', [1, 2, 5, 10])
     vg.add('batch_size_dynamics_samples', [100])
     vg.add('initial_random_samples', [5000])
-    vg.add('dynamic_model_epochs', [(10, 50)])
+    vg.add('dynamic_model_epochs', [(100, 50)])
     vg.add('num_maml_steps_per_iter', [10])
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
@@ -71,7 +71,7 @@ def run_script(argv):
     vg.add('bias_transform', [False])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
     vg.add('vine_max_path_length', [50])
-    vg.add('n_vine_branch', [5])
+    vg.add('n_vine_branch', [5, 10])
     vg.add('n_vine_init_obs', [5000])
     vg.add('noise_init_obs', [0])
 
