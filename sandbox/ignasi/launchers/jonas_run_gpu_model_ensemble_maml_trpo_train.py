@@ -107,6 +107,11 @@ def instantiate_class_stings(v):
     v['env'] = globals()[v['env']]
     v['dynamics_model'] = globals()[v['dynamics_model']]
 
+    if 'nm_mbs_envs' in v.keys():
+        v['num_models'] = v['nm_mbs_envs'][0]
+        v['meta_batch_size'] = v['nm_mbs_envs'][1]
+        v['batch_size_env_samples'] = v['nm_mbs_envs'][0]
+
     # optimizer
     if v['optimizer_model'] == 'sgd':
         v['optimizer_model'] = tf.train.GradientDescentOptimizer
