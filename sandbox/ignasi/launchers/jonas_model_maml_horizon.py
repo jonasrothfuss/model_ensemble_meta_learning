@@ -14,7 +14,6 @@ from experiments.helpers.run_multi_gpu import run_multi_gpu
 from sandbox.jonas.envs.own_envs import PointEnvMAML
 from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams
 from sandbox.jonas.envs.mujoco import Reacher5DofEnvRandParams
-from sandbox.jonas.envs.mujoco.cheetah_env import HalfCheetahEnv
 
 
 import tensorflow as tf
