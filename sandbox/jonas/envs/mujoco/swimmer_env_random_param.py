@@ -35,7 +35,6 @@ class SwimmerEnvRandParams(BaseEnvRandParams, SwimmerEnv, Serializable):
         ctrl_cost_coeff = 0.0001
         if obs.ndim == 2 and action.ndim == 2:
             vel = obs_next[:, 3]
-            print('VEL:', vel)
             ctrl_cost = ctrl_cost_coeff * np.sum(np.square(action), axis=1)
             reward = vel - ctrl_cost
         else:
@@ -47,7 +46,7 @@ class SwimmerEnvRandParams(BaseEnvRandParams, SwimmerEnv, Serializable):
     def log_diagnostics(self, paths, prefix=''):
         if len(paths) > 0:
             progs = [
-                path["observations"][3]
+                np.linalg.norm(path["observations"][:, -3:], axis=1)
                 for path in paths
             ]
             logger.record_tabular(prefix +'AverageForwardProgress', np.mean(progs))

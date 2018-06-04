@@ -32,7 +32,7 @@ class ModelBatchPolopt(RLAlgorithm):
             gae_lambda=1,
             dynamic_model_epochs=(30, 10),
             num_gradient_steps_per_iter=10,
-            retrain_model_when_reward_decreases =True,
+            retrain_model_when_reward_decreases=True,
             reset_policy_std=False,
             reinit_model_cycle=0,
             plot=False,
