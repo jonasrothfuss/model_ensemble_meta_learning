@@ -31,11 +31,13 @@ class HalfCheetahEnvRandParams(BaseEnvRandParams, HalfCheetahEnv, Serializable):
             assert obs.shape == obs_next.shape and action.shape[0] == obs.shape[0]
             forward_vel = obs_next[:, 8]
             ctrl_cost = 0.1 * np.sum(np.square(action), axis=1)
-            return forward_vel - ctrl_cost
+            reward = forward_vel - ctrl_cost
+            return np.minimum(np.maximum(-1000.0, reward), 1000.0)
         else:
             forward_vel = obs_next[8]
             ctrl_cost = 0.1 * np.square(action).sum()
-            return forward_vel - ctrl_cost
+            reward = forward_vel - ctrl_cost
+            return np.minimum(np.maximum(-1000.0, reward), 1000.0)
 
     @overrides
     def log_diagnostics(self, paths, prefix=''):

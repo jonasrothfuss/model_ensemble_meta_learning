@@ -111,7 +111,7 @@ def run_experiment(argv):
     vg.add('meta_batch_size', [20]) # must be a multiple of num_models
     vg.add('discount', [0.99])
     vg.add('batch_size_env_samples', [5])
-    vg.add('batch_size_dynamics_samples', [100])
+    vg.add('batch_size_dynamics_samples', [20])
     vg.add('initial_random_samples', [5000])
     vg.add('dynamic_model_epochs', [(100, 50)])
     vg.add('num_maml_steps_per_iter', [30])
@@ -124,7 +124,7 @@ def run_experiment(argv):
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(32, 32)])
-    vg.add('hidden_sizes_model', [(1024, 1024)])
+    vg.add('hidden_sizes_model', [(512, 512)])
     vg.add('weight_normalization_model', [True])
     vg.add('reset_policy_std', [False])
     vg.add('reinit_model_cycle', [0])
@@ -133,7 +133,7 @@ def run_experiment(argv):
     vg.add('dynamics_model', ['MLPDynamicsEnsemble'])
     vg.add('bias_transform', [False])
     vg.add('param_noise_std', [0.0])
-    vg.add('nm_mbs_envs', [(5, 20, 2), (10, 20, 2), (10, 40, 1), (20, 40, 1)])
+    vg.add('nm_mbs_envs', [(5, 10, 2), (10, 10, 2), (10, 20, 1), (20, 20, 1)])
 
     # other stuff
     vg.add('exp_prefix', [EXP_PREFIX])

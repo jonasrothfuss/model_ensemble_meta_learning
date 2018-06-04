@@ -60,6 +60,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
             use_maml=True,
             load_policy=None,
             frac_gpu=0.85,
+            log_real_performance=False,
             **kwargs
     ):
         """
@@ -132,6 +133,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         self.retrain_model_when_reward_decreases = retrain_model_when_reward_decreases
         self.reset_policy_std = reset_policy_std
         self.reinit_model = reinit_model_cycle
+        self.log_real_performance = log_real_performance
 
         self.plot = plot
         self.pause_for_plot = pause_for_plot
@@ -262,6 +264,19 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                         self.model_sampler.process_samples(itr, new_env_paths, log=True, log_prefix='EnvTrajs-')
 
                         samples_data_dynamics = self.process_samples_for_dynamics(itr, self.all_paths)
+
+                    if self.log_real_performance:
+                        logger.log("Evaluating the performance of the real policy")
+                        self.policy.switch_to_init_dist()
+                        new_env_paths = self.obtain_env_samples(itr, reset_args=learner_env_params,
+                                                                log_prefix='PrePolicy-')
+                        samples_data = {}
+                        for key in new_env_paths.keys():
+                            samples_data[key] = self.process_samples_for_policy(itr, new_env_paths[key], log=False)
+                        _ = self.process_samples_for_policy(itr, flatten_list(new_env_paths.values()), log_prefix='PrePolicy-')
+                        self.policy.compute_updated_dists(samples_data)
+                        new_env_paths = self.obtain_env_samples(itr, reset_args=learner_env_params, log_prefix='PostPolicy-',)
+                        _ = self.process_samples_for_policy(itr,  flatten_list(new_env_paths.values()), log_prefix='PostPolicy-')
 
 
                     ''' fit dynamics model '''
