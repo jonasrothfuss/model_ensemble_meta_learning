@@ -21,8 +21,7 @@ class MAMLVecEnvExecutor(object):
         self.ts += 1
         if self.max_path_length is not None:
             dones[self.ts >= self.max_path_length] = True
-        for (i, done) in enumerate(dones):
-            if done:
+        for i in np.where(dones)[0]:
                 obs[i] = self.envs[i].reset(reset_args=reset_args[i])
                 self.ts[i] = 0
         return obs, rewards, dones, tensor_utils.stack_tensor_dict_list(env_infos)
