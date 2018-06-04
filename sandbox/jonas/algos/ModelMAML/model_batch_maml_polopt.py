@@ -121,7 +121,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         self.max_path_length_dyn = max_path_length_dyn if max_path_length_dyn is not None else max_path_length_env
 
         # batch_size is the number of trajectories for one fast grad update.
-        self.batch_size = batch_size_env_samples * max_path_length_env * self.num_models # batch_size for env sampling
+        self.batch_size = batch_size_env_samples * max_path_length_env * self.meta_batch_size # batch_size for env sampling
         self.batch_size_dynamics_samples = batch_size_dynamics_samples * self.max_path_length_dyn * self.meta_batch_size # batch_size for model sampling
         self.initial_random_samples = initial_random_samples
         self.discount = discount
