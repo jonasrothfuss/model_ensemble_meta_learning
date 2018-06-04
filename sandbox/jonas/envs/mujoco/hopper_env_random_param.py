@@ -34,9 +34,10 @@ class HopperEnvRandParams(BaseEnvRandParams, HopperEnv, Serializable):
             assert obs.shape == obs_next.shape and action.shape[0] == obs.shape[0]
             vel = obs_next[:, 5]
             ctrl_cost = 1e-3 * np.sum(np.square(action), axis=1)
-            return vel + alive_bonus - ctrl_cost
+            reward =  vel + alive_bonus - ctrl_cost
         else:
-            return self.reward(np.array([obs]), np.array([action]), np.array([obs_next]))[0]
+            reward = self.reward(np.array([obs]), np.array([action]), np.array([obs_next]))[0]
+        return np.minimum(np.maximum(-1000.0, reward), 1000.0)
 
     def done(self, obs):
         if obs.ndim == 2:

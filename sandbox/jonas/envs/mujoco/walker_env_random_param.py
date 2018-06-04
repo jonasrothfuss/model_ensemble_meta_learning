@@ -34,9 +34,10 @@ class WalkerEnvRandomParams(BaseEnvRandParams, Walker2DEnv, Serializable):
             vel = obs_next[:, 8]
             alive_bonus = 1.0
             ctrl_cost = 1e-3 * np.sum(np.square(action), axis=1)
-            return vel - ctrl_cost + alive_bonus
+            reward = vel - ctrl_cost + alive_bonus
         else:
-            return self.reward(np.array([obs]), np.array([action]), np.array([obs_next]))[0]
+            reward = self.reward(np.array([obs]), np.array([action]), np.array([obs_next]))[0]
+        return reward
 
     def done(self, obs):
         if obs.ndim == 2:

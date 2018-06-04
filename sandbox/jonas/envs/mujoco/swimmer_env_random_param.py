@@ -37,9 +37,10 @@ class SwimmerEnvRandParams(BaseEnvRandParams, SwimmerEnv, Serializable):
             vel = obs_next[:, 3]
             print('VEL:', vel)
             ctrl_cost = ctrl_cost_coeff * np.sum(np.square(action), axis=1)
-            return vel - ctrl_cost
+            reward = vel - ctrl_cost
         else:
-            return self.reward(np.array([obs]), np.array([action]), np.array([obs_next]))[0]
+            reward = self.reward(np.array([obs]), np.array([action]), np.array([obs_next]))[0]
+        return np.minimum(np.maximum(-1000.0, reward), 1000.0)
 
 
     @overrides

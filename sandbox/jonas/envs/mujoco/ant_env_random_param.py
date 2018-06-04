@@ -45,10 +45,10 @@ class AntEnvRandParams(BaseEnvRandParams, AntEnv, Serializable):
 
     def done(self, obs):
         if obs.ndim == 2:
-            notdone = np.all(np.isfinite(obs), axis=1) * (obs[:, 2] >= 0.2) * (obs[:, 2] <= 1.0)
+            notdone = np.all(np.isfinite(obs), axis=1) * (obs[:, 0] >= 0.2) * (obs[:, 0] <= 1.0)
             return np.logical_not(notdone)
         else:
-            notdone = np.isfinite(obs).all()  and obs[2] >= 0.2 and obs[2] <= 1.0
+            notdone = np.isfinite(obs).all()  and obs[0] >= 0.2 and obs[0] <= 1.0
             return not notdone
 
     @overrides

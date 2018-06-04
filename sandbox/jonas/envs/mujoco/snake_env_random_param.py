@@ -50,11 +50,12 @@ class SnakeEnvRandParams(BaseEnvRandParams, SnakeEnv, Serializable):
         if obs.ndim == 2 and action.ndim == 2:
             ctrl_cost = 0.5 * self.ctrl_cost_coeff * np.sum(np.square(action / scaling), axis=1)
             vel = obs_next[:, 7]
-            return vel - ctrl_cost
+            reward = vel - ctrl_cost
         else:
             ctrl_cost = 0.5 * self.ctrl_cost_coeff * np.sum(np.square(action / scaling))
             vel = obs_next[7]
-            return vel - ctrl_cost
+            reward = vel - ctrl_cost
+        return np.minimum(np.maximum(-1000.0, reward), 1000.0)
 
     @overrides
     def log_diagnostics(self, paths, prefix=''):
