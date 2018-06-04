@@ -27,6 +27,7 @@ class HopperEnvRandParams(BaseEnvRandParams, HopperEnv, Serializable):
         BaseEnvRandParams.__init__(*args_all, **kwargs_all)
         HopperEnv.__init__(self, *args, **kwargs)
         Serializable.__init__(*args_all, **kwargs_all)
+        self._obs_bounds()
 
     def reward(self, obs, action, obs_next):
         alive_bonus = 1.0
@@ -48,6 +49,24 @@ class HopperEnvRandParams(BaseEnvRandParams, HopperEnv, Serializable):
                       (np.abs(obs[3:]) < 100).all() and (obs[0] > .7) and \
                       (abs(obs[1]) < .2)
             return not notdone
+
+    def _obs_bounds(self):
+        jnt_range = self.model.jnt_range
+        jnt_limited = self.model.jnt_limited
+        self._obs_lower_bounds = -10 * np.ones(shape=(self.model.data.qpos.shape[0] + self.model.data.qvel.shape[0]-1,))
+        self._obs_upper_bounds = 10 * np.ones(shape=(self.model.data.qpos.shape[0] + self.model.data.qvel.shape[0]-1,))
+        for idx, limited in enumerate(jnt_limited):
+            if idx > 0 and limited:
+                self._obs_lower_bounds[idx] = jnt_range[idx][0]
+                self._obs_upper_bounds[idx] = jnt_range[idx][1]
+
+    @property
+    def obs_lower_bounds(self):
+        return self._obs_lower_bounds
+
+    @property
+    def obs_upper_bounds(self):
+        return self._obs_upper_bounds
 
     @overrides
     def log_diagnostics(self, paths, prefix=''):
