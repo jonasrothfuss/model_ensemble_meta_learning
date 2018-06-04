@@ -8,14 +8,16 @@ from rllab import config
 from experiments.helpers.ec2_helpers import cheapest_subnets
 from sandbox.jonas.dynamics import MLPDynamicsEnsemble
 from sandbox.jonas.algos.ModelTRPO.model_trpo import ModelTRPO
-from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams
+from experiments.helpers.run_multi_gpu import run_multi_gpu
+from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams
 
 import tensorflow as tf
 import sys
 import argparse
 import random
+import os
 
-EXP_PREFIX = 'model-ensemble-trpo'
+EXP_PREFIX = 'model-ensemble-trpo-horizon'
 
 ec2_instance = 'c4.4xlarge'
 NUM_EC2_SUBNETS = 3
@@ -67,96 +69,123 @@ def run_experiment(argv):
     parser.add_argument('--mode', type=str, default='local',
                         help='Mode for running the experiments - local: runs on local machine, '
                              'ec2: runs on AWS ec2 cluster (requires a proper configuration file)')
+    parser.add_argument('--n_gpu', type=int, default=0,
+                        help='Number of GPUs')
+    parser.add_argument('--ctx', type=int, default=4,
+                        help='Number of tasks per GPU')
 
     args = parser.parse_args(argv[1:])
 
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['AntEnvRandParams']) # HalfCheetahEnvRandParams
-    vg.add('n_itr', [100])
+    vg.add('env', ['HalfCheetahEnvRandParams']) # HalfCheetahEnvRandParams
+    vg.add('n_itr', [50])
     vg.add('log_scale_limit', [0.0])
     vg.add('step_size', [0.01])
     vg.add('seed', [22, 33, 55]) #TODO set back to [1, 11, 21, 31, 41]
     vg.add('discount', [0.99])
-    vg.add('path_length', [100])
-    vg.add('batch_size_env_samples', [5000])
-    vg.add('batch_size_dynamics_samples', [50000])
-    vg.add('initial_random_samples', [5000])
+    vg.add('path_length', [500, 1000])
+    vg.add('batch_size_env_samples', [40000])
+    vg.add('batch_size_dynamics_samples', [100000])
+    vg.add('initial_random_samples', [40000])
     vg.add('dynamic_model_epochs', [(100, 50)])
-    vg.add('num_gradient_steps_per_iter', [50]) #TODO change back to 50
+    vg.add('num_gradient_steps_per_iter', [30])
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(32, 32)])
-    vg.add('hidden_sizes_model', [(1024, 1024)])
+    vg.add('hidden_sizes_model', [(512, 512)])
     vg.add('weight_normalization_model', [True])
-    vg.add('retrain_model_when_reward_decreases', [True])
+    vg.add('retrain_model_when_reward_decreases', [False, True])
     vg.add('reset_policy_std', [True])
     vg.add('reinit_model_cycle', [0])
-    vg.add('num_models', [5])
+    vg.add('num_models', [5, 10])
+    vg.add('exp_prefix', [EXP_PREFIX])
     variants = vg.variants()
 
-    # ----------------------- AWS conficuration ---------------------------------
-    if args.mode == 'ec2':
-        info = config.INSTANCE_TYPE_INFO[ec2_instance]
-        n_parallel = int(info["vCPU"] / 2)  # make the default 4 if not using ec2
+    default_dict = dict(exp_prefix=EXP_PREFIX,
+                        snapshot_mode="gap",
+                        snapshot_gap=5,
+                        periodic_sync=True,
+                        sync_s3_pkl=True,
+                        sync_s3_log=True,
+                        python_command="python3",
+                        pre_commands=["yes | pip install tensorflow=='1.6.0'",
+                                      "pip list",
+                                      "yes | pip install --upgrade cloudpickle"],
+                        use_cloudpickle=True,
+                        variants=variants)
+
+    if args.mode == 'mgpu':
+        print("MGPU")
+        current_path = os.path.dirname(os.path.abspath(__file__))
+        script_path = os.path.join(current_path, 'run_gpu_model_ensemble_trpo_train.py')
+        n_gpu = args.n_gpu
+        if n_gpu == 0:
+            n_gpu = len(os.listdir('/proc/driver/nvidia/gpus'))
+        run_multi_gpu(script_path, default_dict, n_gpu=n_gpu, ctx_per_gpu=args.ctx)
+
     else:
-        n_parallel = 6
+        # ----------------------- AWS conficuration ---------------------------------
+        if args.mode == 'ec2':
+            info = config.INSTANCE_TYPE_INFO[ec2_instance]
+            n_parallel = int(info["vCPU"] / 2)  # make the default 4 if not using ec2
+        else:
+            n_parallel = 6
 
-    if args.mode == 'ec2':
+        if args.mode == 'ec2':
+
+            config.AWS_INSTANCE_TYPE = ec2_instance
+            config.AWS_SPOT_PRICE = str(info["price"])
+            subnets = cheapest_subnets(ec2_instance, num_subnets=NUM_EC2_SUBNETS)
+
+            print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format('TRPO', len(variants)))
+            print('Running on type {}, with price {}, on the subnets: '.format(config.AWS_INSTANCE_TYPE,
+                                                                               config.AWS_SPOT_PRICE, ), str(subnets))
+
+        # ----------------------- TRAINING ---------------------------------------
+        exp_ids = random.sample(range(1, 1000), len(variants))
+        for v, exp_id in zip(variants, exp_ids):
+            exp_name = "model_trpo_train_env_%s_%i_%i_%i_%i_id_%i" % (v['env'], v['path_length'], v['num_gradient_steps_per_iter'],
+                                                                   v['batch_size_env_samples'], v['seed'], exp_id)
+            v = instantiate_class_stings(v)
+
+            if args.mode == 'ec2':
+                subnet = random.choice(subnets)
+                config.AWS_REGION_NAME = subnet[:-1]
+                config.AWS_KEY_NAME = config.ALL_REGION_AWS_KEY_NAMES[
+                    config.AWS_REGION_NAME]
+                config.AWS_IMAGE_ID = config.ALL_REGION_AWS_IMAGE_IDS[
+                    config.AWS_REGION_NAME]
+                config.AWS_SECURITY_GROUP_IDS = \
+                    config.ALL_REGION_AWS_SECURITY_GROUP_IDS[
+                        config.AWS_REGION_NAME]
+
+            run_experiment_lite(
+                run_train_task,
+                exp_prefix=EXP_PREFIX,
+                exp_name=exp_name,
+                # Number of parallel workers for sampling
+                n_parallel=n_parallel,
+                snapshot_mode="gap",
+                snapshot_gap=5,
+                periodic_sync=True,
+                sync_s3_pkl=True,
+                sync_s3_log=True,
+                # Specifies the seed for the experiment. If this is not provided, a random seed
+                # will be used
+                seed=v["seed"],
+                python_command='python3',
+                pre_commands=["yes | pip install tensorflow=='1.6.0'",
+                              "pip list",
+                              "yes | pip install --upgrade cloudpickle"],
+                mode=args.mode,
+                use_cloudpickle=True,
+                variant=v,
+            )
 
 
-        config.AWS_INSTANCE_TYPE = ec2_instance
-        config.AWS_SPOT_PRICE = str(info["price"])
-        subnets = cheapest_subnets(ec2_instance, num_subnets=NUM_EC2_SUBNETS)
-
-        print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format('TRPO', len(variants)))
-        print('Running on type {}, with price {}, on the subnets: '.format(config.AWS_INSTANCE_TYPE,
-                                                                           config.AWS_SPOT_PRICE, ), str(subnets))
-
-    # ----------------------- TRAINING ---------------------------------------
-    exp_ids = random.sample(range(1, 1000), len(variants))
-    for v, exp_id in zip(variants, exp_ids):
-        exp_name = "model_trpo_train_env_%s_%i_%i_%i_%i_id_%i" % (v['env'], v['path_length'], v['num_gradient_steps_per_iter'],
-                                                               v['batch_size_env_samples'], v['seed'], exp_id)
-        v = instantiate_class_stings(v)
-
-        subnet = random.choice(subnets)
-        config.AWS_REGION_NAME = subnet[:-1]
-        config.AWS_KEY_NAME = config.ALL_REGION_AWS_KEY_NAMES[
-            config.AWS_REGION_NAME]
-        config.AWS_IMAGE_ID = config.ALL_REGION_AWS_IMAGE_IDS[
-            config.AWS_REGION_NAME]
-        config.AWS_SECURITY_GROUP_IDS = \
-            config.ALL_REGION_AWS_SECURITY_GROUP_IDS[
-                config.AWS_REGION_NAME]
-
-
-        run_experiment_lite(
-            run_train_task,
-            exp_prefix=EXP_PREFIX,
-            exp_name=exp_name,
-            # Number of parallel workers for sampling
-            n_parallel=n_parallel,
-            snapshot_mode="gap",
-            snapshot_gap=5,
-            periodic_sync=True,
-            sync_s3_pkl=True,
-            sync_s3_log=True,
-            # Specifies the seed for the experiment. If this is not provided, a random seed
-            # will be used
-            seed=v["seed"],
-            python_command='python3',
-            pre_commands=["yes | pip install tensorflow=='1.6.0'",
-                          "pip list",
-                          "yes | pip install --upgrade cloudpickle"],
-            mode=args.mode,
-            use_cloudpickle=True,
-            variant=v,
-        )
-
-
-def instantiate_class_stings(v): #TODO change to
+def instantiate_class_stings(v):
     v['env'] = globals()[v['env']]
     for nonlinearity_key in ['hidden_nonlinearity_policy', 'hidden_nonlinearity_model']:
         if v[nonlinearity_key] == 'relu':
