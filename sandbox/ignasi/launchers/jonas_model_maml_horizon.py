@@ -111,7 +111,7 @@ def run_experiment(argv):
     vg.add('meta_step_size', [0.01])
     vg.add('meta_batch_size', [20]) # must be a multiple of num_models
     vg.add('discount', [0.99])
-    vg.add('batch_size_env_samples', [1])
+    vg.add('batch_size_env_samples', [2])
     vg.add('batch_size_dynamics_samples', [50])
     vg.add('initial_random_samples', [None])
     vg.add('dynamic_model_epochs', [(100, 50)])
@@ -131,10 +131,10 @@ def run_experiment(argv):
     vg.add('reinit_model_cycle', [0])
     vg.add('optimizer_model', ['adam'])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
-    vg.add('dynamics_model', ['MLPDynamicsEnsemble'])
+    vg.add('dynamics_model', ['MLPDynamicsEnsemble', 'MLPProbabilisticDynamicsEnsemble'])
     vg.add('bias_transform', [False])
     vg.add('param_noise_std', [0.0])
-    vg.add('nm_mbs_envs', [(5, 10, 2), (10, 10, 2), (10, 20, 1), (20, 20, 1)])
+    # vg.add('nm_mbs_envs', [(5, 10, 2), (10, 10, 2), (10, 20, 1), (20, 20, 1)])
 
     # other stuff
     vg.add('exp_prefix', [EXP_PREFIX])
