@@ -39,9 +39,10 @@ class AntEnvRandParams(BaseEnvRandParams, AntEnv, Serializable):
             scaling = (ub - lb) * 0.5
             ctrl_cost = .5 * 1e-2 * np.square(action/scaling).sum()
             survive_reward = 1.0
-            return forward_vel - ctrl_cost + survive_reward
+            reward =  forward_vel - ctrl_cost + survive_reward
         else:
-            return self.reward(np.array([obs]), np.array([action]), np.array([obs_next]))[0]
+            reward = self.reward(np.array([obs]), np.array([action]), np.array([obs_next]))[0]
+        np.minimum(np.maximum(-1000.0, reward), 1000.0)
 
     def done(self, obs):
         if obs.ndim == 2:
