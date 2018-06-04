@@ -117,7 +117,7 @@ def run_experiment(argv):
     vg.add('dynamic_model_epochs', [(100, 50)])
     vg.add('num_maml_steps_per_iter', [30])
     vg.add('retrain_model_when_reward_decreases', [False])
-    vg.add('reset_from_env_traj', [False])
+    vg.add('reset_from_env_traj', [False, True])
     vg.add('num_models', [10])
     vg.add('trainable_step_size', [False])
 
@@ -131,10 +131,10 @@ def run_experiment(argv):
     vg.add('reinit_model_cycle', [0])
     vg.add('optimizer_model', ['adam'])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
-    vg.add('dynamics_model', ['MLPDynamicsEnsemble'])
+    vg.add('dynamics_model', ['MLPDynamicsEnsemble', 'MLPProbabilisticDynamicsEnsemble'])
     vg.add('bias_transform', [False])
     vg.add('param_noise_std', [0.0])
-    vg.add('nm_mbs_envs', [(5, 10, 2), (10, 10, 2), (10, 20, 1), (20, 20, 1)])
+    # vg.add('nm_mbs_envs', [(5, 10, 2), (10, 10, 2), (10, 20, 1), (20, 20, 1)])
 
     # other stuff
     vg.add('exp_prefix', [EXP_PREFIX])
