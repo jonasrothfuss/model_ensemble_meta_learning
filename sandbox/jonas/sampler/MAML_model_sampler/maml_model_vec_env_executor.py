@@ -41,25 +41,26 @@ class MAMLModelVecEnvExecutor(object):
         if self.has_done_fn:
             dones = self.unwrapped_env.done(next_obs)
         else:
-            dones = np.asarray([False] * self.n_parallel)
+            dones = np.asarray([False for _ in range(self.n_parallel)])
 
-        env_infos = [{}] * self.n_parallel
+        env_infos = [{} for _ in range(action_n.shape[0])]
 
         self.ts += 1
         if self.max_path_length is not None:
             dones[self.ts >= self.max_path_length] = True
-        self.ts[dones] = 0
-
-        if np.any(dones):
-            if traj_starting_obs is None:
-                next_obs[dones] = [self.env.reset() for _ in range(sum(dones))]
-            else:
-                idx = np.random.randint(low=0, high=traj_starting_obs.shape[0], size=sum(dones))
-                next_obs[dones] = traj_starting_obs[idx, :]
+        for (i, done) in enumerate(dones):
+            if done:
+                if traj_starting_obs is None:
+                    next_obs[i] = self.env.reset()
+                else:
+                    next_obs[i] = traj_starting_obs[np.random.randint(traj_starting_obs.shape[0]), :]
+                self.ts[i] = 0
 
         self.current_obs = next_obs
 
-        return list(next_obs), list(rewards), list(dones), tensor_utils.stack_tensor_dict_list(env_infos) #lists
+        # transform obs to lists
+        next_obs = [np.squeeze(o) for o in np.vsplit(next_obs, next_obs.shape[0])]
+        return next_obs, list(rewards), list(dones), tensor_utils.stack_tensor_dict_list(env_infos) #lists
 
     def reset(self, traj_starting_obs=None):
         if traj_starting_obs is not None:
