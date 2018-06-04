@@ -12,7 +12,8 @@ from experiments.helpers.ec2_helpers import cheapest_subnets
 from experiments.helpers.run_multi_gpu import run_multi_gpu
 
 from sandbox.jonas.envs.own_envs import PointEnvMAML
-from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams
+from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, WalkerEnvRandomParams,\
+    SwimmerEnvRandParams
 from sandbox.jonas.envs.mujoco import Reacher5DofEnvRandParams
 
 
@@ -102,7 +103,7 @@ def run_experiment(argv):
     # env spec
     vg.add('env', ['HalfCheetahEnvRandParams'])
     vg.add('log_scale_limit', [0.0])
-    vg.add('path_length_env', [500, 1000])
+    vg.add('path_length_env', [1000])
 
     # Model-based MAML algo spec
     vg.add('path_length_dyn', [1000])
@@ -114,7 +115,7 @@ def run_experiment(argv):
     vg.add('batch_size_env_samples', [2])
     vg.add('batch_size_dynamics_samples', [50])
     vg.add('initial_random_samples', [None])
-    vg.add('dynamic_model_epochs', [(100, 50)])
+    vg.add('dynamic_model_epochs', [(100, 100)])
     vg.add('num_maml_steps_per_iter', [30])
     vg.add('retrain_model_when_reward_decreases', [False])
     vg.add('reset_from_env_traj', [False, True])
@@ -131,10 +132,10 @@ def run_experiment(argv):
     vg.add('reinit_model_cycle', [0])
     vg.add('optimizer_model', ['adam'])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
-    vg.add('dynamics_model', ['MLPDynamicsEnsemble', 'MLPProbabilisticDynamicsEnsemble'])
+    vg.add('dynamics_model', ['MLPDynamicsEnsemble'])
     vg.add('bias_transform', [False])
     vg.add('param_noise_std', [0.0])
-    # vg.add('nm_mbs_envs', [(5, 10, 2), (10, 10, 2), (10, 20, 1), (20, 20, 1)])
+    vg.add('nm_mbs_envs', [(5, 10, 2), (10, 10, 2), (10, 20, 1), (20, 20, 1)])
 
     # other stuff
     vg.add('exp_prefix', [EXP_PREFIX])
