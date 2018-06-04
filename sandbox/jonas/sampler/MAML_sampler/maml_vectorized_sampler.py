@@ -79,7 +79,6 @@ class MAMLVectorizedSampler(MAMLBaseSampler):
         policy = self.algo.policy
         import time
 
-
         while n_samples < self.algo.batch_size:
             t = time.time()
             policy.reset(dones)

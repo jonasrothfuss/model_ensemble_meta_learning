@@ -76,6 +76,7 @@ def run_train_task(vv):
         reset_policy_std=vv['reset_policy_std'],
         reinit_model_cycle=vv['reinit_model_cycle'],
         frac_gpu=vv.get('frac_gpu', 0.85),
+        log_real_performance=True,
     )
     algo.train()
 
@@ -109,14 +110,14 @@ def run_experiment(argv):
     vg.add('fast_lr', [0.01])
     vg.add('meta_step_size', [0.01])
     vg.add('meta_batch_size', [20]) # must be a multiple of num_models
-    vg.add('discount', [0.99])
+    vg.add('discount', [0.95])
     vg.add('batch_size_env_samples', [5])
     vg.add('batch_size_dynamics_samples', [20])
     vg.add('initial_random_samples', [5000])
     vg.add('dynamic_model_epochs', [(100, 50)])
     vg.add('num_maml_steps_per_iter', [30])
     vg.add('retrain_model_when_reward_decreases', [False])
-    vg.add('reset_from_env_traj', [False])
+    vg.add('reset_from_env_traj', [False, True])
     vg.add('num_models', [10])
     vg.add('trainable_step_size', [False])
 
@@ -130,10 +131,10 @@ def run_experiment(argv):
     vg.add('reinit_model_cycle', [0])
     vg.add('optimizer_model', ['adam'])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
-    vg.add('dynamics_model', ['MLPDynamicsEnsemble'])
+    vg.add('dynamics_model', ['MLPDynamicsEnsemble', 'MLPProbabilisticDynamicsEnsemble'])
     vg.add('bias_transform', [False])
     vg.add('param_noise_std', [0.0])
-    vg.add('nm_mbs_envs', [(5, 10, 2), (10, 10, 2), (10, 20, 1), (20, 20, 1)])
+    # vg.add('nm_mbs_envs', [(5, 10, 2), (10, 10, 2), (10, 20, 1), (20, 20, 1)])
 
     # other stuff
     vg.add('exp_prefix', [EXP_PREFIX])
