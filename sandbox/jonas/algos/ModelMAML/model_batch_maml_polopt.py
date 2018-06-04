@@ -123,7 +123,10 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         # batch_size is the number of trajectories for one fast grad update.
         self.batch_size = batch_size_env_samples * max_path_length_env * self.meta_batch_size # batch_size for env sampling
         self.batch_size_dynamics_samples = batch_size_dynamics_samples * self.max_path_length_dyn * self.meta_batch_size # batch_size for model sampling
-        self.initial_random_samples = initial_random_samples
+        if initial_random_samples is None:
+            self.initial_random_samples = self.batch_size
+        else:
+            self.initial_random_samples = initial_random_samples
         self.discount = discount
         self.gae_lambda = gae_lambda
 

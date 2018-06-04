@@ -111,7 +111,7 @@ def instantiate_class_stings(v):
     if 'nm_mbs_envs' in v.keys():
         v['num_models'] = v['nm_mbs_envs'][0]
         v['meta_batch_size'] = v['nm_mbs_envs'][1]
-        v['batch_size_env_samples'] = v['nm_mbs_envs'][0]
+        v['batch_size_env_samples'] = v['nm_mbs_envs'][2]
 
     # optimizer
     if v['optimizer_model'] == 'sgd':
