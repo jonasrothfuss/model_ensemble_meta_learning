@@ -32,12 +32,10 @@ class AntEnv(MujocoEnv, Serializable):
         lb, ub = self.action_bounds
         scaling = (ub - lb) * 0.5
         ctrl_cost = .5 * 1e-2 * np.square(action/scaling).sum()
-        contact_cost = 0.5 * 1e-3 * np.sum(
-            np.square(np.clip(self.model.data.cfrc_ext, -1, 1)))
-        survive_reward = 0.05
-        reward = forward_reward - ctrl_cost - contact_cost + survive_reward
+        survive_reward = 1.0
+        reward = forward_reward - ctrl_cost + survive_reward
         ob = self.get_current_obs()
-        notdone = np.isfinite(ob).all() and ob[2] <= 1.0
+        notdone = np.isfinite(ob).all() and ob[0] <= 1.0 and ob[0] >= 0.2
         done = not notdone
 
         reward = np.minimum(np.maximum(-1000.0, reward), 1000.0)
@@ -45,7 +43,6 @@ class AntEnv(MujocoEnv, Serializable):
         return ob, reward, done, dict(
             reward_forward=forward_reward,
             reward_ctrl=-ctrl_cost,
-            reward_contact=-contact_cost,
             reward_survive=survive_reward)
 
     @overrides
