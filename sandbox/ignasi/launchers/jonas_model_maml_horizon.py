@@ -23,7 +23,7 @@ import argparse
 import random
 import os
 
-EXP_PREFIX = 'model-ensemble-maml-horizon'
+EXP_PREFIX = 'model-ensemble-maml-clipping'
 
 ec2_instance = 'm4.4xlarge'
 NUM_EC2_SUBNETS = 3
@@ -108,18 +108,18 @@ def run_experiment(argv):
     # Model-based MAML algo spec
     vg.add('path_length_dyn', [100])
     vg.add('n_itr', [60])
-    vg.add('fast_lr', [0.01, 0.05, 0.1, 0.5])
+    vg.add('fast_lr', [0.01, 0.05])
     vg.add('meta_step_size', [0.01])
-    vg.add('meta_batch_size', [10, 20]) # must be a multiple of num_models
+    vg.add('meta_batch_size', [10]) # must be a multiple of num_models
     vg.add('discount', [0.99])
-    vg.add('batch_size_env_samples', [10])
+    vg.add('batch_size_env_samples', [5])
     vg.add('batch_size_dynamics_samples', [50])
     vg.add('initial_random_samples', [None])
     vg.add('dynamic_model_epochs', [(100, 50)])
     vg.add('num_maml_steps_per_iter', [30])
     vg.add('retrain_model_when_reward_decreases', [False])
     vg.add('reset_from_env_traj', [False])
-    vg.add('num_models', [5])
+    vg.add('num_models', [10])
     vg.add('trainable_step_size', [False])
 
     # neural network configuration
@@ -135,6 +135,7 @@ def run_experiment(argv):
     vg.add('dynamics_model', ['MLPDynamicsEnsemble'])
     vg.add('bias_transform', [False])
     vg.add('param_noise_std', [0.0])
+    vg.add('clip_obs', [False, True])
     # vg.add('nm_mbs_envs', [(5, 10, 2), (10, 10, 2), (10, 20, 1), (20, 20, 1)])
 
     # other stuff

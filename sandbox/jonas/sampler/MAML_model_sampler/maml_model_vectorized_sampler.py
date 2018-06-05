@@ -10,7 +10,7 @@ import itertools
 
 class MAMLModelVectorizedSampler(ModelBaseSampler):
 
-    def __init__(self, algo, n_parallel=None, max_path_length=None):
+    def __init__(self, algo, n_parallel=None, max_path_length=None, clip_obs=False):
         """
         :param algo: RL algo
         :param n_parallel: number of trajectories samples in parallel
@@ -18,6 +18,7 @@ class MAMLModelVectorizedSampler(ModelBaseSampler):
         super(MAMLModelVectorizedSampler, self).__init__(algo)
         self.n_models = self.algo.dynamics_model.num_models
         self.meta_batch_size = self.algo.meta_batch_size
+        self.clip_obs = clip_obs
 
         if n_parallel is None:
             self.n_parallel = self.algo.batch_size_dynamics_samples // self.algo.max_path_length
@@ -39,6 +40,7 @@ class MAMLModelVectorizedSampler(ModelBaseSampler):
             model=self.algo.dynamics_model,
             max_path_length=self.max_path_length,
             n_parallel=self.n_parallel,
+            clip_obs=self.clip_obs,
         )
         self.env_spec = self.algo.env.spec
 
