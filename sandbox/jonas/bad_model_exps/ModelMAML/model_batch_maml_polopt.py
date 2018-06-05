@@ -297,6 +297,8 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                     ''' MAML steps '''
                     for maml_itr in range(self.num_maml_steps_per_iter):
 
+                        self.dynamics_model.sample_output_bias()
+
                         self.policy.switch_to_init_dist()  # Switch to pre-update policy
 
                         all_samples_data_maml_iter, all_paths_maml_iter = [], []
@@ -404,4 +406,4 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                 sess.run(var)
             except tf.errors.FailedPreconditionError:
                 uninit_vars.append(var)
-sess.run(tf.variables_initializer(uninit_vars))
+            sess.run(tf.variables_initializer(uninit_vars))

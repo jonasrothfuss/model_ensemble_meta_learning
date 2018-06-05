@@ -29,7 +29,7 @@ class BadDynamicsEnsemble(MLPDynamicsModel):
                  normalize_input=True,
                  optimizer=tf.train.AdamOptimizer,
                  gaussian_noise_output_std=0.0,
-                 output_bias=0.0
+                 output_bias_range=0.0
                  ):
 
         Serializable.quick_init(self, locals())
@@ -47,7 +47,8 @@ class BadDynamicsEnsemble(MLPDynamicsModel):
         self.action_space_dims = action_space_dims = env_spec.action_space.shape[0]
 
         self.gaussian_noise_output_std = gaussian_noise_output_std
-        self.output_bias = output_bias
+        self.output_bias_range = output_bias_range
+        self.sample_output_bias()
 
         """ computation graph for training and simple inference """
         with tf.variable_scope(name):
@@ -149,8 +150,15 @@ class BadDynamicsEnsemble(MLPDynamicsModel):
         assert delta.ndim == 3
 
         pred_obs = obs_original[:, :, None] + delta
-
         batch_size = delta.shape[0]
+
+        sampled_bias = np.stack([np.random.normal(loc=b, scale=self.gaussian_noise_output_std,
+                                                        size=(batch_size, self.obs_space_dims)) for b in
+                                       self.output_bias], axis=2)
+        assert sampled_bias.shape == pred_obs.shape
+        pred_obs += sampled_bias
+
+
         if pred_type == 'rand':
             # randomly selecting the prediction of one model in each row
             idx = np.random.randint(0, self.num_models, size=batch_size)
@@ -161,13 +169,6 @@ class BadDynamicsEnsemble(MLPDynamicsModel):
             pass
         else:
             NotImplementedError('pred_type must be one of [rand, mean, all]')
-
-        if self.output_bias != 0.0:
-            pred_obs += self.output_bias
-
-        # add gaussian noise to output
-        if self.gaussian_noise_output_std > 0:
-            pred_obs += np.random.normal(scale=self.gaussian_noise_output_std, size=pred_obs.shape)
 
         return pred_obs
 
@@ -185,6 +186,8 @@ class BadDynamicsEnsemble(MLPDynamicsModel):
 
         obs_batches_original = obs_batches
 
+        batch_size_per_model = obs_batches.shape[0] // self.num_models
+
         if self.normalize_input:
             obs_batches, act_batches = self._normalize_data(obs_batches, act_batches)
             delta_batches = np.array(self.f_delta_pred_model_batches(obs_batches, act_batches))
@@ -197,13 +200,11 @@ class BadDynamicsEnsemble(MLPDynamicsModel):
         pred_obs_batches = obs_batches_original + delta_batches
         assert pred_obs_batches.shape == obs_batches.shape
 
-        if self.output_bias != 0.0:
-            pred_obs_batches += self.output_bias
+        sampled_bias = np.concatenate([np.random.normal(loc=b, scale=self.gaussian_noise_output_std,
+                                                        size=(batch_size_per_model, self.obs_space_dims)) for b in self.output_bias], axis=0)
+        assert sampled_bias.shape == pred_obs_batches.shape
 
-        # add gaussian noise to output
-        if self.gaussian_noise_output_std > 0:
-            pred_obs_batches = pred_obs_batches + np.random.normal(scale=self.gaussian_noise_output_std, size=pred_obs_batches.shape)
-        return pred_obs_batches
+        return pred_obs_batches + sampled_bias
 
 
     def predict_std(self, obs, act):
@@ -226,6 +227,8 @@ class BadDynamicsEnsemble(MLPDynamicsModel):
                                     scope=self.name+'/model_{}'.format(i))) for i in range(self.num_models)]
         sess.run(self._reinit_model_op)
 
+    def sample_output_bias(self):
+        self.output_bias = np.random.uniform(low=-self.output_bias_range, high=self.output_bias_range, size=self.num_models)
 
 def denormalize(data_array, mean, std):
     if data_array.ndim == 3: # assumed shape (batch_size, ndim_obs, n_models)
