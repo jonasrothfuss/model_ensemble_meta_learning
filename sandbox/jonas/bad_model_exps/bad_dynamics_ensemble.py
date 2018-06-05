@@ -155,7 +155,6 @@ class BadDynamicsEnsemble(MLPDynamicsModel):
         sampled_bias = np.stack([np.random.normal(loc=b, scale=self.gaussian_noise_output_std,
                                                         size=(batch_size, self.obs_space_dims)) for b in
                                        self.output_bias], axis=2)
-        print(sampled_bias.shape, pred_obs.shape)
         assert sampled_bias.shape == pred_obs.shape
         pred_obs += sampled_bias
 
