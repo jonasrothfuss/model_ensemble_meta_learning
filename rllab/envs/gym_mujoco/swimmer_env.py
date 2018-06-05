@@ -37,7 +37,6 @@ class SwimmerEnv(MujocoEnv, Serializable):
         self.forward_dynamics(action)
         xposafter = self.model.data.qpos[0]
         reward_fwd = (xposafter - xposbefore) / self.dt
-        print('FORWARD RWD:', reward_fwd)
         reward_ctrl = - ctrl_cost_coeff * np.square(action).sum()
         reward = reward_fwd + reward_ctrl
         ob = self.get_current_obs()
