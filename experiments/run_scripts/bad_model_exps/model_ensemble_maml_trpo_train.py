@@ -7,7 +7,7 @@ from sandbox.jonas.envs.base import TfEnv
 from rllab.misc.instrument import stub, run_experiment_lite
 from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
 from sandbox.jonas.bad_model_exps.bad_dynamics_ensemble import BadDynamicsEnsemble
-from sandbox.jonas.algos.ModelMAML.model_maml_trpo import ModelMAMLTRPO
+from sandbox.jonas.bad_model_exps.ModelMAML.model_maml_trpo import ModelMAMLTRPO
 from experiments.helpers.ec2_helpers import cheapest_subnets
 from experiments.helpers.run_multi_gpu import run_multi_gpu
 
@@ -39,7 +39,7 @@ def run_train_task(vv):
         weight_normalization=vv['weight_normalization_model'],
         num_models=vv['num_models'],
         optimizer=vv['optimizer_model'],
-        output_bias=vv['output_bias'],
+        output_bias_range=vv['output_bias_range'],
         gaussian_noise_output_std=vv['output_noise_std'],
     )
 
@@ -78,6 +78,7 @@ def run_train_task(vv):
         reset_policy_std=vv['reset_policy_std'],
         reinit_model_cycle=vv['reinit_model_cycle'],
         frac_gpu=vv.get('frac_gpu', 0.85),
+        log_real_performance=True,
     )
     algo.train()
 
@@ -114,8 +115,8 @@ def run_experiment(argv):
     vg.add('batch_size_env_samples', [2])
     vg.add('batch_size_dynamics_samples', [50])
     vg.add('initial_random_samples', [None])
-    vg.add('dynamic_model_epochs', [(200, 200), (500, 500)])
-    vg.add('num_maml_steps_per_iter', [30, 50])
+    vg.add('dynamic_model_epochs', [(100, 50)])
+    vg.add('num_maml_steps_per_iter', [30, 80])
     vg.add('retrain_model_when_reward_decreases', [False])
     vg.add('reset_from_env_traj', [False])
     vg.add('num_models', [5])
@@ -127,13 +128,13 @@ def run_experiment(argv):
     vg.add('hidden_sizes_policy', [(32, 32)])
     vg.add('hidden_sizes_model', [(512, 512)])
     vg.add('weight_normalization_model', [False])
-    vg.add('reset_policy_std', [False, True])
+    vg.add('reset_policy_std', [False])
     vg.add('reinit_model_cycle', [0])
     vg.add('optimizer_model', ['adam'])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
     vg.add('bias_transform', [False])
     vg.add('param_noise_std', [0.0])
-    vg.add('output_bias', [0])
+    vg.add('output_bias_range', [0, 0.05, 0.1])
     vg.add('output_noise_std', [0.0])
 
     # other stuff
@@ -185,7 +186,7 @@ def run_experiment(argv):
         # ----------------------- TRAINING ---------------------------------------
         exp_ids = random.sample(range(1, 1000), len(variants))
         for v, exp_id in zip(variants, exp_ids):
-            exp_name = "model_ensemble_maml_train_env_%s_%i_%i_%i_%i_id_%i" % (v['env'], v['path_length_env'], v['num_maml_steps_per_iter'],
+            exp_name = "model_ensemble_maml_train_env_%s_%i_%i_%i_%i_id_%i" % (v['env'], v['path_length_env'], v['num_models'],
                                                            v['batch_size_env_samples'], v['seed'], exp_id)
             v = instantiate_class_stings(v)
 
