@@ -7,7 +7,7 @@ from rllab.misc.instrument import VariantGenerator
 from rllab import config
 from experiments.helpers.ec2_helpers import cheapest_subnets
 from sandbox.jonas.bad_model_exps.bad_dynamics_ensemble import BadDynamicsEnsemble
-from sandbox.jonas.algos.ModelTRPO.model_trpo import ModelTRPO
+from sandbox.jonas.bad_model_exps.ModelTRPO.model_trpo import ModelTRPO
 from experiments.helpers.run_multi_gpu import run_multi_gpu
 from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams, \
     ReacherEnvRandParams
@@ -33,7 +33,7 @@ def run_train_task(vv):
         hidden_sizes=vv['hidden_sizes_model'],
         weight_normalization=vv['weight_normalization_model'],
         num_models=vv['num_models'],
-        output_bias=vv['output_bias'],
+        output_bias_range=vv['output_bias_range'],
         gaussian_noise_output_std=vv['output_noise_std'],
     )
 
@@ -84,17 +84,17 @@ def run_experiment(argv):
 
     vg = VariantGenerator()
     vg.add('env', ['ReacherEnvRandParams']) # HalfCheetahEnvRandParams
-    vg.add('n_itr', [20])
+    vg.add('n_itr', [10])
     vg.add('log_scale_limit', [0.0])
     vg.add('step_size', [0.01])
     vg.add('seed', [22, 33, 55]) #TODO set back to [1, 11, 21, 31, 41]
     vg.add('discount', [0.99])
-    vg.add('path_length', [100])
+    vg.add('path_length', [200])
     vg.add('batch_size_env_samples', [4000])
     vg.add('batch_size_dynamics_samples', [100000])
     vg.add('initial_random_samples', [None])
-    vg.add('dynamic_model_epochs', [(200, 200), (500, 500)])
-    vg.add('num_gradient_steps_per_iter', [30, 50])
+    vg.add('dynamic_model_epochs', [(100, 50)])
+    vg.add('num_gradient_steps_per_iter', [30, 80])
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(32, 32)])
@@ -105,7 +105,7 @@ def run_experiment(argv):
     vg.add('reinit_model_cycle', [0])
     vg.add('num_models', [5])
 
-    vg.add('output_bias', [0])
+    vg.add('output_bias_range', [0, 0.05, 0.1])
     vg.add('output_noise_std', [0.0])
 
     vg.add('exp_prefix', [EXP_PREFIX])
