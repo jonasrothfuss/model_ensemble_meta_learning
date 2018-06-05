@@ -1,11 +1,11 @@
-from sandbox.rocky.tf.algos.trpo import TRPO
+from sandbox.rocky.tf.algos.vpg import VPG
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
+from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, WalkerEnvRandomParams
 from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from sandbox.rocky.tf.envs.base import TfEnv
 from rllab.misc.instrument import VariantGenerator
 from rllab.misc.instrument import run_experiment_lite
-from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, WalkerEnvRandomParams
 from rllab import config
 import random
 
@@ -24,13 +24,13 @@ def main(variant):
 
     baseline = LinearFeatureBaseline(env_spec=real_env.spec)
 
-    algo = TRPO(
+    algo = VPG(
         env=real_env,
         policy=policy,
         baseline=baseline,
         n_itr=10000,
         discount=0.99,
-        step_size=0.05,
+        optimizer_args=dict(learning_rate=5e-3),
         batch_size=50000,
         max_path_length=1000,
     )
@@ -38,7 +38,7 @@ def main(variant):
     algo.train()
 
 if __name__ == '__main__':
-    log_dir = 'trpo-baselines' #osp.join('vine_trpo', datetime.datetime.today().)
+    log_dir = 'vpg-baselines' #osp.join('vine_trpo', datetime.datetime.today().)
     mode = 'ec2'
 
     vg = VariantGenerator()
@@ -48,8 +48,9 @@ if __name__ == '__main__':
 
 
     subnets = [
-        'us-west-1b', 'us-west-1c',
+        'us-west-1b', 'us-west-1c'
     ]
+
     ec2_instance = 'm4.4xlarge'
     # configure instan
     info = config.INSTANCE_TYPE_INFO[ec2_instance]
@@ -62,7 +63,7 @@ if __name__ == '__main__':
         n_parallel = 12
         use_gpu = True
     #
-    print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format('TRPO', len(vg.variants())))
+    print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format('VPG', len(vg.variants())))
     print('Running on type {}, with price {}, parallel {} on the subnets: '.format(config.AWS_INSTANCE_TYPE,
                                                                                    config.AWS_SPOT_PRICE, n_parallel),
           *subnets)
@@ -98,7 +99,7 @@ if __name__ == '__main__':
             n_parallel=n_parallel,
             seed=v['seed'],
             use_cloudpickle=True,
-            # exp_name='vine_trpo'
+            # exp_name='vine_trpo',
             pre_commands=["yes | pip install tensorflow=='1.6.0'",
                           "pip list",
                           "yes | pip install --upgrade cloudpickle"],

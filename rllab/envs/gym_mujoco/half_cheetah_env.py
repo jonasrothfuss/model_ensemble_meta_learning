@@ -34,9 +34,9 @@ class HalfCheetahEnv(MujocoEnv, Serializable):
         return self.model.data.com_subtree[idx]
 
     def step(self, action):
-        xposbefore = self.model.data.qpos[0, 0]
+        xposbefore = self.model.data.qpos[0]
         self.forward_dynamics(action)
-        xposafter = self.model.data.qpos[0, 0]
+        xposafter = self.model.data.qpos[0]
         ob = self.get_current_obs()
         reward_ctrl = - 0.1 * np.square(action).sum()
         reward_run = (xposafter - xposbefore) / self.dt
@@ -44,9 +44,9 @@ class HalfCheetahEnv(MujocoEnv, Serializable):
         done = False
 
         # clip reward in case mujoco sim goes crazy
-        reward = np.minimum(np.maximum(-1000.0, reward), 1000.0)
+        reward = np.minimum(np.maximum(-50, reward), 50)
 
-        return ob, reward, done, dict(reward_run=reward_run, reward_ctrl=reward_ctrl)
+        return ob, float(reward), done, dict(reward_run=reward_run, reward_ctrl=reward_ctrl)
 
     @overrides
     def log_diagnostics(self, paths):

@@ -36,6 +36,8 @@ class MAMLModelVecEnvExecutor(object):
         # use the model to make (predicted) steps
         prev_obs = self.current_obs
         next_obs = self.model.predict_model_batches(prev_obs, action_n)
+        if hasattr(self.unwrapped_env, 'obs_lower_bounds'):
+            next_obs = np.clip(next_obs, self.unwrapped_env.obs_lower_bounds, self.unwrapped_env.obs_upper_bounds)
         rewards = self.unwrapped_env.reward(prev_obs, action_n, next_obs)
 
         if self.has_done_fn:

@@ -51,6 +51,25 @@ class AntEnvRandParams(BaseEnvRandParams, AntEnv, Serializable):
             notdone = np.isfinite(obs).all()  and obs[0] >= 0.2 and obs[0] <= 1.0
             return not notdone
 
+
+    def _obs_bounds(self):
+        jnt_range = self.model.jnt_range
+        jnt_limited = self.model.jnt_limited
+        self._obs_lower_bounds = -50 * np.ones(shape=(self.model.data.qpos.shape[0] + self.model.data.qvel.shape[0]-2,))
+        self._obs_upper_bounds = 50 * np.ones(shape=(self.model.data.qpos.shape[0] + self.model.data.qvel.shape[0]-1,))
+        for idx, limited in enumerate(jnt_limited):
+            if idx > 0 and limited:
+                self._obs_lower_bounds[idx] = jnt_range[idx][0]
+                self._obs_upper_bounds[idx] = jnt_range[idx][1]
+
+    @property
+    def obs_lower_bounds(self):
+        return self._obs_lower_bounds
+
+    @property
+    def obs_upper_bounds(self):
+        return self._obs_upper_bounds
+
     @overrides
     def log_diagnostics(self, paths, prefix=''):
         progs = [

@@ -45,7 +45,7 @@ class HopperEnv(MujocoEnv, Serializable):
     def step(self, action):
         posbefore = self.model.data.qpos[0]
         self.forward_dynamics(action)
-        posafter, height, ang = self.model.data.qpos[0:3]
+        posafter, height, ang = self.model.data.qpos[0:3, 0]
         alive_bonus = 1.0
         reward = (posafter - posbefore) / self.dt
         reward += alive_bonus
@@ -54,7 +54,7 @@ class HopperEnv(MujocoEnv, Serializable):
         done = not (np.isfinite(ob).all() and (np.abs(ob[1:]) < 100).all() and
                     (height > .7) and (abs(ang) < .2))
 
-        return ob, reward, done, {}
+        return ob, float(reward), done, {}
 
     @overrides
     def log_diagnostics(self, paths):
