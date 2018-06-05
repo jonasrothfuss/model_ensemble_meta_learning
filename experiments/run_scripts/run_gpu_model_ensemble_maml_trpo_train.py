@@ -14,7 +14,6 @@ from rllab import config
 from sandbox.jonas.envs.own_envs import PointEnvMAML
 from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams
 from sandbox.jonas.envs.mujoco import Reacher5DofEnvRandParams
-from sandbox.jonas.envs.mujoco.cheetah_env import HalfCheetahEnv
 
 
 import tensorflow as tf
@@ -64,12 +63,13 @@ def run_train_task(vv):
         n_iter=vv['n_itr'],
         batch_size_env_samples=vv['batch_size_env_samples'],
         batch_size_dynamics_samples=vv['batch_size_dynamics_samples'],
+        meta_batch_size=vv['meta_batch_size'],
         initial_random_samples=vv['initial_random_samples'],
         dynamic_model_epochs=vv['dynamic_model_epochs'],
         num_maml_steps_per_iter=vv['num_maml_steps_per_iter'],
+        reset_from_env_traj=vv.get('reset_from_env_traj', False),
         max_path_length_env=vv['path_length_env'],
         max_path_length_dyn=vv.get('path_length_dyn', None),
-        reset_from_env_traj=vv.get('reset_from_env_traj', False),
         discount=vv['discount'],
         step_size=vv["meta_step_size"],
         num_grad_updates=1,
@@ -89,9 +89,8 @@ def run_experiment(vargs):
     kwargs = json.load(open(vargs[1], 'r'))
     exp_id = random.sample(range(1, 1000), 1)[0]
     v = kwargs['variant']
-    exp_name = "model_ensemble_maml_train_env_%s_%i_%i_%i_%i_id_%i" % (
-                v['env'], v['path_length_env'], v['num_maml_steps_per_iter'],
-                v['batch_size_env_samples'], v['seed'], exp_id)
+    exp_name = "model_ensemble_maml_train_env_%s_%i_%i_%i_%i_id_%i" % (v['env'], v['path_length_env'], v['num_models'],
+                                                                       v['batch_size_env_samples'], v['seed'], exp_id)
     v = instantiate_class_stings(v)
     kwargs['variant'] = v
 
