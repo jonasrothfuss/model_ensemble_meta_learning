@@ -43,8 +43,8 @@ class HalfCheetahEnvRandParams(BaseEnvRandParams, HalfCheetahEnv, Serializable):
     def _obs_bounds(self):
         jnt_range = self.model.jnt_range
         jnt_limited = self.model.jnt_limited
-        self._obs_lower_bounds = -50 * np.ones(shape=(self.model.data.qpos.shape[0] + self.model.data.qvel.shape[0]-1,))
-        self._obs_upper_bounds = 50 * np.ones(shape=(self.model.data.qpos.shape[0] + self.model.data.qvel.shape[0]-1,))
+        self._obs_lower_bounds = -1000 * np.ones(shape=(self.model.data.qpos.shape[0] + self.model.data.qvel.shape[0]-1,))
+        self._obs_upper_bounds = 1000 * np.ones(shape=(self.model.data.qpos.shape[0] + self.model.data.qvel.shape[0]-1,))
         for idx, limited in enumerate(jnt_limited):
             if idx > 0 and limited:
                 self._obs_lower_bounds[idx] = jnt_range[idx][0]

@@ -44,7 +44,7 @@ class HalfCheetahEnv(MujocoEnv, Serializable):
         done = False
 
         # clip reward in case mujoco sim goes crazy
-        reward = np.minimum(np.maximum(-50, reward), 50)
+        reward = np.minimum(np.maximum(-1000, reward), 1000)
 
         return ob, float(reward), done, dict(reward_run=reward_run, reward_ctrl=reward_ctrl)
 
