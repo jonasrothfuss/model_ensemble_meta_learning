@@ -404,4 +404,4 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                 sess.run(var)
             except tf.errors.FailedPreconditionError:
                 uninit_vars.append(var)
-sess.run(tf.variables_initializer(uninit_vars))
+        sess.run(tf.variables_initializer(uninit_vars))
