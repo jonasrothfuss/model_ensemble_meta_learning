@@ -58,9 +58,9 @@ class AntEnvRandParams(BaseEnvRandParams, AntEnv, Serializable):
         self._obs_lower_bounds = -50 * np.ones(shape=(self.model.data.qpos.shape[0] + self.model.data.qvel.shape[0]-2,))
         self._obs_upper_bounds = 50 * np.ones(shape=(self.model.data.qpos.shape[0] + self.model.data.qvel.shape[0]-1,))
         for idx, limited in enumerate(jnt_limited):
-            if idx > 0 and limited:
-                self._obs_lower_bounds[idx] = jnt_range[idx][0]
-                self._obs_upper_bounds[idx] = jnt_range[idx][1]
+            if idx > 1 and limited:
+                self._obs_lower_bounds[idx-2] = jnt_range[idx][0]
+                self._obs_upper_bounds[idx-2] = jnt_range[idx][1]
 
     @property
     def obs_lower_bounds(self):

@@ -23,7 +23,7 @@ import argparse
 import random
 import os
 
-EXP_PREFIX = 'model-ensemble-maml-clipping'
+EXP_PREFIX = 'model-ensemble-maml-no-bug'
 
 ec2_instance = 'm4.4xlarge'
 NUM_EC2_SUBNETS = 3
@@ -78,6 +78,7 @@ def run_train_task(vv):
         reinit_model_cycle=vv['reinit_model_cycle'],
         frac_gpu=vv.get('frac_gpu', 0.85),
         log_real_performance=True,
+        clip_obs=vv['clip_obs']
     )
     algo.train()
 
@@ -108,15 +109,15 @@ def run_experiment(argv):
     # Model-based MAML algo spec
     vg.add('path_length_dyn', [100])
     vg.add('n_itr', [60])
-    vg.add('fast_lr', [0.01, 0.05])
+    vg.add('fast_lr', [0.01, 0.05, 0.1, 0.5])
     vg.add('meta_step_size', [0.01])
-    vg.add('meta_batch_size', [10]) # must be a multiple of num_models
-    vg.add('discount', [0.99])
+    vg.add('meta_batch_size', [20]) # must be a multiple of num_models
+    vg.add('discount', [0.99, 0.95])
     vg.add('batch_size_env_samples', [5])
     vg.add('batch_size_dynamics_samples', [50])
     vg.add('initial_random_samples', [None])
     vg.add('dynamic_model_epochs', [(100, 50)])
-    vg.add('num_maml_steps_per_iter', [30])
+    vg.add('num_maml_steps_per_iter', [50])
     vg.add('retrain_model_when_reward_decreases', [False])
     vg.add('reset_from_env_traj', [False])
     vg.add('num_models', [10])
@@ -135,7 +136,7 @@ def run_experiment(argv):
     vg.add('dynamics_model', ['MLPDynamicsEnsemble'])
     vg.add('bias_transform', [False])
     vg.add('param_noise_std', [0.0])
-    vg.add('clip_obs', [False, True])
+    vg.add('clip_obs', [True])
     # vg.add('nm_mbs_envs', [(5, 10, 2), (10, 10, 2), (10, 20, 1), (20, 20, 1)])
 
     # other stuff
