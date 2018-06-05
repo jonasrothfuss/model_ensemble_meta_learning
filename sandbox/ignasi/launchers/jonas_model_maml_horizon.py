@@ -101,7 +101,7 @@ def run_experiment(argv):
     vg.add('seed', [23, 43])
 
     # env spec
-    vg.add('env', ['HalfCheetahEnvRandParams'])
+    vg.add('env', ['HopperEnvRandParams'])
     vg.add('log_scale_limit', [0.0])
     vg.add('path_length_env', [1000])
 
