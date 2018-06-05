@@ -13,6 +13,7 @@ from rllab_maml.sampler.stateful_pool import singleton_pool
 
 from sandbox.jonas.sampler import RandomVectorizedSampler, MAMLModelVectorizedSampler, MAMLVectorizedSampler
 from sandbox.jonas.sampler.MAML_sampler.maml_batch_sampler import BatchSampler
+import numpy as np
 
 
 class ModelBatchMAMLPolopt(RLAlgorithm):
@@ -86,7 +87,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         :param gae_lambda: Lambda used for generalized advantage estimation.
         :param dynamic_model_epochs: (2-tuple) number of epochs to train the dynamics model
                                         (n_epochs_at_first_iter, n_epochs_after_first_iter)
-        :param num_maml_steps_per_iter: number of policy gradients steps before retraining dynamics model
+        :param num_maml_steps_per_iter: number of policy gradients steps before retraining dynamics model (either int or tuple)
         :param reset_from_env_traj: (boolean) whether to use the real environment observations for resetting the imaginary dynamics model rollouts
         :param retrain_model_when_reward_decreases: (boolean) if true - stop inner gradient steps when performance decreases
         :param reset_policy_std: whether to reset the policy std after each iteration
@@ -131,7 +132,11 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         self.gae_lambda = gae_lambda
 
         self.dynamic_model_epochs = dynamic_model_epochs
-        self.num_maml_steps_per_iter = num_maml_steps_per_iter
+        if type(num_maml_steps_per_iter) != list and type(num_maml_steps_per_iter) != tuple:
+            self.num_maml_steps_per_iter = [num_maml_steps_per_iter]
+        else:
+            self.num_maml_steps_per_iter = num_maml_steps_per_iter
+        self.max_num_maml_steps_per_iter = np.max(self.num_maml_steps_per_iter)
         self.reset_from_env_traj = reset_from_env_traj
         self.retrain_model_when_reward_decreases = retrain_model_when_reward_decreases
         self.reset_policy_std = reset_policy_std
@@ -295,7 +300,8 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                                             epochs=epochs, verbose=True)
 
                     ''' MAML steps '''
-                    for maml_itr in range(self.num_maml_steps_per_iter):
+                    for maml_itr in range(self.max_num_maml_steps_per_iter):
+                        num_maml_steps = self.num_maml_steps_per_iter[min(itr, len(self.num_maml_steps_per_iter)-1)]
 
                         self.policy.switch_to_init_dist()  # Switch to pre-update policy
 
@@ -303,7 +309,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                         for step in range(self.num_grad_updates + 1):
 
                             logger.log("MAML Step %i%s of %i - Obtaining samples from the dynamics model..." % (
-                                maml_itr + 1, chr(97 + step), self.num_maml_steps_per_iter))
+                                maml_itr + 1, chr(97 + step), num_maml_steps))
 
                             if self.reset_from_env_traj and maml_itr > 0:
                                 new_model_paths = self.obtain_model_samples(itr, traj_starting_obs=samples_data_dynamics['observations_dynamics'])
@@ -346,14 +352,23 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                                 "Stopping policy gradients steps since rolling mean reward decreased from %.2f to %.2f" % (
                                     prev_rolling_reward_mean, rolling_reward_mean))
                             # complete some logging stuff
-                            for i in range(maml_itr + 1, self.num_maml_steps_per_iter):
+                            for i in range(maml_itr + 1, self.max_num_maml_steps_per_iter):
                                 logger.record_tabular('DynTrajs%ia-AverageReturn' % (i+1), 0.0)
                                 logger.record_tabular('DynTrajs%ib-AverageReturn' % (i+1), 0.0)
                             break
 
-                        logger.log("MAML Step %i of %i - Optimizing policy..." % (maml_itr + 1, self.num_maml_steps_per_iter))
+                        logger.log("MAML Step %i of %i - Optimizing policy..." % (maml_itr + 1, num_maml_steps))
                         # This needs to take all samples_data so that it can construct graph for meta-optimization.
                         self.optimize_policy(itr, all_samples_data_maml_iter, log=False)
+
+                        # stop if num_maml_steps_per_iter reached
+                        if maml_itr + 1 >= num_maml_steps:
+                            # complete some logging stuff
+                            for i in range(maml_itr + 1, self.max_num_maml_steps_per_iter):
+                                logger.record_tabular('DynTrajs%ia-AverageReturn' % (i + 1), 0.0)
+                                logger.record_tabular('DynTrajs%ib-AverageReturn' % (i + 1), 0.0)
+                            break
+
 
 
                     logger.log("Saving snapshot...")

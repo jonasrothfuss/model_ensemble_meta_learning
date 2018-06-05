@@ -14,7 +14,6 @@ from experiments.helpers.run_multi_gpu import run_multi_gpu
 from sandbox.jonas.envs.own_envs import PointEnvMAML
 from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams
 from sandbox.jonas.envs.mujoco import Reacher5DofEnvRandParams
-from sandbox.jonas.envs.mujoco.cheetah_env import HalfCheetahEnv
 
 
 import tensorflow as tf
@@ -68,8 +67,9 @@ def run_train_task(vv):
         initial_random_samples=vv['initial_random_samples'],
         dynamic_model_epochs=vv['dynamic_model_epochs'],
         num_maml_steps_per_iter=vv['num_maml_steps_per_iter'],
-        reset_from_env_traj=vv['reset_from_env_traj'],
+        reset_from_env_traj=vv.get('reset_from_env_traj', False),
         max_path_length_env=vv['path_length_env'],
+        max_path_length_dyn=vv.get('path_length_dyn', None),
         discount=vv['discount'],
         step_size=vv["meta_step_size"],
         num_grad_updates=1,
@@ -100,21 +100,21 @@ def run_experiment(argv):
     vg.add('seed', [23, 43, 53]) #TODO set back to [1, 11, 21, 31, 41]
 
     # env spec
-    vg.add('env', ['SwimmerEnvRandParams'])
+    vg.add('env', ['HalfCheetahEnvRandParams'])
     vg.add('log_scale_limit', [0.0])
-    vg.add('path_length_env', [200])
+    vg.add('path_length_env', [500, 1000])
 
     # Model-based MAML algo spec
-    vg.add('n_itr', [20])
+    vg.add('n_itr', [50])
     vg.add('fast_lr', [0.01])
     vg.add('meta_step_size', [0.01])
-    vg.add('meta_batch_size', [5]) # must be a multiple of num_models
+    vg.add('meta_batch_size', [10]) # must be a multiple of num_models
     vg.add('discount', [0.99])
-    vg.add('batch_size_env_samples', [10])
-    vg.add('batch_size_dynamics_samples', [100])
+    vg.add('batch_size_env_samples', [1])
+    vg.add('batch_size_dynamics_samples', [20])
     vg.add('initial_random_samples', [5000])
     vg.add('dynamic_model_epochs', [(100, 50)])
-    vg.add('num_maml_steps_per_iter', [30])
+    vg.add('num_maml_steps_per_iter', [list(range(20,80,4))])
     vg.add('retrain_model_when_reward_decreases', [False])
     vg.add('reset_from_env_traj', [False])
     vg.add('num_models', [5, 10])
@@ -124,7 +124,7 @@ def run_experiment(argv):
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(32, 32)])
-    vg.add('hidden_sizes_model', [(512, 512), (1024, 1024)])
+    vg.add('hidden_sizes_model', [(512, 512)])
     vg.add('weight_normalization_model', [True])
     vg.add('reset_policy_std', [False, True])
     vg.add('reinit_model_cycle', [0])
@@ -182,7 +182,7 @@ def run_experiment(argv):
         # ----------------------- TRAINING ---------------------------------------
         exp_ids = random.sample(range(1, 1000), len(variants))
         for v, exp_id in zip(variants, exp_ids):
-            exp_name = "model_ensemble_maml_train_env_%s_%i_%i_%i_%i_id_%i" % (v['env'], v['path_length_env'], v['num_maml_steps_per_iter'],
+            exp_name = "model_ensemble_maml_train_env_%s_%i_%i_%i_%i_id_%i" % (v['env'], v['path_length_env'], v['num_models'],
                                                            v['batch_size_env_samples'], v['seed'], exp_id)
             v = instantiate_class_stings(v)
 
