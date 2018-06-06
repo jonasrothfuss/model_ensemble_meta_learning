@@ -27,13 +27,18 @@ class MLPDynamicsModel(LayersPowered, Serializable):
                  step_size=0.001,
                  weight_normalization=True,
                  normalize_input=True,
-                 optimizer=tf.train.AdamOptimizer
+                 optimizer=tf.train.AdamOptimizer,
+                 valid_split_ratio=0.2,
+                 rolling_average_persitency=0.99
                  ):
 
         Serializable.quick_init(self, locals())
 
         self.normalization = None
         self.normalize_input = normalize_input
+
+        self.valid_split_ratio = valid_split_ratio
+        self.rolling_average_persitency = rolling_average_persitency
 
         with tf.variable_scope(name):
             self.batch_size = batch_size
@@ -74,7 +79,7 @@ class MLPDynamicsModel(LayersPowered, Serializable):
         LayersPowered.__init__(self, [mlp.output_layer])
 
 
-    def fit(self, obs, act, obs_next, epochs=50, compute_normalization=True, verbose=False, valid_split_ratio=0.2, rolling_average_persitency=0.99):
+    def fit(self, obs, act, obs_next, epochs=1000, compute_normalization=True, verbose=False, valid_split_ratio=None, rolling_average_persitency=None):
         """
         Fits the NN dynamics model
         :param obs: observations - numpy array of shape (n_samples, ndim_obs)
@@ -88,6 +93,9 @@ class MLPDynamicsModel(LayersPowered, Serializable):
         assert obs.ndim == 2 and obs.shape[1]==self.obs_space_dims
         assert obs_next.ndim == 2 and obs_next.shape[1] == self.obs_space_dims
         assert act.ndim == 2 and act.shape[1] == self.action_space_dims
+
+        if valid_split_ratio is None: valid_split_ratio = self.valid_split_ratio
+        if rolling_average_persitency is None: rolling_average_persitency = self.rolling_average_persitency
 
         assert 1 > valid_split_ratio >= 0
 
@@ -142,7 +150,7 @@ class MLPDynamicsModel(LayersPowered, Serializable):
                         valid_loss_rolling_average = 1.5 * valid_loss # set initial rolling to a higher value avoid too early stopping
                         valid_loss_rolling_average_prev = 2.0 * valid_loss
 
-                    valid_loss_rolling_average = rolling_average_persitency*valid_loss_rolling_average + (1-rolling_average_persitency)*valid_loss
+                    valid_loss_rolling_average = rolling_average_persitency*valid_loss_rolling_average + (1.0-rolling_average_persitency)*valid_loss
 
                     if verbose:
                         logger.log("Training NNDynamicsModel - finished epoch %i -- train loss: %.4f  valid loss: %.4f  valid_loss_mov_avg: %.4f"%(epoch, float(np.mean(batch_losses)), valid_loss, valid_loss_rolling_average))

@@ -27,13 +27,18 @@ class MLPDynamicsEnsemble(MLPDynamicsModel):
                  step_size=0.001,
                  weight_normalization=False,
                  normalize_input=True,
-                 optimizer=tf.train.AdamOptimizer
+                 optimizer=tf.train.AdamOptimizer,
+                 valid_split_ratio=0.2,
+                 rolling_average_persitency=0.99
                  ):
 
         Serializable.quick_init(self, locals())
 
         self.normalization = None
         self.normalize_input = normalize_input
+
+        self.valid_split_ratio = valid_split_ratio
+        self.rolling_average_persitency = rolling_average_persitency
 
         self.batch_size = batch_size
         self.step_size = step_size

@@ -41,7 +41,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
             num_grad_updates=1,
             discount=0.99,
             gae_lambda=1,
-            dynamic_model_epochs=(30, 10),
+            dynamic_model_max_epochs=(1000, 1000),
             num_maml_steps_per_iter=10,
             reset_from_env_traj=False,
             retrain_model_when_reward_decreases=True,
@@ -85,8 +85,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         :param num_grad_updates: Number of fast gradient updates
         :param discount: Discount.
         :param gae_lambda: Lambda used for generalized advantage estimation.
-        :param dynamic_model_epochs: (2-tuple) number of epochs to train the dynamics model
-                                        (n_epochs_at_first_iter, n_epochs_after_first_iter)
+        :param dynamic_model_max_epochs: (int) maximum number of epochs for training the dynamics model
         :param num_maml_steps_per_iter: number of policy gradients steps before retraining dynamics model
         :param reset_from_env_traj: (boolean) whether to use the real environment observations for resetting the imaginary dynamics model rollouts
         :param retrain_model_when_reward_decreases: (boolean) if true - stop inner gradient steps when performance decreases
@@ -131,7 +130,8 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         self.discount = discount
         self.gae_lambda = gae_lambda
 
-        self.dynamic_model_epochs = dynamic_model_epochs
+        # dynamics model config
+        self.dynamic_model_epochs = dynamic_model_max_epochs
         self.num_maml_steps_per_iter = num_maml_steps_per_iter
         self.reset_from_env_traj = reset_from_env_traj
         self.retrain_model_when_reward_decreases = retrain_model_when_reward_decreases

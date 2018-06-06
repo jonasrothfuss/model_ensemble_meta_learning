@@ -30,7 +30,7 @@ class ModelBatchPolopt(RLAlgorithm):
             max_path_length=500,
             discount=0.99,
             gae_lambda=1,
-            dynamic_model_epochs=(30, 10),
+            dynamic_model_max_epochs=(1000, 1000),
             num_gradient_steps_per_iter=10,
             retrain_model_when_reward_decreases=True,
             reset_policy_std=False,
@@ -91,7 +91,7 @@ class ModelBatchPolopt(RLAlgorithm):
         self.max_path_length = max_path_length
         self.discount = discount
         self.gae_lambda = gae_lambda
-        self.dynamic_model_epochs = dynamic_model_epochs
+        self.dynamic_model_max_epochs = dynamic_model_max_epochs
         self.num_gradient_steps_per_iter = num_gradient_steps_per_iter
         self.retrain_model_when_reward_decreases = retrain_model_when_reward_decreases
         self.plot = plot
@@ -199,11 +199,11 @@ class ModelBatchPolopt(RLAlgorithm):
 
                     samples_data_dynamics = self.process_samples_for_dynamics(itr, self.all_paths)
 
-                epochs = self.dynamic_model_epochs[min(itr, len(self.dynamic_model_epochs) - 1)]
+                epochs = self.dynamic_model_max_epochs[min(itr, len(self.dynamic_model_epochs) - 1)]
                 # fit dynamics model
                 if self.reinit_model and itr % self.reinit_model == 0:
                     self.dynamics_model.reinit_model()
-                    epochs = self.dynamic_model_epochs[0]
+                    epochs = self.dynamic_model_max_epochs[0]
                 logger.log("Training dynamics model for %i epochs ..." % (epochs))
                 self.dynamics_model.fit(samples_data_dynamics['observations_dynamics'],
                                         samples_data_dynamics['actions_dynamics'],
