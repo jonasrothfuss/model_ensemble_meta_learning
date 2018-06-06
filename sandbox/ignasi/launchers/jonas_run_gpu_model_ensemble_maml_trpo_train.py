@@ -78,7 +78,7 @@ def run_train_task(vv):
         reset_policy_std=vv['reset_policy_std'],
         reinit_model_cycle=vv['reinit_model_cycle'],
         frac_gpu=vv.get('frac_gpu', 1),
-        log_real_performance=False,
+        log_real_performance=True,
         clip_obs=vv['clip_obs'],
     )
     algo.train()
