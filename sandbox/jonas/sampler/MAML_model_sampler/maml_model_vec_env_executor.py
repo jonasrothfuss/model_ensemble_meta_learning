@@ -5,7 +5,7 @@ import copy
 
 
 class MAMLModelVecEnvExecutor(object):
-    def __init__(self, env, model, max_path_length, n_parallel):
+    def __init__(self, env, model, max_path_length, n_parallel, clip_obs=False):
         self.env = env
         self.model = model
 
@@ -24,6 +24,7 @@ class MAMLModelVecEnvExecutor(object):
         self._observation_space = env.observation_space
         self.ts = np.zeros(n_parallel, dtype='int')
         self.max_path_length = max_path_length
+        self.clip_obs = clip_obs
 
     def step(self, action_n, traj_starting_obs=None):
         """
@@ -36,8 +37,8 @@ class MAMLModelVecEnvExecutor(object):
         # use the model to make (predicted) steps
         prev_obs = self.current_obs
         next_obs = self.model.predict_model_batches(prev_obs, action_n)
-        if hasattr(self.unwrapped_env, 'obs_lower_bounds'):
-            next_obs = np.clip(next_obs, self.unwrapped_env.obs_lower_bounds, self.unwrapped_env.obs_upper_bounds)
+        if self.clip_obs:
+            next_obs = np.clip(next_obs, -1000, 1000)
         rewards = self.unwrapped_env.reward(prev_obs, action_n, next_obs)
 
         if self.has_done_fn:

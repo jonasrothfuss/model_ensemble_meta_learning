@@ -61,6 +61,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
             load_policy=None,
             frac_gpu=0.85,
             log_real_performance=False,
+            clip_obs=False,
             **kwargs
     ):
         """
@@ -157,7 +158,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         self.env_sampler = sampler_cls(self, **sampler_args)
 
         # model sampler - makes (imaginary) rollouts with the estimated dynamics model ensemble
-        self.model_sampler = MAMLModelVectorizedSampler(self, max_path_length=max_path_length_dyn)
+        self.model_sampler = MAMLModelVectorizedSampler(self, max_path_length=max_path_length_dyn, clip_obs=clip_obs)
 
         # random sampler - (initially) collects random samples from the environment to train the dynamics model
         if self.initial_random_samples:
