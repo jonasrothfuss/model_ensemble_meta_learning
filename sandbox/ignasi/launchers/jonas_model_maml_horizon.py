@@ -102,25 +102,25 @@ def run_experiment(argv):
     vg.add('seed', [23, 43])
 
     # env spec
-    vg.add('env', ['HalfCheetahEnvRandParams'])
+    vg.add('env', ['HopperEnvRandParams'])
     vg.add('log_scale_limit', [0.0])
-    vg.add('path_length_env', [100])
+    vg.add('path_length_env', [1000])
 
     # Model-based MAML algo spec
-    vg.add('path_length_dyn', [100])
+    vg.add('path_length_dyn', [1000])
     vg.add('n_itr', [60])
-    vg.add('fast_lr', [0.01, 0.05, 0.1, 0.5])
+    vg.add('fast_lr', [0.01])
     vg.add('meta_step_size', [0.01])
-    vg.add('meta_batch_size', [20]) # must be a multiple of num_models
+    vg.add('meta_batch_size', [10]) # must be a multiple of num_models
     vg.add('discount', [0.99, 0.95])
     vg.add('batch_size_env_samples', [5])
     vg.add('batch_size_dynamics_samples', [50])
     vg.add('initial_random_samples', [None])
     vg.add('dynamic_model_epochs', [(100, 50)])
-    vg.add('num_maml_steps_per_iter', [50])
+    vg.add('num_maml_steps_per_iter', [50, 100])
     vg.add('retrain_model_when_reward_decreases', [False])
-    vg.add('reset_from_env_traj', [False])
-    vg.add('num_models', [10])
+    vg.add('reset_from_env_traj', [False, True])
+    vg.add('num_models', [5])
     vg.add('trainable_step_size', [False])
 
     # neural network configuration
@@ -179,7 +179,7 @@ def run_experiment(argv):
 
             config.AWS_INSTANCE_TYPE = ec2_instance
             config.AWS_SPOT_PRICE = str(info["price"])
-            subnets = [ 'us-west-2a', 'us-west-2b', 'us-west-2c']#cheapest_subnets(ec2_instance, num_subnets=NUM_EC2_SUBNETS)
+            subnets = [ 'us-west-1a', 'us-west-1b', 'us-west-1c']#cheapest_subnets(ec2_instance, num_subnets=NUM_EC2_SUBNETS)
             print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format('TRPO', len(variants)))
             print('Running on type {}, with price {}, on the subnets: '.format(config.AWS_INSTANCE_TYPE,
                                                                                config.AWS_SPOT_PRICE, ), str(subnets))
