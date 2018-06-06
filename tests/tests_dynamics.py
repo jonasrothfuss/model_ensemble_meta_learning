@@ -7,7 +7,7 @@ from sandbox.jonas.bad_model_exps.bad_dynamics_ensemble import BadDynamicsEnsemb
 import tensorflow as tf
 import numpy as np
 import pickle
-
+from sandbox.jonas.dynamics.mlp_dynamics import train_test_split
 
 
 def sample_random_trajectories_point_env(env, num_paths=100, horizon=100):
@@ -121,6 +121,21 @@ class TestMLPDynamics(unittest.TestCase):
             diff = np.mean(np.abs(next_obs_pred-obs_next_test)**2)
             print("DIFF:", diff)
             self.assertLess(diff, 0.05)
+
+    def test_train_test_split(self):
+        obs = np.expand_dims(np.arange(1001), axis=1)
+        delta = np.expand_dims(np.arange(-1001,0), axis=1)
+        act = np.expand_dims(np.arange(2, 1001+2), axis=1)
+
+        obs_train, act_train, delta_train, obs_test, act_test, delta_test = train_test_split(obs, act, delta, test_split_ratio=0.2)
+
+        obs_reconst_sum = np.sum(np.concatenate([obs_train, obs_test], axis=0))
+        obs_sum = np.sum(obs)
+        self.assertAlmostEqual(obs_reconst_sum, obs_sum)
+
+        delta_reconst_sum = np.sum(np.concatenate([delta_train, delta_test], axis=0))
+        delta_sum = np.sum(delta)
+        self.assertAlmostEqual(delta_reconst_sum, delta_sum)
 
 
 class TestMLPDynamicsEnsemble(unittest.TestCase):

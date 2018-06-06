@@ -74,7 +74,7 @@ class MLPDynamicsModel(LayersPowered, Serializable):
         LayersPowered.__init__(self, [mlp.output_layer])
 
 
-    def fit(self, obs, act, obs_next, epochs=50, compute_normalization=True, verbose=False):
+    def fit(self, obs, act, obs_next, epochs=50, compute_normalization=True, verbose=False, valid_split_ratio=0.2, rolling_average_persitency=0.99):
         """
         Fits the NN dynamics model
         :param obs: observations - numpy array of shape (n_samples, ndim_obs)
@@ -82,11 +82,14 @@ class MLPDynamicsModel(LayersPowered, Serializable):
         :param obs_next: observations after taking action - numpy array of shape (n_samples, ndim_obs)
         :param epochs: number of training epochs
         :param compute_normalization: boolean indicating whether normalization shall be (re-)computed given the data
+        :param valid_split_ratio: relative size of validation split (float between 0.0 and 1.0)
         :param verbose: logging verbosity
         """
         assert obs.ndim == 2 and obs.shape[1]==self.obs_space_dims
         assert obs_next.ndim == 2 and obs_next.shape[1] == self.obs_space_dims
         assert act.ndim == 2 and act.shape[1] == self.action_space_dims
+
+        assert 1 > valid_split_ratio >= 0
 
         sess = tf.get_default_session()
 
@@ -100,21 +103,29 @@ class MLPDynamicsModel(LayersPowered, Serializable):
         else:
             delta = obs_next - obs
 
+        # split into valid and test set
+
+        obs_train, act_train, delta_train, obs_test, act_test, delta_test = train_test_split(obs, act, delta,
+                                                                                             test_split_ratio=valid_split_ratio)
+
         # create data queue
-        next_batch, iterator = self._data_input_fn(obs, act, delta, batch_size=self.batch_size)
+        next_batch, iterator = self._data_input_fn(obs_train, act_train, delta_train, batch_size=self.batch_size)
+
+        valid_loss_rolling_average = None
 
         # Training loop
         for epoch in range(epochs):
 
             # initialize data queue
             sess.run(iterator.initializer,
-                          feed_dict={self.obs_dataset_ph: obs, self.act_dataset_ph: act, self.delta_dataset_ph: delta})
+                          feed_dict={self.obs_dataset_ph: obs_train, self.act_dataset_ph: act_train, self.delta_dataset_ph: delta_train})
 
             batch_losses = []
-
             while True:
                 try:
                     obs_batch, act_batch, delta_batch = sess.run(next_batch)
+
+                    # run train op
                     batch_loss, _ = sess.run([self.loss, self.train_op], feed_dict={self.obs_ph: obs_batch,
                                                                          self.act_ph: act_batch,
                                                                          self.delta_ph: delta_batch})
@@ -122,9 +133,25 @@ class MLPDynamicsModel(LayersPowered, Serializable):
                     batch_losses.append(batch_loss)
 
                 except tf.errors.OutOfRangeError:
+
+                    # compute validation loss
+                    valid_loss = sess.run(self.loss, feed_dict={self.obs_ph: obs_test,
+                                                                self.act_ph: act_test,
+                                                                self.delta_ph: delta_test})
+                    if valid_loss_rolling_average is None:
+                        valid_loss_rolling_average = 1.5 * valid_loss # set initial rolling to a higher value avoid too early stopping
+                        valid_loss_rolling_average_prev = 2.0 * valid_loss
+
+                    valid_loss_rolling_average = rolling_average_persitency*valid_loss_rolling_average + (1-rolling_average_persitency)*valid_loss
+
                     if verbose:
-                        logger.log("Training NNDynamicsModel - finished epoch {} -- mean loss: {}".format(epoch, np.mean(batch_losses)))
+                        logger.log("Training NNDynamicsModel - finished epoch %i -- train loss: %.4f  valid loss: %.4f  valid_loss_mov_avg: %.4f"%(epoch, float(np.mean(batch_losses)), valid_loss, valid_loss_rolling_average))
                     break
+
+            if valid_loss_rolling_average_prev < valid_loss_rolling_average:
+                logger.log('Stopping DynamicsEnsemble Training since valid_loss_rolling_average decreased')
+                break
+            valid_loss_rolling_average_prev = valid_loss_rolling_average
 
     def predict(self, obs, act):
         """
@@ -224,5 +251,19 @@ def normalize(data_array, mean, std):
 
 def denormalize(data_array, mean, std):
     return data_array * (std + 1e-10) + mean
+
+def train_test_split(obs, act, delta, test_split_ratio=0.2):
+    assert obs.shape[0] == act.shape[0] == delta.shape[0]
+    dataset_size = obs.shape[0]
+    indices = np.arange(dataset_size)
+    np.random.shuffle(indices)
+    split_idx = int(dataset_size * (1-test_split_ratio))
+
+    idx_train = indices[:split_idx]
+    idx_test = indices[split_idx:]
+    assert len(idx_train) + len(idx_test) == dataset_size
+
+    return obs[idx_train, :], act[idx_train, :], delta[idx_train, :], \
+           obs[idx_test, :], act[idx_test, :], delta[idx_test, :]
 
 
