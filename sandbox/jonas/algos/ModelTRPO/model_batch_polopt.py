@@ -199,7 +199,7 @@ class ModelBatchPolopt(RLAlgorithm):
 
                     samples_data_dynamics = self.process_samples_for_dynamics(itr, self.all_paths)
 
-                epochs = self.dynamic_model_max_epochs[min(itr, len(self.dynamic_model_epochs) - 1)]
+                epochs = self.dynamic_model_max_epochs[min(itr, len(self.dynamic_model_max_epochs) - 1)]
                 # fit dynamics model
                 if self.reinit_model and itr % self.reinit_model == 0:
                     self.dynamics_model.reinit_model()
