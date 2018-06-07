@@ -1,6 +1,6 @@
 
 
-from sandbox.jonas.algos.ModelTRPO.model_npo import ModelNPO
+from sandbox.jonas.bad_model_exps.ModelTRPO.model_npo import ModelNPO
 from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer
 
 

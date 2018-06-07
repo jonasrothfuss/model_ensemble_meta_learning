@@ -62,7 +62,8 @@ def run_train_task(vv):
         discount=vv['discount'],
         step_size=vv["step_size"],
         reset_policy_std=vv['reset_policy_std'],
-        reinit_model_cycle=vv['reinit_model_cycle']
+        reinit_model_cycle=vv['reinit_model_cycle'],
+        resample_output_bias=vv['resample_output_bias']
     )
     algo.train()
 
@@ -83,18 +84,18 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['ReacherEnvRandParams']) # HalfCheetahEnvRandParams
-    vg.add('n_itr', [10])
+    vg.add('env', ['HalfCheetahEnvRandParams']) # HalfCheetahEnvRandParams #TODO ReacherEnvRandParams
+    vg.add('n_itr', [40])
     vg.add('log_scale_limit', [0.0])
     vg.add('step_size', [0.01])
     vg.add('seed', [22, 33, 55]) #TODO set back to [1, 11, 21, 31, 41]
     vg.add('discount', [0.99])
-    vg.add('path_length', [200])
+    vg.add('path_length', [100])
     vg.add('batch_size_env_samples', [4000])
     vg.add('batch_size_dynamics_samples', [100000])
     vg.add('initial_random_samples', [None])
-    vg.add('dynamic_model_epochs', [(100, 50)])
-    vg.add('num_gradient_steps_per_iter', [30, 80])
+    vg.add('dynamic_model_epochs', [(1000, 1000)]) #TODO
+    vg.add('num_gradient_steps_per_iter', [30]) #TODO
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(32, 32)])
@@ -105,8 +106,9 @@ def run_experiment(argv):
     vg.add('reinit_model_cycle', [0])
     vg.add('num_models', [5])
 
-    vg.add('output_bias_range', [0, 0.05, 0.1])
-    vg.add('output_noise_std', [0.0])
+    vg.add('output_bias_range', [0.1, 0.5, 1.0])
+    vg.add('output_noise_std', [0.0, 0.1])
+    vg.add('resample_output_bias', [True, False])
 
     vg.add('exp_prefix', [EXP_PREFIX])
 
@@ -114,7 +116,7 @@ def run_experiment(argv):
 
     default_dict = dict(exp_prefix=EXP_PREFIX,
                         snapshot_mode="gap",
-                        snapshot_gap=5,
+                        snapshot_gap=10,
                         periodic_sync=True,
                         sync_s3_pkl=True,
                         sync_s3_log=True,

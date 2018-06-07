@@ -22,9 +22,9 @@ import argparse
 import random
 import os
 
-EXP_PREFIX = 'model-ensemble-maml-bad-model'
+EXP_PREFIX = 'model-ensemble-maml-new-bad-model'
 
-ec2_instance = 'c4.4xlarge'
+ec2_instance = 'm4.4xlarge'
 NUM_EC2_SUBNETS = 3
 
 
@@ -79,6 +79,7 @@ def run_train_task(vv):
         reinit_model_cycle=vv['reinit_model_cycle'],
         frac_gpu=vv.get('frac_gpu', 0.85),
         log_real_performance=True,
+        resample_output_bias=vv['resample_output_bias']
     )
     algo.train()
 
@@ -102,25 +103,26 @@ def run_experiment(argv):
     vg.add('seed', [23, 43, 53]) #TODO set back to [1, 11, 21, 31, 41]
 
     # env spec
-    vg.add('env', ['ReacherEnvRandParams'])
+    vg.add('env', ['HalfCheetahEnvRandParams'])
     vg.add('log_scale_limit', [0.0])
     vg.add('path_length_env', [100])
 
     # Model-based MAML algo spec
-    vg.add('n_itr', [20])
+    vg.add('n_itr', [40])
     vg.add('fast_lr', [0.01])
     vg.add('meta_step_size', [0.01])
     vg.add('meta_batch_size', [20]) # must be a multiple of num_models
     vg.add('discount', [0.99])
     vg.add('batch_size_env_samples', [2])
-    vg.add('batch_size_dynamics_samples', [50])
+    vg.add('batch_size_dynamics_samples', [30])
     vg.add('initial_random_samples', [None])
-    vg.add('dynamic_model_epochs', [(100, 50)])
-    vg.add('num_maml_steps_per_iter', [30, 80])
+    vg.add('dynamic_model_epochs', [(1000, 1000)])
+    vg.add('num_maml_steps_per_iter', [30])
     vg.add('retrain_model_when_reward_decreases', [False])
     vg.add('reset_from_env_traj', [False])
     vg.add('num_models', [5])
     vg.add('trainable_step_size', [False])
+    vg.add('resample_output_bias', [True, False])
 
     # neural network configuration
     vg.add('hidden_nonlinearity_policy', ['tanh'])
@@ -134,8 +136,9 @@ def run_experiment(argv):
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
     vg.add('bias_transform', [False])
     vg.add('param_noise_std', [0.0])
-    vg.add('output_bias_range', [0, 0.05, 0.1])
-    vg.add('output_noise_std', [0.0])
+
+    vg.add('output_bias_range', [0.1, 0.5, 1.0])
+    vg.add('output_noise_std', [0.0, 0.1])
 
     # other stuff
     vg.add('exp_prefix', [EXP_PREFIX])
@@ -146,7 +149,7 @@ def run_experiment(argv):
 
     default_dict = dict(exp_prefix=EXP_PREFIX,
                         snapshot_mode="gap",
-                        snapshot_gap=5,
+                        snapshot_gap=10,
                         periodic_sync=True,
                         sync_s3_pkl=True,
                         sync_s3_log=True,

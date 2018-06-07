@@ -34,7 +34,9 @@ def run_train_task(vv):
         env_spec=env.spec,
         hidden_sizes=vv['hidden_sizes_model'],
         weight_normalization=vv['weight_normalization_model'],
-        num_models=vv['num_models']
+        num_models=vv['num_models'],
+        valid_split_ratio=vv['valid_split_ratio'],
+        rolling_average_persitency=vv['rolling_average_persitency']
     )
 
     policy = GaussianMLPPolicy(
@@ -54,10 +56,10 @@ def run_train_task(vv):
         batch_size_env_samples=vv['batch_size_env_samples'],
         batch_size_dynamics_samples=vv['batch_size_dynamics_samples'],
         initial_random_samples=vv['initial_random_samples'],
-        dynamic_model_epochs=vv['dynamic_model_epochs'],
         num_gradient_steps_per_iter=vv['num_gradient_steps_per_iter'],
         max_path_length=vv['path_length'],
         n_itr=vv['n_itr'],
+        retrain_model_when_reward_decreases=vv['retrain_model_when_reward_decreases'],
         discount=vv['discount'],
         step_size=vv["step_size"],
         reset_policy_std=vv['reset_policy_std'],

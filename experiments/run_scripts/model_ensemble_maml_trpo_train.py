@@ -22,7 +22,7 @@ import argparse
 import random
 import os
 
-EXP_PREFIX = 'model-ensemble-maml'
+EXP_PREFIX = 'model-ensemble-maml-new'
 
 ec2_instance = 'm4.4xlarge'
 NUM_EC2_SUBNETS = 3
@@ -39,6 +39,8 @@ def run_train_task(vv):
         weight_normalization=vv['weight_normalization_model'],
         num_models=vv['num_models'],
         optimizer=vv['optimizer_model'],
+        valid_split_ratio=vv['valid_split_ratio'],
+        rolling_average_persitency=vv['rolling_average_persitency']
     )
 
     policy = MAMLImprovedGaussianMLPPolicy(
@@ -65,7 +67,6 @@ def run_train_task(vv):
         batch_size_dynamics_samples=vv['batch_size_dynamics_samples'],
         meta_batch_size=vv['meta_batch_size'],
         initial_random_samples=vv['initial_random_samples'],
-        dynamic_model_epochs=vv['dynamic_model_epochs'],
         num_maml_steps_per_iter=vv['num_maml_steps_per_iter'],
         reset_from_env_traj=vv.get('reset_from_env_traj', False),
         max_path_length_env=vv['path_length_env'],
@@ -77,6 +78,7 @@ def run_train_task(vv):
         reset_policy_std=vv['reset_policy_std'],
         reinit_model_cycle=vv['reinit_model_cycle'],
         frac_gpu=vv.get('frac_gpu', 0.85),
+        clip_obs=vv.get('clip_obs', True)
     )
     algo.train()
 
@@ -97,46 +99,47 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
     vg = VariantGenerator()
 
-    vg.add('seed', [23, 43, 53]) #TODO set back to [1, 11, 21, 31, 41]
+    vg.add('seed', [23, 43]) #TODO set back to [1, 11, 21, 31, 41]
 
     # env spec
-    vg.add('env', ['HalfCheetahEnvRandParams'])
+    vg.add('env', ['AntEnvRandParams'])
     vg.add('log_scale_limit', [0.0])
-    vg.add('path_length_env', [500, 1000])
+    vg.add('path_length_env', [100, 200])
 
     # Model-based MAML algo spec
-    vg.add('n_itr', [50])
+    vg.add('n_itr', [200])
     vg.add('fast_lr', [0.01])
     vg.add('meta_step_size', [0.01])
-    vg.add('meta_batch_size', [10]) # must be a multiple of num_models
+    vg.add('meta_batch_size', [20]) # must be a multiple of num_models
     vg.add('discount', [0.99])
-    vg.add('batch_size_env_samples', [1])
-    vg.add('batch_size_dynamics_samples', [20])
+
+    vg.add('batch_size_env_samples', [2])
+    vg.add('batch_size_dynamics_samples', [50])
     vg.add('initial_random_samples', [5000])
-    vg.add('dynamic_model_epochs', [(100, 50)])
-    vg.add('num_maml_steps_per_iter', [list(range(20,80,4))])
+    vg.add('num_maml_steps_per_iter', [30, 50])
     vg.add('retrain_model_when_reward_decreases', [False])
     vg.add('reset_from_env_traj', [False])
-    vg.add('num_models', [5, 10])
     vg.add('trainable_step_size', [False])
+    vg.add('num_models', [5, 10])
 
     # neural network configuration
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(32, 32)])
-    vg.add('hidden_sizes_model', [(512, 512)])
+    vg.add('hidden_sizes_model', [(1024, 1024)])
     vg.add('weight_normalization_model', [True])
-    vg.add('reset_policy_std', [False, True])
+    vg.add('reset_policy_std', [False])
     vg.add('reinit_model_cycle', [0])
     vg.add('optimizer_model', ['adam'])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
     vg.add('bias_transform', [False])
     vg.add('param_noise_std', [0.0])
 
+    vg.add('valid_split_ratio', [0.2])
+    vg.add('rolling_average_persitency', [0.99])
+
     # other stuff
     vg.add('exp_prefix', [EXP_PREFIX])
-
-
 
     variants = vg.variants()
 

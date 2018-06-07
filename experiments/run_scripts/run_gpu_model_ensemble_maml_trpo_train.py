@@ -39,7 +39,9 @@ def run_train_task(vv):
         hidden_sizes=vv['hidden_sizes_model'],
         weight_normalization=vv['weight_normalization_model'],
         num_models=vv['num_models'],
-        optimizer=vv['optimizer_model']
+        optimizer=vv['optimizer_model'],
+        valid_split_ratio=vv['valid_split_ratio'],
+        rolling_average_persitency=vv['rolling_average_persitency']
     )
 
     policy = MAMLImprovedGaussianMLPPolicy(
@@ -49,7 +51,8 @@ def run_train_task(vv):
         hidden_nonlinearity=vv['hidden_nonlinearity_policy'],
         grad_step_size=vv['fast_lr'],
         trainable_step_size=vv['trainable_step_size'],
-        bias_transform=vv['bias_transform']
+        bias_transform=vv['bias_transform'],
+        param_noise_std=vv['param_noise_std']
     )
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
@@ -65,7 +68,6 @@ def run_train_task(vv):
         batch_size_dynamics_samples=vv['batch_size_dynamics_samples'],
         meta_batch_size=vv['meta_batch_size'],
         initial_random_samples=vv['initial_random_samples'],
-        dynamic_model_epochs=vv['dynamic_model_epochs'],
         num_maml_steps_per_iter=vv['num_maml_steps_per_iter'],
         reset_from_env_traj=vv.get('reset_from_env_traj', False),
         max_path_length_env=vv['path_length_env'],
@@ -76,7 +78,8 @@ def run_train_task(vv):
         retrain_model_when_reward_decreases=vv['retrain_model_when_reward_decreases'],
         reset_policy_std=vv['reset_policy_std'],
         reinit_model_cycle=vv['reinit_model_cycle'],
-        frac_gpu=vv.get('frac_gpu', 1),
+        frac_gpu=vv.get('frac_gpu', 0.85),
+        clip_obs=vv.get('clip_obs', True)
     )
     algo.train()
 

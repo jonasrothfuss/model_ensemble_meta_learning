@@ -16,11 +16,11 @@ class ReacherEnv(MujocoEnv, Serializable):
     def get_current_obs(self):
         theta = self.model.data.qpos.flat[:2]
         return np.concatenate([
-            np.cos(theta),
-            np.sin(theta),
-            self.model.data.qpos.flat[2:],
-            self.model.data.qvel.flat[:2],
-            self.get_body_com("fingertip") - self.get_body_com("target")
+            np.cos(theta), #joints
+            np.sin(theta), #joints
+            self.model.data.qpos.flat[2:], #target position
+            self.model.data.qvel.flat[:2], # joint volocities
+            self.get_body_com("fingertip") - self.get_body_com("target") #distance to target
         ])
 
     def step(self, action):

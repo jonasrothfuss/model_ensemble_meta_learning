@@ -61,6 +61,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
             load_policy=None,
             frac_gpu=0.85,
             log_real_performance=False,
+            resample_output_bias=True,
             **kwargs
     ):
         """
@@ -147,6 +148,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         self.fixed_horizon = fixed_horizon
         self.num_grad_updates = num_grad_updates # number of gradient steps during training
         self.frac_gpu = frac_gpu
+        self.resample_output_bias = resample_output_bias
 
         ''' setup sampler classes '''
 
@@ -294,10 +296,11 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                                             samples_data_dynamics['next_observations_dynamics'],
                                             epochs=epochs, verbose=True)
 
+                    if self.resample_output_bias:
+                        self.dynamics_model.sample_output_bias()
+
                     ''' MAML steps '''
                     for maml_itr in range(self.num_maml_steps_per_iter):
-
-                        self.dynamics_model.sample_output_bias()
 
                         self.policy.switch_to_init_dist()  # Switch to pre-update policy
 
