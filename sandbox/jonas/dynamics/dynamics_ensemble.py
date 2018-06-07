@@ -92,14 +92,18 @@ class MLPDynamicsEnsemble(MLPDynamicsModel):
             # placeholders
             self.obs_model_batches_stack_ph = tf.placeholder(tf.float32, shape=(None, obs_space_dims))
             self.act_model_batches_stack_ph = tf.placeholder(tf.float32, shape=(None, action_space_dims))
+            self.delta_model_batches_stack_ph = tf.placeholder(tf.float32, shape=(None, obs_space_dims))
 
             # split stack into the batches for each model --> assume each model receives a batch of the same size
             self.obs_model_batches = tf.split(self.obs_model_batches_stack_ph, self.num_models, axis=0)
             self.act_model_batches = tf.split(self.act_model_batches_stack_ph, self.num_models, axis=0)
+            self.delta_model_batches = tf.split(self.delta_model_batches_stack_ph, self.num_models, axis=0)
 
             # reuse previously created MLP but each model receives its own batch
             delta_preds = []
             self.obs_next_pred = []
+            self.loss_model_batches = []
+            self.train_op_model_batches = []
             for i in range(num_models):
                 with tf.variable_scope('model_{}'.format(i), reuse=True):
                     # concatenate action and observation --> NN input
@@ -113,12 +117,136 @@ class MLPDynamicsEnsemble(MLPDynamicsModel):
                               input_shape=(obs_space_dims+action_space_dims,),
                               weight_normalization=weight_normalization)
                 delta_preds.append(mlp.output)
+                loss = tf.reduce_mean((self.delta_model_batches[i] - mlp.output) ** 2)
+                self.loss_model_batches.append(loss)
+                self.train_op_model_batches.append(optimizer(self.step_size).minimize(loss))
             self.delta_pred_model_batches_stack = tf.concat(delta_preds, axis=0) # shape: (batch_size_per_model*num_models, ndim_obs)
 
             # tensor_utils
             self.f_delta_pred_model_batches = tensor_utils.compile_function([self.obs_model_batches_stack_ph, self.act_model_batches_stack_ph], self.delta_pred_model_batches_stack)
 
         LayersPowered.__init__(self, [mlp.output_layer for mlp in mlps])
+
+    def fit(self, obs, act, obs_next, epochs=1000, compute_normalization=True, verbose=False, valid_split_ratio=None, rolling_average_persitency=None):
+        """
+        Fits the NN dynamics model
+        :param obs: observations - numpy array of shape (n_samples, ndim_obs)
+        :param act: actions - numpy array of shape (n_samples, ndim_act)
+        :param obs_next: observations after taking action - numpy array of shape (n_samples, ndim_obs)
+        :param epochs: number of training epochs
+        :param compute_normalization: boolean indicating whether normalization shall be (re-)computed given the data
+        :param valid_split_ratio: relative size of validation split (float between 0.0 and 1.0)
+        :param verbose: logging verbosity
+        """
+        assert obs.ndim == 2 and obs.shape[1] == self.obs_space_dims
+        assert obs_next.ndim == 2 and obs_next.shape[1] == self.obs_space_dims
+        assert act.ndim == 2 and act.shape[1] == self.action_space_dims
+
+        if valid_split_ratio is None: valid_split_ratio = self.valid_split_ratio
+        if rolling_average_persitency is None: rolling_average_persitency = self.rolling_average_persitency
+
+        assert 1 > valid_split_ratio >= 0
+
+        sess = tf.get_default_session()
+
+        if (self.normalization is None or compute_normalization) and self.normalize_input:
+            self.compute_normalization(obs, act, obs_next)
+
+        if self.normalize_input:
+            # normalize data
+            obs, act, delta = self._normalize_data(obs, act, obs_next)
+            assert obs.ndim == act.ndim == obs_next.ndim == 2
+        else:
+            delta = obs_next - obs
+
+        # split into valid and test set
+        obs_train_batches = []
+        act_train_batches = []
+        delta_train_batches = []
+        obs_test_batches = []
+        act_test_batches = []
+        delta_test_batches = []
+        for i in range(self.num_models):
+            obs_train, act_train, delta_train, obs_test, act_test, delta_test = train_test_split(obs, act, delta,
+                                                                                             test_split_ratio=valid_split_ratio)
+            obs_train_batches.append(obs_train)
+            act_train_batches.append(act_train)
+            delta_train_batches.append(delta_train)
+            obs_test_batches.append(obs_test)
+            act_test_batches.append(act_test)
+            delta_test_batches.append(delta_test)
+            # create data queue
+        next_batch, iterator = self._data_input_fn(obs_train_batches, act_train_batches, delta_train_batches,
+                                                   batch_size=self.batch_size)
+
+        valid_loss_rolling_average = None
+        train_op_to_do = self.train_op_model_batches
+        idx_to_remove = []
+
+        # Training loop
+        for epoch in range(epochs):
+
+            # initialize data queue
+            feed_dict = dict(
+                list(zip(self.obs_batches_dataset_ph, obs_train_batches)) +
+                list(zip(self.act_batches_dataset_ph, act_train_batches)) +
+                list(zip(self.delta_batches_dataset_ph, delta_train_batches))
+            )
+            sess.run(iterator.initializer, feed_dict=feed_dict)
+
+            batch_losses = []
+            while True:
+                try:
+                    obs_act_delta = sess.run(next_batch)
+                    obs_batch_stack = np.concatenate(obs_act_delta[:self.num_models], axis=0)
+                    act_batch_stack = np.concatenate(obs_act_delta[self.num_models:2*self.num_models], axis=0)
+                    delta_batch_stack = np.concatenate(obs_act_delta[2*self.num_models:], axis=0)
+
+                    # run train op
+                    batch_loss_train_ops= sess.run(self.loss_model_batches + train_op_to_do,
+                                                   feed_dict={self.obs_model_batches_stack_ph: obs_batch_stack,
+                                                              self.act_model_batches_stack_ph: act_batch_stack,
+                                                              self.delta_model_batches_stack_ph: delta_batch_stack})
+
+                    batch_loss = np.array(batch_loss_train_ops[:self.num_models])
+                    batch_losses.append(batch_loss)
+
+                except tf.errors.OutOfRangeError:
+                    obs_test_stack = np.concatenate(obs_test_batches, axis=0)
+                    act_test_stack = np.concatenate(act_test_batches, axis=0)
+                    delta_test_stack = np.concatenate(delta_test_batches, axis=0)
+                    # compute validation loss
+                    valid_loss = sess.run(self.loss_model_batches,
+                                          feed_dict={self.obs_model_batches_stack_ph: obs_test_stack,
+                                                     self.act_model_batches_stack_ph: act_test_stack,
+                                                     self.delta_model_batches_stack_ph: delta_test_stack})
+                    valid_loss = np.array(valid_loss)
+                    if valid_loss_rolling_average is None:
+                        valid_loss_rolling_average = 1.5 * valid_loss # set initial rolling to a higher value avoid too early stopping
+                        valid_loss_rolling_average_prev = 2.0 * valid_loss
+
+                    valid_loss_rolling_average = rolling_average_persitency*valid_loss_rolling_average + (1.0-rolling_average_persitency)*valid_loss
+
+                    if verbose:
+                        str_mean_batch_losses = ' '.join(['%.4f'%x for x in np.mean(batch_losses, axis=0)])
+                        str_valid_loss = ' '.join(['%.4f'%x for x in valid_loss])
+                        str_valid_loss_rolling_averge = ' '.join(['%.4f'%x for x in valid_loss_rolling_average])
+                        logger.log("Training NNDynamicsModel - finished epoch %i --"
+                                   "train loss: %s  valid loss: %s  valid_loss_mov_avg: %s"
+                                   %(epoch, str_mean_batch_losses, str_valid_loss, str_valid_loss_rolling_averge))
+                    break
+
+            for i in range(self.num_models):
+                if valid_loss_rolling_average_prev[i] < valid_loss_rolling_average[i] and i not in idx_to_remove:
+                    idx_to_remove.append(i)
+                    logger.log('Stopping Training of Model %i since its valid_loss_rolling_average decreased'%i)
+
+            train_op_to_do = [op for idx, op in enumerate(self.train_op_model_batches) if idx not in idx_to_remove]
+
+            if not train_op_to_do:
+                logger.log('Stopping DynamicsEnsemble Training since valid_loss_rolling_average decreased')
+                break
+            valid_loss_rolling_average_prev = valid_loss_rolling_average
 
     def predict(self, obs, act, pred_type='rand'):
         """
@@ -211,9 +339,47 @@ class MLPDynamicsEnsemble(MLPDynamicsModel):
                                     scope=self.name+'/model_{}'.format(i))) for i in range(self.num_models)]
         sess.run(self._reinit_model_op)
 
+    def _data_input_fn(self, obs_batches, act_batches, delta_batches, batch_size=500, buffer_size=100000):
+        """ Takes in train data an creates an a symbolic nex_batch operator as well as an iterator object """
+
+        assert len(obs_batches) == len(act_batches) == len(delta_batches)
+        obs, act, delta = obs_batches[0], act_batches[0], delta_batches[0]
+        assert obs.ndim == act.ndim == delta.ndim, "inputs must have 2 dims"
+        assert obs.shape[0] == act.shape[0] == delta.shape[0], "inputs must have same length along axis 0"
+        assert obs.shape[1] == delta.shape[1], "obs and obs_next must have same length along axis 1 "
+
+        self.obs_batches_dataset_ph = [tf.placeholder(tf.float32, obs.shape) for _ in range(self.num_models)]
+        self.act_batches_dataset_ph = [tf.placeholder(tf.float32, act.shape) for _ in range(self.num_models)]
+        self.delta_batches_dataset_ph = [tf.placeholder(tf.float32, delta.shape) for _ in range(self.num_models)]
+
+        dataset = tf.data.Dataset.from_tensor_slices(
+            tuple(self.obs_batches_dataset_ph + self.act_batches_dataset_ph + self.delta_batches_dataset_ph)
+        )
+        dataset = dataset.batch(batch_size)
+        dataset = dataset.shuffle(buffer_size=buffer_size)
+        iterator = dataset.make_initializable_iterator()
+        next_batch = iterator.get_next()
+
+        return next_batch, iterator
+
 
 def denormalize(data_array, mean, std):
     if data_array.ndim == 3: # assumed shape (batch_size, ndim_obs, n_models)
         return data_array * (std[None, :, None] + 1e-10) + mean[None, :, None]
     elif data_array.ndim == 2:
         return data_array * (std[None, :] + 1e-10) + mean[None, :]
+
+
+def train_test_split(obs, act, delta, test_split_ratio=0.2):
+    assert obs.shape[0] == act.shape[0] == delta.shape[0]
+    dataset_size = obs.shape[0]
+    indices = np.arange(dataset_size)
+    np.random.shuffle(indices)
+    split_idx = int(dataset_size * (1-test_split_ratio))
+
+    idx_train = indices[:split_idx]
+    idx_test = indices[split_idx:]
+    assert len(idx_train) + len(idx_test) == dataset_size
+
+    return obs[idx_train, :], act[idx_train, :], delta[idx_train, :], \
+           obs[idx_test, :], act[idx_test, :], delta[idx_test, :]
