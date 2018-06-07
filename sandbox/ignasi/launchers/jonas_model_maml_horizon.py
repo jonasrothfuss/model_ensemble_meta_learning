@@ -104,16 +104,16 @@ def run_experiment(argv):
     # env spec
     vg.add('env', ['HalfCheetahEnvRandParams'])
     vg.add('log_scale_limit', [0.0])
-    vg.add('path_length_env', [100])
+    vg.add('path_length_env', [1000])
 
     # Model-based MAML algo spec
-    vg.add('path_length_dyn', [100])
+    vg.add('path_length_dyn', [1000])
     vg.add('n_itr', [60])
     vg.add('fast_lr', [0.01])
-    vg.add('meta_step_size', [0.0, 0.001])
+    vg.add('meta_step_size', [0.0, 0.001, 0.005, 0.05])
     vg.add('meta_batch_size', [10]) # must be a multiple of num_models
     vg.add('discount', [0.99])
-    vg.add('batch_size_env_samples', [1, 2, 5])
+    vg.add('batch_size_env_samples', [5])
     vg.add('batch_size_dynamics_samples', [50])
     vg.add('initial_random_samples', [None])
     vg.add('dynamic_model_epochs', [(1000, 1000)])

@@ -8,10 +8,10 @@ from sandbox.rocky.tf.misc import tensor_utils
 from rllab.misc import logger
 from collections import OrderedDict
 import sandbox.rocky.tf.core.layers as L
-from sandbox.jonas.dynamics import MLPDynamicsModel
+from sandbox.jonas.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
 
 
-class MLPProbabilisticDynamicsEnsemble(MLPDynamicsModel):
+class MLPProbabilisticDynamicsEnsemble(MLPDynamicsEnsemble):
     """
     Class for MLP continous dynamics model
     """
@@ -27,13 +27,19 @@ class MLPProbabilisticDynamicsEnsemble(MLPDynamicsModel):
                  step_size=0.001,
                  weight_normalization=False,
                  normalize_input=True,
-                 optimizer=tf.train.AdamOptimizer
+                 optimizer=tf.train.AdamOptimizer,
+                 valid_split_ratio=0.2,
+                 rolling_average_persitency=0.99
                  ):
 
         Serializable.quick_init(self, locals())
 
+
         self.normalization = None
         self.normalize_input = normalize_input
+
+        self.valid_split_ratio = valid_split_ratio
+        self.rolling_average_persitency = rolling_average_persitency
 
         self.batch_size = batch_size
         self.step_size = step_size
@@ -109,15 +115,19 @@ class MLPProbabilisticDynamicsEnsemble(MLPDynamicsModel):
             # placeholders
             self.obs_model_batches_stack_ph = tf.placeholder(tf.float32, shape=(None, obs_space_dims))
             self.act_model_batches_stack_ph = tf.placeholder(tf.float32, shape=(None, action_space_dims))
+            self.delta_model_batches_stack_ph = tf.placeholder(tf.float32, shape=(None, obs_space_dims))
 
             # split stack into the batches for each model --> assume each model receives a batch of the same size
             self.obs_model_batches = tf.split(self.obs_model_batches_stack_ph, self.num_models, axis=0)
             self.act_model_batches = tf.split(self.act_model_batches_stack_ph, self.num_models, axis=0)
+            self.delta_model_batches = tf.split(self.delta_model_batches_stack_ph, self.num_models, axis=0)
 
             # reuse previously created MLP but each model receives its own batch
             means_delta = []
-            logvars_delta = []
+            vars_delta = []
             self.obs_next_pred = []
+            self.loss_model_batches = []
+            self.train_op_model_batches = []
             for i in range(num_models):
                 with tf.variable_scope('model_{}'.format(i), reuse=True):
                     # concatenate action and observation --> NN input
@@ -130,26 +140,30 @@ class MLPProbabilisticDynamicsEnsemble(MLPDynamicsModel):
                               input_var=nn_input,
                               input_shape=(obs_space_dims+action_space_dims,),
                               weight_normalization=weight_normalization)
-                    mean_delta, var_delta = tf.split(mlp.output, 2, axis=-1)
+                    mean_delta, logvar_delta = tf.split(mlp.output, 2, axis=-1)
                 means_delta.append(mean_delta)
-                logvars_delta.append(var_delta)
+                logvars_delta.append(logvar_delta)
+                logvar_delta = self.max_logvar - tf.nn.softplus(self.max_logvar) - logvar_delta
+                logvar_delta = self.min_logvar + tf.nn.softplus(logvar_delta - self.min_logvar)
+                var_delta = tf.exp(logvar_delta)
+                vars_delta.append(var_delta)
+                loss = tf.reduce_mean(tf.divide((self.delta_model_batches[i] - mean_delta) ** 2, var_delta) + logvar_delta)
+                self.loss_model_batches.append(loss)
+                self.train_op_model_batches.append(optimizer(self.step_size).minimize(loss))
+
             self.mean_delta_model_batches_stack = tf.concat(means_delta, axis=0) # shape: (batch_size_per_model*num_models, ndim_obs)
-            logvar_delta_model_batches_stack = tf.concat(logvars_delta, axis=0) # shape: (batch_size_per_model*num_models, ndim_obs)
-            logvar_delta_model_batches_stack = self.max_logvar - tf.nn.softplus(self.max_logvar
-                                                                                - logvar_delta_model_batches_stack)
-            logvar_delta_model_batches_stack = self.min_logvar + tf.nn.softplus(logvar_delta_model_batches_stack - self.min_logvar)
-            self.var_delta_model_batches_stack  = tf.exp(logvar_delta_model_batches_stack )
+            self.var_delta_model_batches_stack = tf.concat(vars_delta, axis=0) # shape: (batch_size_per_model*num_models, ndim_obs)
 
             # tensor_utils
             self.f_delta_pred_model_batches = tensor_utils.compile_function([self.obs_model_batches_stack_ph,
                                                                              self.act_model_batches_stack_ph],
                                                                             [self.mean_delta_model_batches_stack,
-                                                                            self.var_delta_model_batches_stack]
+                                                                             self.var_delta_model_batches_stack]
                                                                             )
 
         LayersPowered.__init__(self, [mlp.output_layer for mlp in mlps])
 
-    def fit(self, obs, act, obs_next, epochs=50, compute_normalization=True, verbose=False):
+    def  fit(self, obs, act, obs_next, epochs=1000, compute_normalization=True, verbose=False, valid_split_ratio=None, rolling_average_persitency=None):
         sess = tf.get_default_session()
         if self.normalize_input:
             max_logvar = np.zeros((obs.shape[-1],))
@@ -160,7 +174,13 @@ class MLPProbabilisticDynamicsEnsemble(MLPDynamicsModel):
         feed_dict = {self.max_logvar_ph: max_logvar,
                      self.min_logvar_ph: min_logvar}
         sess.run(self._set_logvar, feed_dict=feed_dict)
-        super(MLPProbabilisticDynamicsEnsemble, self).fit(obs, act, obs_next, epochs, compute_normalization, verbose)
+        super(MLPProbabilisticDynamicsEnsemble, self).fit(obs, act, obs_next,
+                                                          epochs=epochs,
+                                                          compute_normalization=compute_normalization,
+                                                          verbose=verbose,
+                                                          valid_split_ratio=valid_split_ratio,
+                                                          rolling_average_persitency=rolling_average_persitency)
+
 
     def predict(self, obs, act, pred_type='rand'):
         """
