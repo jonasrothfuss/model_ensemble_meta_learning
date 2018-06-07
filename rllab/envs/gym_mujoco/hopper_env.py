@@ -32,6 +32,7 @@ class HopperEnv(MujocoEnv, Serializable):
         self.alive_coeff = alive_coeff
         self.ctrl_cost_coeff = ctrl_cost_coeff
         super(HopperEnv, self).__init__(*args, **kwargs)
+        self.frame_skip = 4
         Serializable.quick_init(self, locals())
 
     @overrides
