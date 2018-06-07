@@ -222,10 +222,15 @@ class MLPDynamicsEnsemble(MLPDynamicsModel):
                                                      self.delta_model_batches_stack_ph: delta_test_stack})
                     valid_loss = np.array(valid_loss)
                     if valid_loss_rolling_average is None:
-                        valid_loss_rolling_average = 1.5 * valid_loss # set initial rolling to a higher value avoid too early stopping
+                        valid_loss_rolling_average = 1.5 * valid_loss  # set initial rolling to a higher value avoid too early stopping
                         valid_loss_rolling_average_prev = 2.0 * valid_loss
+                        for i in range(len(valid_loss)):
+                            if valid_loss[i] < 0:
+                                valid_loss_rolling_average[i] = valid_loss[i]/1.5  # set initial rolling to a higher value avoid too early stopping
+                                valid_loss_rolling_average_prev[i] = valid_loss[i]/2.0
 
-                    valid_loss_rolling_average = rolling_average_persitency*valid_loss_rolling_average + (1.0-rolling_average_persitency)*valid_loss
+                    valid_loss_rolling_average = rolling_average_persitency*valid_loss_rolling_average \
+                                                 + (1.0-rolling_average_persitency)*valid_loss
 
                     if verbose:
                         str_mean_batch_losses = ' '.join(['%.4f'%x for x in np.mean(batch_losses, axis=0)])
