@@ -7,6 +7,7 @@ from sandbox.jonas.envs.base import TfEnv
 from rllab.misc.instrument import stub, run_experiment_lite
 from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
 from sandbox.jonas.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
+from sandbox.ignasi.dynamics.probabilistic_dynamics_ensemble import MLPProbabilisticDynamicsEnsemble
 from sandbox.jonas.algos.ModelMAML.model_maml_trpo import ModelMAMLTRPO
 from experiments.helpers.ec2_helpers import cheapest_subnets
 from experiments.helpers.run_multi_gpu import run_multi_gpu
@@ -30,10 +31,9 @@ NUM_EC2_SUBNETS = 3
 
 
 def run_train_task(vv):
-
     env = TfEnv(normalize(vv['env'](log_scale_limit=vv['log_scale_limit'])))
 
-    dynamics_model = MLPDynamicsEnsemble(
+    dynamics_model = vv['dynamics_model'](
         name="dyn_model",
         env_spec=env.spec,
         hidden_sizes=vv['hidden_sizes_model'],
@@ -102,25 +102,25 @@ def run_experiment(argv):
     vg.add('seed', [23, 43])
 
     # env spec
-    vg.add('env', ['HopperEnvRandParams'])
+    vg.add('env', ['HalfCheetahEnvRandParams'])
     vg.add('log_scale_limit', [0.0])
-    vg.add('path_length_env', [1000])
+    vg.add('path_length_env', [100])
 
     # Model-based MAML algo spec
-    vg.add('path_length_dyn', [1000])
+    vg.add('path_length_dyn', [100])
     vg.add('n_itr', [60])
     vg.add('fast_lr', [0.01])
-    vg.add('meta_step_size', [0.01])
+    vg.add('meta_step_size', [0.0, 0.001])
     vg.add('meta_batch_size', [10]) # must be a multiple of num_models
-    vg.add('discount', [0.99, 0.95])
-    vg.add('batch_size_env_samples', [5])
+    vg.add('discount', [0.99])
+    vg.add('batch_size_env_samples', [1, 2, 5])
     vg.add('batch_size_dynamics_samples', [50])
     vg.add('initial_random_samples', [None])
-    vg.add('dynamic_model_epochs', [(100, 50)])
-    vg.add('num_maml_steps_per_iter', [50, 100])
+    vg.add('dynamic_model_epochs', [(1000, 1000)])
+    vg.add('num_maml_steps_per_iter', [30])
     vg.add('retrain_model_when_reward_decreases', [False])
-    vg.add('reset_from_env_traj', [False, True])
-    vg.add('num_models', [5])
+    vg.add('reset_from_env_traj', [False])
+    vg.add('num_models', [5, 10])
     vg.add('trainable_step_size', [False])
 
     # neural network configuration
@@ -229,6 +229,7 @@ def run_experiment(argv):
 
 def instantiate_class_stings(v):
     v['env'] = globals()[v['env']]
+    v['dynamics_model'] = globals()[v['dynamics_model']]
 
     if 'nm_mbs_envs' in v.keys():
         v['num_models'] = v['nm_mbs_envs'][0]
