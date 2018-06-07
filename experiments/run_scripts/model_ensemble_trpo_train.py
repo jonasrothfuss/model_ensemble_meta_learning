@@ -94,9 +94,9 @@ def run_experiment(argv):
     vg.add('step_size', [0.01])
     vg.add('discount', [0.99])
 
-    vg.add('batch_size_env_samples', [4000])
+    vg.add('batch_size_env_samples', [20000])
     vg.add('batch_size_dynamics_samples', [40000])
-    vg.add('initial_random_samples', [5000])
+    vg.add('initial_random_samples', [20000])
     vg.add('num_gradient_steps_per_iter', [30, 50])
     vg.add('retrain_model_when_reward_decreases', [False])
     vg.add('num_models', [5, 10])
