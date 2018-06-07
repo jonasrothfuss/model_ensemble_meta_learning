@@ -18,7 +18,7 @@ import argparse
 import random
 import os
 
-EXP_PREFIX = 'model-ensemble-trpo-bad-model'
+EXP_PREFIX = 'model-ensemble-trpo-new-bad-model'
 
 ec2_instance = 'c4.4xlarge'
 NUM_EC2_SUBNETS = 3
@@ -106,7 +106,7 @@ def run_experiment(argv):
     vg.add('reinit_model_cycle', [0])
     vg.add('num_models', [5])
 
-    vg.add('output_bias_range', [0.1, 0.5, 1.0])
+    vg.add('output_bias_range', [(0, 0.1), (0, 0.5), (0, 1)])
     vg.add('output_noise_std', [0.0, 0.1])
     vg.add('resample_output_bias', [True, False])
 

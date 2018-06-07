@@ -137,7 +137,7 @@ def run_experiment(argv):
     vg.add('bias_transform', [False])
     vg.add('param_noise_std', [0.0])
 
-    vg.add('output_bias_range', [0.1, 0.5, 1.0])
+    vg.add('output_bias_range', [(0, 0.1), (0, 0.5), (0, 1)])
     vg.add('output_noise_std', [0.0, 0.1])
 
     # other stuff
