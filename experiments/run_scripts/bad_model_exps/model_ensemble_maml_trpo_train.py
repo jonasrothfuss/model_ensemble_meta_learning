@@ -22,9 +22,9 @@ import argparse
 import random
 import os
 
-EXP_PREFIX = 'model-ensemble-maml-bad-model'
+EXP_PREFIX = 'model-ensemble-maml-new-bad-model'
 
-ec2_instance = 'c4.4xlarge'
+ec2_instance = 'm4.4xlarge'
 NUM_EC2_SUBNETS = 3
 
 

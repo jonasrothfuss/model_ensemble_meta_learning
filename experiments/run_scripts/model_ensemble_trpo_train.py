@@ -17,7 +17,7 @@ import argparse
 import random
 import os
 
-EXP_PREFIX = 'model-ensemble-trpo-horizon'
+EXP_PREFIX = 'model-ensemble-trpo-new'
 
 ec2_instance = 'c4.4xlarge'
 NUM_EC2_SUBNETS = 3
@@ -31,7 +31,9 @@ def run_train_task(vv):
         env_spec=env.spec,
         hidden_sizes=vv['hidden_sizes_model'],
         weight_normalization=vv['weight_normalization_model'],
-        num_models=vv['num_models']
+        num_models=vv['num_models'],
+        valid_split_ratio=vv['valid_split_ratio'],
+        rolling_average_persitency=vv['rolling_average_persitency']
     )
 
     policy = GaussianMLPPolicy(
@@ -51,10 +53,10 @@ def run_train_task(vv):
         batch_size_env_samples=vv['batch_size_env_samples'],
         batch_size_dynamics_samples=vv['batch_size_dynamics_samples'],
         initial_random_samples=vv['initial_random_samples'],
-        dynamic_model_epochs=vv['dynamic_model_epochs'],
         num_gradient_steps_per_iter=vv['num_gradient_steps_per_iter'],
         max_path_length=vv['path_length'],
         n_itr=vv['n_itr'],
+        retrain_model_when_reward_decreases=vv['retrain_model_when_reward_decreases'],
         discount=vv['discount'],
         step_size=vv["step_size"],
         reset_policy_std=vv['reset_policy_std'],
@@ -79,28 +81,41 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['HalfCheetahEnvRandParams']) # HalfCheetahEnvRandParams
-    vg.add('n_itr', [50])
+
+    vg.add('seed', [22, 33])  # TODO set back to [1, 11, 21, 31, 41]
+
+    # env spec
+    vg.add('env', ['AntEnvRandParams']) # HalfCheetahEnvRandParams
     vg.add('log_scale_limit', [0.0])
+    vg.add('path_length', [100, 200])
+
+    # Model-based MAML algo spec
+    vg.add('n_itr', [200])
     vg.add('step_size', [0.01])
-    vg.add('seed', [22, 33, 55]) #TODO set back to [1, 11, 21, 31, 41]
     vg.add('discount', [0.99])
-    vg.add('path_length', [500, 1000])
-    vg.add('batch_size_env_samples', [40000])
-    vg.add('batch_size_dynamics_samples', [100000])
-    vg.add('initial_random_samples', [40000])
-    vg.add('dynamic_model_epochs', [(100, 50)])
-    vg.add('num_gradient_steps_per_iter', [30])
+
+    vg.add('batch_size_env_samples', [4000])
+    vg.add('batch_size_dynamics_samples', [40000])
+    vg.add('initial_random_samples', [5000])
+    vg.add('num_gradient_steps_per_iter', [30, 50])
+    vg.add('retrain_model_when_reward_decreases', [False])
+    vg.add('num_models', [5, 10])
+
+    # neural network configuration
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(32, 32)])
-    vg.add('hidden_sizes_model', [(512, 512)])
+    vg.add('hidden_sizes_model', [(1024, 1024)])
     vg.add('weight_normalization_model', [True])
-    vg.add('retrain_model_when_reward_decreases', [False, True])
-    vg.add('reset_policy_std', [True])
+    vg.add('reset_policy_std', [False])
     vg.add('reinit_model_cycle', [0])
-    vg.add('num_models', [5, 10])
+
+    vg.add('valid_split_ratio', [0.2])
+    vg.add('rolling_average_persitency', [0.99])
+
+    # other stuff
     vg.add('exp_prefix', [EXP_PREFIX])
+
     variants = vg.variants()
 
     default_dict = dict(exp_prefix=EXP_PREFIX,
@@ -117,7 +132,6 @@ def run_experiment(argv):
                         variants=variants)
 
     if args.mode == 'mgpu':
-        print("MGPU")
         current_path = os.path.dirname(os.path.abspath(__file__))
         script_path = os.path.join(current_path, 'run_gpu_model_ensemble_trpo_train.py')
         n_gpu = args.n_gpu
