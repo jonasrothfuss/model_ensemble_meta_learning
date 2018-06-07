@@ -22,18 +22,19 @@ class AntEnv(MujocoEnv, Serializable):
         return np.concatenate([
             self.model.data.qpos.flat[2:],
             self.model.data.qvel.flat,
+            np.clip(self.model.data.cfrc_ext, -1, 1).flat,
         ]).reshape(-1)
 
     def step(self, action):
-        xposbefore = self.get_body_com("torso")[0]
         self.forward_dynamics(action)
-        xposafter = self.get_body_com("torso")[0]
-        forward_reward = (xposafter - xposbefore) / self.dt
+        forward_reward = self.model.data.qvel[0, 0] # velocity in x direction
         lb, ub = self.action_bounds
         scaling = (ub - lb) * 0.5
         ctrl_cost = .5 * 1e-2 * np.square(action/scaling).sum()
+        contact_cost = 0.5 * 1e-3 * np.sum(
+            np.square(np.clip(self.model.data.cfrc_ext, -1, 1)))
         survive_reward = 1.0
-        reward = forward_reward - ctrl_cost + survive_reward
+        reward = forward_reward - ctrl_cost - contact_cost + survive_reward
         ob = self.get_current_obs()
         notdone = np.isfinite(ob).all() and ob[0] <= 1.0 and ob[0] >= 0.2
         done = not notdone

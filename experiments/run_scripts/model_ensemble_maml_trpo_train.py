@@ -78,6 +78,7 @@ def run_train_task(vv):
         reset_policy_std=vv['reset_policy_std'],
         reinit_model_cycle=vv['reinit_model_cycle'],
         frac_gpu=vv.get('frac_gpu', 0.85),
+        log_real_performance=True,
         clip_obs=vv.get('clip_obs', True)
     )
     algo.train()
@@ -108,14 +109,14 @@ def run_experiment(argv):
 
     # Model-based MAML algo spec
     vg.add('n_itr', [200])
-    vg.add('fast_lr', [0.01])
+    vg.add('fast_lr', [0.01, 0.001])
     vg.add('meta_step_size', [0.01])
     vg.add('meta_batch_size', [20]) # must be a multiple of num_models
     vg.add('discount', [0.99])
 
-    vg.add('batch_size_env_samples', [2])
+    vg.add('batch_size_env_samples', [10])
     vg.add('batch_size_dynamics_samples', [50])
-    vg.add('initial_random_samples', [5000])
+    vg.add('initial_random_samples', [20000])
     vg.add('num_maml_steps_per_iter', [30, 50])
     vg.add('retrain_model_when_reward_decreases', [False])
     vg.add('reset_from_env_traj', [False])
