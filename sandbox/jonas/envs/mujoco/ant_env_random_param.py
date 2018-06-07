@@ -1,4 +1,4 @@
-from rllab.envs.gym_mujoco.ant_env import AntEnv
+from rllab.envs.mujoco.ant_env import AntEnv
 from rllab.core.serializable import Serializable
 from sandbox.jonas.envs.mujoco.base_env_rand_param import BaseEnvRandParams
 from sandbox.jonas.envs.helpers import get_all_function_arguments
@@ -53,14 +53,8 @@ class AntEnvRandParams(BaseEnvRandParams, AntEnv, Serializable):
 
 
     def _obs_bounds(self):
-        jnt_range = self.model.jnt_range
-        jnt_limited = self.model.jnt_limited
-        self._obs_lower_bounds = -50 * np.ones(shape=(self.model.data.qpos.shape[0] + self.model.data.qvel.shape[0]-2,))
-        self._obs_upper_bounds = 50 * np.ones(shape=(self.model.data.qpos.shape[0] + self.model.data.qvel.shape[0]-1,))
-        for idx, limited in enumerate(jnt_limited):
-            if idx > 1 and limited:
-                self._obs_lower_bounds[idx-2] = jnt_range[idx][0]
-                self._obs_upper_bounds[idx-2] = jnt_range[idx][1]
+        self._obs_lower_bounds = -1000 * np.ones(shape=(self.model.data.qpos.shape[0] + self.model.data.qvel.shape[0]-2,))
+        self._obs_upper_bounds = 1000 * np.ones(shape=(self.model.data.qpos.shape[0] + self.model.data.qvel.shape[0]-1,))
 
     @property
     def obs_lower_bounds(self):
