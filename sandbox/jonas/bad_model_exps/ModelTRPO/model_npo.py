@@ -8,7 +8,7 @@ from sandbox.rocky.tf.optimizers.penalty_lbfgs_optimizer import PenaltyLbfgsOpti
 from sandbox.rocky.tf.misc import tensor_utils
 import tensorflow as tf
 
-from sandbox.jonas.algos.ModelTRPO.model_batch_polopt import ModelBatchPolopt
+from sandbox.jonas.bad_model_exps.ModelTRPO.model_batch_polopt import ModelBatchPolopt
 
 class ModelNPO(ModelBatchPolopt):
     """

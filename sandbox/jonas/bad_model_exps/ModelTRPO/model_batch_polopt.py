@@ -45,6 +45,7 @@ class ModelBatchPolopt(RLAlgorithm):
             sampler_cls=None,
             sampler_args=None,
             force_batch_sampler=False,
+            resample_output_bias=True,
             **kwargs
     ):
         """
@@ -103,6 +104,7 @@ class ModelBatchPolopt(RLAlgorithm):
         self.fixed_horizon = fixed_horizon
         self.reset_policy_std = reset_policy_std
         self.reinit_model = reinit_model_cycle
+        self.resample_output_bias = resample_output_bias
 
         # sampler for the environment
         if sampler_cls is None:
@@ -210,7 +212,8 @@ class ModelBatchPolopt(RLAlgorithm):
                                         samples_data_dynamics['next_observations_dynamics'],
                                         epochs=epochs, verbose=True)
 
-                self.dynamics_model.sample_output_bias()
+                if self.resample_output_bias:
+                    self.dynamics_model.sample_output_bias()
 
                 for gradient_itr in range(self.num_gradient_steps_per_iter):
                     # get imaginary rollouts

@@ -41,6 +41,8 @@ class BadDynamicsEnsemble(MLPDynamicsModel):
         self.step_size = step_size
         self.num_models = num_models
         self.name = name
+        self.valid_split_ratio = 0.2
+        self.rolling_average_persitency = 0.95
 
         # determine dimensionality of state and action space
         self.obs_space_dims = obs_space_dims = env_spec.observation_space.shape[0]
@@ -143,6 +145,14 @@ class BadDynamicsEnsemble(MLPDynamicsModel):
         if self.normalize_input:
             obs, act = self._normalize_data(obs, act)
             delta = np.array(self.f_delta_pred(obs, act))
+
+            batch_size = delta.shape[0]
+            sampled_bias = np.stack([np.random.normal(loc=b, scale=self.gaussian_noise_output_std,
+                                                      size=(batch_size, self.obs_space_dims)) for b in
+                                     self.output_bias], axis=2)
+            assert sampled_bias.shape == delta.shape
+            delta += sampled_bias
+
             delta = denormalize(delta, self.normalization['delta'][0], self.normalization['delta'][1])
         else:
             delta = np.array(self.f_delta_pred(obs, act))
@@ -150,14 +160,6 @@ class BadDynamicsEnsemble(MLPDynamicsModel):
         assert delta.ndim == 3
 
         pred_obs = obs_original[:, :, None] + delta
-        batch_size = delta.shape[0]
-
-        sampled_bias = np.stack([np.random.normal(loc=b, scale=self.gaussian_noise_output_std,
-                                                        size=(batch_size, self.obs_space_dims)) for b in
-                                       self.output_bias], axis=2)
-        assert sampled_bias.shape == pred_obs.shape
-        pred_obs += sampled_bias
-
 
         if pred_type == 'rand':
             # randomly selecting the prediction of one model in each row
@@ -191,6 +193,12 @@ class BadDynamicsEnsemble(MLPDynamicsModel):
         if self.normalize_input:
             obs_batches, act_batches = self._normalize_data(obs_batches, act_batches)
             delta_batches = np.array(self.f_delta_pred_model_batches(obs_batches, act_batches))
+            sampled_bias = np.concatenate([np.random.normal(loc=b, scale=self.gaussian_noise_output_std,
+                                                            size=(batch_size_per_model, self.obs_space_dims)) for b in
+                                           self.output_bias], axis=0)
+            assert sampled_bias.shape == delta_batches.shape
+
+            delta_batches += + sampled_bias
             delta_batches = denormalize(delta_batches, self.normalization['delta'][0], self.normalization['delta'][1])
         else:
             delta_batches = np.array(self.f_delta_pred(obs_batches, act_batches))
@@ -200,11 +208,7 @@ class BadDynamicsEnsemble(MLPDynamicsModel):
         pred_obs_batches = obs_batches_original + delta_batches
         assert pred_obs_batches.shape == obs_batches.shape
 
-        sampled_bias = np.concatenate([np.random.normal(loc=b, scale=self.gaussian_noise_output_std,
-                                                        size=(batch_size_per_model, self.obs_space_dims)) for b in self.output_bias], axis=0)
-        assert sampled_bias.shape == pred_obs_batches.shape
-
-        return pred_obs_batches + sampled_bias
+        return pred_obs_batches
 
 
     def predict_std(self, obs, act):
@@ -228,6 +232,7 @@ class BadDynamicsEnsemble(MLPDynamicsModel):
         sess.run(self._reinit_model_op)
 
     def sample_output_bias(self):
+        print("sampling output bias")
         self.output_bias = np.random.uniform(low=-self.output_bias_range, high=self.output_bias_range, size=self.num_models)
 
 def denormalize(data_array, mean, std):

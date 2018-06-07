@@ -1,6 +1,6 @@
 
 
-from sandbox.jonas.algos.ModelMAML.model_maml_npo import ModelMAMLNPO
+from sandbox.jonas.bad_model_exps.ModelMAML.model_maml_npo import ModelMAMLNPO
 from sandbox_maml.rocky.tf.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer
 
 
