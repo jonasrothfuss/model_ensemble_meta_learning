@@ -38,8 +38,9 @@ class AntEnvRandParams(BaseEnvRandParams, AntEnv, Serializable):
             lb, ub = self.action_bounds
             scaling = (ub - lb) * 0.5
             ctrl_cost = .5 * 1e-2 * np.square(action/scaling).sum()
+            contact_cost = 0.5 * 1e-3 * np.sum(np.square(obs_next[:, -84:0]), axis=1)
             survive_reward = 1.0
-            return forward_vel - ctrl_cost + survive_reward
+            return forward_vel - ctrl_cost - contact_cost + survive_reward
         else:
             return self.reward(np.array([obs]), np.array([action]), np.array([obs_next]))[0]
 
