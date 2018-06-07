@@ -233,7 +233,7 @@ class BadDynamicsEnsemble(MLPDynamicsModel):
 
     def sample_output_bias(self):
         print("sampling output bias")
-        self.output_bias = np.random.uniform(low=-self.output_bias_range, high=self.output_bias_range, size=self.num_models)
+        self.output_bias = np.random.uniform(low=self.output_bias_range[0], high=self.output_bias_range[1], size=self.num_models)
 
 def denormalize(data_array, mean, std):
     if data_array.ndim == 3: # assumed shape (batch_size, ndim_obs, n_models)
