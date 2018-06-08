@@ -9,7 +9,7 @@ from experiments.helpers.ec2_helpers import cheapest_subnets
 from sandbox.jonas.dynamics import MLPDynamicsEnsemble
 from sandbox.jonas.algos.ModelTRPO.model_trpo import ModelTRPO
 from experiments.helpers.run_multi_gpu import run_multi_gpu
-from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams
+from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams, WalkerEnvRandomParams
 
 import tensorflow as tf
 import sys
@@ -82,30 +82,30 @@ def run_experiment(argv):
 
     vg = VariantGenerator()
 
-    vg.add('seed', [22, 33])  # TODO set back to [1, 11, 21, 31, 41]
+    vg.add('seed', [22, 33, 44])  # TODO set back to [1, 11, 21, 31, 41]
 
     # env spec
-    vg.add('env', ['AntEnvRandParams']) # HalfCheetahEnvRandParams
+    vg.add('env', ['WalkerEnvRandomParams']) # HalfCheetahEnvRandParams
     vg.add('log_scale_limit', [0.0])
-    vg.add('path_length', [100, 200])
+    vg.add('path_length', [200])
 
     # Model-based MAML algo spec
-    vg.add('n_itr', [200])
+    vg.add('n_itr', [100])
     vg.add('step_size', [0.01])
     vg.add('discount', [0.99])
 
-    vg.add('batch_size_env_samples', [20000])
+    vg.add('batch_size_env_samples', [4000])
     vg.add('batch_size_dynamics_samples', [40000])
-    vg.add('initial_random_samples', [20000])
+    vg.add('initial_random_samples', [4000])
     vg.add('num_gradient_steps_per_iter', [30, 50])
     vg.add('retrain_model_when_reward_decreases', [False])
-    vg.add('num_models', [5, 10])
+    vg.add('num_models', [5])
 
     # neural network configuration
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(32, 32)])
-    vg.add('hidden_sizes_model', [(1024, 1024)])
+    vg.add('hidden_sizes_model', [(512, 512)])
     vg.add('weight_normalization_model', [True])
     vg.add('reset_policy_std', [False])
     vg.add('reinit_model_cycle', [0])

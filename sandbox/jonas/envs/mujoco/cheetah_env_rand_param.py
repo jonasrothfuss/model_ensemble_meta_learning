@@ -73,6 +73,6 @@ if __name__ == "__main__":
     env = HalfCheetahEnvRandParams()
     env.reset()
     print(env.model.body_mass)
-    for _ in range(1000):
+    for _ in range(100):
         env.render()
         env.step(env.action_space.sample())  # take a random action

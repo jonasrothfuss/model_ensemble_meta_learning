@@ -12,7 +12,7 @@ from experiments.helpers.ec2_helpers import cheapest_subnets
 from experiments.helpers.run_multi_gpu import run_multi_gpu
 
 from sandbox.jonas.envs.own_envs import PointEnvMAML
-from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams
+from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams, WalkerEnvRandomParams
 from sandbox.jonas.envs.mujoco import Reacher5DofEnvRandParams
 
 
@@ -101,34 +101,34 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
     vg = VariantGenerator()
 
-    vg.add('seed', [1, 11]) #TODO set back to [1, 11, 21, 31, 41]
+    vg.add('seed', [22, 33, 44]) #TODO set back to [1, 11, 21, 31, 41]
 
     # env spec
-    vg.add('env', ['AntEnvRandParams'])
+    vg.add('env', ['WalkerEnvRandomParams'])
     vg.add('log_scale_limit', [0.0])
-    vg.add('path_length_env', [100])
+    vg.add('path_length_env', [200])
 
     # Model-based MAML algo spec
-    vg.add('n_itr', [200])
-    vg.add('fast_lr', [0.01, 0.001])
+    vg.add('n_itr', [100])
+    vg.add('fast_lr', [0.01, 0.005, 0.001])
     vg.add('meta_step_size', [0.01])
     vg.add('meta_batch_size', [20]) # must be a multiple of num_models
     vg.add('discount', [0.99])
 
-    vg.add('batch_size_env_samples', [10])
+    vg.add('batch_size_env_samples', [2])
     vg.add('batch_size_dynamics_samples', [50])
-    vg.add('initial_random_samples', [20000])
-    vg.add('num_maml_steps_per_iter', [30, 50])
+    vg.add('initial_random_samples', [4000])
+    vg.add('num_maml_steps_per_iter', [30, 60])
     vg.add('retrain_model_when_reward_decreases', [False])
     vg.add('reset_from_env_traj', [False])
     vg.add('trainable_step_size', [False])
-    vg.add('num_models', [5, 10])
+    vg.add('num_models', [5])
 
     # neural network configuration
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(32, 32)])
-    vg.add('hidden_sizes_model', [(1024, 1024)])
+    vg.add('hidden_sizes_model', [(512, 512)])
     vg.add('weight_normalization_model', [True])
     vg.add('reset_policy_std', [False])
     vg.add('reinit_model_cycle', [0])
@@ -136,10 +136,10 @@ def run_experiment(argv):
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
     vg.add('bias_transform', [False])
     vg.add('param_noise_std', [0.0])
-    vg.add('dynamic_model_max_epochs', [(100, 50)])
+    vg.add('dynamic_model_max_epochs', [(500, 500)])
 
-    vg.add('valid_split_ratio', [0.01])
-    vg.add('rolling_average_persitency', [1.0])
+    vg.add('valid_split_ratio', [0.2])
+    vg.add('rolling_average_persitency', [0.99])
 
     # other stuff
     vg.add('exp_prefix', [EXP_PREFIX])
