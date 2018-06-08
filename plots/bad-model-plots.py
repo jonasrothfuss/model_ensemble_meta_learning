@@ -1,0 +1,63 @@
+from rllab.viskit import frontend
+from rllab.viskit import core
+import matplotlib.pyplot as plt
+from plots.plot_utils import *
+
+plt.style.use('ggplot')
+#plt.rc('font', family='Times New Roman')
+import matplotlib
+matplotlib.use('TkAgg')
+#matplotlib.font_manager._rebuild()
+
+data_path = '/home/jonasrothfuss/Dropbox/Eigene_Dateien/UC_Berkley/2_Code/model_ensemble_meta_learning/data/s3/bad-models'
+exps_data = core.load_exps_data([data_path], False)
+
+
+def plot_from_exps(exp_data,
+                   filters={},
+                   split_figures_by=None,
+                   split_plots_by=None,
+                   x_key='n_timesteps',
+                   y_key=None,
+                   plot_name='./plot.png',
+                   subfigure_titles=None,
+                   plot_labels=None):
+
+    exp_data = filter(exp_data, filters=filters)
+    exps_per_plot = group_by(exp_data, group_by_key=split_figures_by)
+    fig, axarr = plt.subplots(1, len(exps_per_plot.keys()), figsize=(15, 4))
+
+    # iterate over subfigures
+    for i, (default_plot_title, plot_exps) in enumerate(sorted(exps_per_plot.items())):
+        plots_in_figure_exps = group_by(plot_exps, split_plots_by)
+        subfigure_title = subfigure_titles[i] if subfigure_titles else default_plot_title
+        axarr[i].set_title(subfigure_title, fontsize=10)
+        axarr[i].xaxis.set_major_locator(plt.MaxNLocator(5))
+
+        # iterate over plots in figure
+        for j, (default_label, exps) in enumerate(sorted(plots_in_figure_exps.items())):
+            x, y_mean, y_std = prepare_data_for_plot(exps, x_key=x_key, y_key=y_key)
+
+            label = plot_labels[j] if plot_labels else default_label
+            label = label if i == 0 else "__nolabel__"
+            axarr[i].plot(x, y_mean, label=label)
+            axarr[i].fill_between(x, y_mean + y_std, y_mean - y_std, alpha=0.2)
+
+    fig.legend(loc='center right', ncol=1)
+    fig.savefig(plot_name)
+
+
+filter_dict = {'output_bias_range': [0, 0.1]}
+
+exps_data_filtered = filter(exps_data, filter_dict)
+
+
+plot_from_exps(exps_data,
+               split_figures_by='output_bias_range',
+               split_plots_by='exp_prefix',
+               y_key='EnvTrajs-AverageReturn',
+               subfigure_titles=['HalfCheetah - output_bias_range [0.0, 0.1]',
+                                'HalfCheetah - output_bias_range [0.0, 0.5]',
+                                'HalfCheetah - output_bias_range [0.0, 1.0]'],
+               plot_labels=['ME-MPG', 'ME-TRPO']
+               )
