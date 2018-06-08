@@ -71,6 +71,7 @@ def run_train_task(vv):
         reset_from_env_traj=vv.get('reset_from_env_traj', False),
         max_path_length_env=vv['path_length_env'],
         max_path_length_dyn=vv.get('path_length_dyn', None),
+        dynamic_model_max_epochs=vv.get('dynamic_model_max_epochs', (500, 500)),
         discount=vv['discount'],
         step_size=vv["meta_step_size"],
         num_grad_updates=1,
@@ -100,12 +101,12 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
     vg = VariantGenerator()
 
-    vg.add('seed', [23, 43]) #TODO set back to [1, 11, 21, 31, 41]
+    vg.add('seed', [1, 11]) #TODO set back to [1, 11, 21, 31, 41]
 
     # env spec
     vg.add('env', ['AntEnvRandParams'])
     vg.add('log_scale_limit', [0.0])
-    vg.add('path_length_env', [100, 200])
+    vg.add('path_length_env', [100])
 
     # Model-based MAML algo spec
     vg.add('n_itr', [200])
@@ -135,9 +136,10 @@ def run_experiment(argv):
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
     vg.add('bias_transform', [False])
     vg.add('param_noise_std', [0.0])
+    vg.add('dynamic_model_max_epochs', [(100, 50)])
 
-    vg.add('valid_split_ratio', [0.2])
-    vg.add('rolling_average_persitency', [0.99])
+    vg.add('valid_split_ratio', [0.01])
+    vg.add('rolling_average_persitency', [1.0])
 
     # other stuff
     vg.add('exp_prefix', [EXP_PREFIX])
