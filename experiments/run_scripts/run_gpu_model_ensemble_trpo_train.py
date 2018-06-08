@@ -8,7 +8,7 @@ from rllab import config
 from experiments.helpers.ec2_helpers import cheapest_subnets
 from sandbox.jonas.dynamics import MLPDynamicsEnsemble
 from sandbox.jonas.algos.ModelTRPO.model_trpo import ModelTRPO
-from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams
+from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams, WalkerEnvRandomParams
 
 
 

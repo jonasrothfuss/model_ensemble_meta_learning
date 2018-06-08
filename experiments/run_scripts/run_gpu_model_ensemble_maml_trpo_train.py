@@ -12,7 +12,7 @@ from experiments.helpers.ec2_helpers import cheapest_subnets
 from rllab import config
 
 from sandbox.jonas.envs.own_envs import PointEnvMAML
-from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams
+from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, WalkerEnvRandomParams
 from sandbox.jonas.envs.mujoco import Reacher5DofEnvRandParams
 
 
