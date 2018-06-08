@@ -60,7 +60,6 @@ class MAMLModelVecEnvExecutor(object):
                     idx = np.random.randint(traj_starting_obs.shape[0])
                     next_obs[i] = traj_starting_obs[idx, :]
                     self.ts[i] = traj_starting_ts[idx]
-                    import pdb; pdb.set_trace()
 
         self.current_obs = next_obs
 
