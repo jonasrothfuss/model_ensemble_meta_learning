@@ -19,6 +19,7 @@ class Walker2DEnv(MujocoEnv, Serializable):
     def __init__(
             self, *args, **kwargs):
         super(Walker2DEnv, self).__init__(*args, **kwargs)
+        self.frame_skip = 4
         Serializable.quick_init(self, locals())
 
     def get_current_obs(self):
