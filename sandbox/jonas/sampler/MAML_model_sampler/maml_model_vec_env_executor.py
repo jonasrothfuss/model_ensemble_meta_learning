@@ -53,11 +53,12 @@ class MAMLModelVecEnvExecutor(object):
             dones[self.ts >= self.max_path_length] = True
         for (i, done) in enumerate(dones):
             if done:
-                if traj_starting_obs is None:
+                if traj_starting_obs is None or np.random.random() < 0.1:
                     next_obs[i] = self.env.reset()
                     self.ts[i] = 0
                 else:
-                    idx = np.random.randint(traj_starting_obs.shape[0])
+                    min_idx = max(-10000, -traj_starting_obs.shape[0])
+                    idx = np.random.randint(min_idx, 0)
                     next_obs[i] = traj_starting_obs[idx, :]
                     self.ts[i] = traj_starting_ts[idx]
 
