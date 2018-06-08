@@ -102,12 +102,12 @@ def run_experiment(argv):
     vg.add('seed', [11, 22])
 
     # env spec
-    vg.add('env', ['AntEnvRandParams'])
+    vg.add('env', ['HalfCheetahEnvRandParams'])
     vg.add('log_scale_limit', [0.0])
-    vg.add('path_length_env', [200])
+    vg.add('path_length_env', [500])
 
     # Model-based MAML algo spec
-    vg.add('path_length_dyn', [200])
+    vg.add('path_length_dyn', [500])
     vg.add('n_itr', [100])
     vg.add('fast_lr', [0.0, 0.001, 0.005])
     vg.add('meta_step_size', [0.01])
@@ -127,7 +127,7 @@ def run_experiment(argv):
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(32, 32)])
-    vg.add('hidden_sizes_model', [(1024, 1024)])
+    vg.add('hidden_sizes_model', [(512, 512)])
     vg.add('weight_normalization_model', [True])
     vg.add('reset_policy_std', [False])
     vg.add('reinit_model_cycle', [0])
@@ -136,7 +136,7 @@ def run_experiment(argv):
     vg.add('dynamics_model', ['MLPDynamicsEnsemble'])
     vg.add('bias_transform', [False])
     vg.add('param_noise_std', [0.0])
-    vg.add('clip_obs', [False])
+    vg.add('clip_obs', [True])
     # vg.add('nm_mbs_envs', [(5, 10, 2), (10, 10, 2), (10, 20, 1), (20, 20, 1)])
 
     # other stuff
