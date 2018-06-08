@@ -4,7 +4,8 @@ from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from sandbox.rocky.tf.algos.trpo import TRPO
 from rllab.misc.instrument import run_experiment_lite
-from sandbox.jonas.envs.mujoco import HalfCheetahEnvRandParams, HopperEnvRandParams, AntEnvRandParams
+from sandbox.jonas.envs.mujoco import HalfCheetahEnvRandParams, HopperEnvRandParams, AntEnvRandParams, SwimmerEnvRandParams, \
+    SnakeEnvRandParams, ReacherEnvRandParams, WalkerEnvRandomParams
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
 
@@ -13,7 +14,7 @@ import sys
 import argparse
 import random
 
-EXP_PREFIX = 'trpo-baselines'
+EXP_PREFIX = 'trpo-baselines-new'
 
 ec2_instance = 'c4.2xlarge'
 
@@ -68,12 +69,12 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['AntEnvRandParams', 'HalfCheetahEnvRandParams', 'HopperEnvRandParams'])
-    vg.add('n_itr', [500])
+    vg.add('env', ['WalkerEnvRandomParams'])
+    vg.add('n_itr', [1000])
     vg.add('step_size', [0.01]) #[0.01,0.05, 0.1])
-    vg.add('seed', [1, 11, 21, 31, 41])
+    vg.add('seed', [1, 11, 21])
     vg.add('discount', [0.99])
-    vg.add('path_length', [100])
+    vg.add('path_length', [100, 200])
     vg.add('batch_size', [50000])
     vg.add('hidden_nonlinearity', ['tanh'])
     vg.add('hidden_sizes', [(32, 32)])
