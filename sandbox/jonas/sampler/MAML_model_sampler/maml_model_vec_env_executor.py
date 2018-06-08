@@ -26,7 +26,7 @@ class MAMLModelVecEnvExecutor(object):
         self.max_path_length = max_path_length
         self.clip_obs = clip_obs
 
-    def step(self, action_n, traj_starting_obs=None):
+    def step(self, action_n, traj_starting_obs=None, traj_starting_ts=None):
         """
         :param action_n: batches of actions for all models/taks stacked on top of each other (n_models * batch_per_model, ndim_act)
         :return: predicted observations (n_models * batch_per_model, ndim_obs)
@@ -55,9 +55,12 @@ class MAMLModelVecEnvExecutor(object):
             if done:
                 if traj_starting_obs is None:
                     next_obs[i] = self.env.reset()
+                    self.ts[i] = 0
                 else:
-                    next_obs[i] = traj_starting_obs[np.random.randint(traj_starting_obs.shape[0]), :]
-                self.ts[i] = 0
+                    idx = np.random.randint(traj_starting_obs.shape[0])
+                    next_obs[i] = traj_starting_obs[idx, :]
+                    self.ts[i] = traj_starting_ts[idx]
+                    import pdb; pdb.set_trace()
 
         self.current_obs = next_obs
 

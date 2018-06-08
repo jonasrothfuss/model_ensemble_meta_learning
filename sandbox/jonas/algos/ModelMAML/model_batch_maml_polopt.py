@@ -185,8 +185,9 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         assert type(paths) == dict
         return paths
 
-    def obtain_model_samples(self, itr, log=False, traj_starting_obs=None):
-        return self.model_sampler.obtain_samples(itr, log=log, return_dict=True, traj_starting_obs=traj_starting_obs)
+    def obtain_model_samples(self, itr, log=False, traj_starting_obs=None, traj_starting_ts=None):
+        return self.model_sampler.obtain_samples(itr, log=log, return_dict=True, traj_starting_obs=traj_starting_obs,
+                                                 traj_starting_ts=traj_starting_ts)
 
     def obtain_random_samples(self, itr, log=False):
         assert self.random_sampler is not None
@@ -306,8 +307,9 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                             logger.log("MAML Step %i%s of %i - Obtaining samples from the dynamics model..." % (
                                 maml_itr + 1, chr(97 + step), self.num_maml_steps_per_iter))
 
-                            if self.reset_from_env_traj and maml_itr > 0:
-                                new_model_paths = self.obtain_model_samples(itr, traj_starting_obs=samples_data_dynamics['observations_dynamics'])
+                            if self.reset_from_env_traj:
+                                new_model_paths = self.obtain_model_samples(itr, traj_starting_obs=samples_data_dynamics['observations_dynamics'],
+                                                                            traj_starting_ts=samples_data_dynamics['timesteps_dynamics'])
                             else:
                                 new_model_paths = self.obtain_model_samples(itr)
 

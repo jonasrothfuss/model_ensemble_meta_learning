@@ -47,7 +47,8 @@ class MAMLModelVectorizedSampler(ModelBaseSampler):
     def shutdown_worker(self):
         self.vec_env.terminate()
 
-    def obtain_samples(self, itr, return_dict=False, log=True, log_prefix='', traj_starting_obs=None):
+    def obtain_samples(self, itr, return_dict=False, log=True, log_prefix='', traj_starting_obs=None,
+                       traj_starting_ts=None):
         """
 
         :param itr: current iteration (int) for logging purposes
@@ -92,7 +93,8 @@ class MAMLModelVectorizedSampler(ModelBaseSampler):
 
             policy_time += time.time() - t
             t = time.time()
-            next_obses, rewards, dones, env_infos = self.vec_env.step(actions, traj_starting_obs=traj_starting_obs)
+            next_obses, rewards, dones, env_infos = self.vec_env.step(actions, traj_starting_obs=traj_starting_obs,
+                                                                      traj_starting_ts=traj_starting_ts)
             env_time += time.time() - t
 
             t = time.time()
