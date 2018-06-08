@@ -65,7 +65,7 @@ def run_train_task(vv):
         batch_size_env_samples=vv['batch_size_env_samples'],
         batch_size_dynamics_samples=vv['batch_size_dynamics_samples'],
         initial_random_samples=vv['initial_random_samples'],
-        dynamic_model_epochs=vv['dynamic_model_epochs'],
+        dynamic_model_max_epochs=vv['dynamic_model_epochs'],
         num_maml_steps_per_iter=vv['num_maml_steps_per_iter'],
         meta_batch_size=vv['meta_batch_size'],
         max_path_length_env=vv['path_length_env'],

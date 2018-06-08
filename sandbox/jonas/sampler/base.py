@@ -206,6 +206,7 @@ class RandomBaseSampler(Sampler):
         observations_dynamics = tensor_utils.concat_tensor_list([path["observations"][:-1] for path in paths])
         next_observations_dynamics = tensor_utils.concat_tensor_list([path["observations"][1:] for path in paths])
         actions_dynamics = tensor_utils.concat_tensor_list([path["actions"][:-1] for path in paths])
+        timesteps_dynamics = tensor_utils.concat_tensor_list([np.arange((len(path["observations"]) - 1)) for path in paths])
 
         rewards = tensor_utils.concat_tensor_list([path["rewards"] for path in paths])
         returns = tensor_utils.concat_tensor_list([path["returns"] for path in paths])
@@ -214,6 +215,7 @@ class RandomBaseSampler(Sampler):
             observations_dynamics=observations_dynamics,
             next_observations_dynamics=next_observations_dynamics,
             actions_dynamics=actions_dynamics,
+            timesteps_dynamics=timesteps_dynamics,
 
             rewards=rewards,
             returns=returns,
@@ -263,6 +265,7 @@ class ModelBaseSampler(Sampler):
         observations_dynamics = tensor_utils.concat_tensor_list([path["observations"][:-1] for path in paths])
         next_observations_dynamics = tensor_utils.concat_tensor_list([path["observations"][1:] for path in paths])
         actions_dynamics = tensor_utils.concat_tensor_list([path["actions"][:-1] for path in paths])
+        timesteps_dynamics = tensor_utils.concat_tensor_list([np.arange((len(path["observations"])-1)) for path in paths])
 
         rewards = tensor_utils.concat_tensor_list([path["rewards"] for path in paths])
         returns = tensor_utils.concat_tensor_list([path["returns"] for path in paths])
@@ -271,7 +274,7 @@ class ModelBaseSampler(Sampler):
             observations_dynamics=observations_dynamics,
             next_observations_dynamics=next_observations_dynamics,
             actions_dynamics=actions_dynamics,
-
+            timesteps_dynamics=timesteps_dynamics,
             rewards=rewards,
             returns=returns,
             paths=paths,
