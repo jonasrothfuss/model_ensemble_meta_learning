@@ -122,7 +122,7 @@ def run_experiment(argv):
     vg.add('retrain_model_when_reward_decreases', [False])
     vg.add('reset_from_env_traj', [False])
     vg.add('trainable_step_size', [False])
-    vg.add('num_models', [5])
+    vg.add('num_models', [5, 10])
 
     # neural network configuration
     vg.add('hidden_nonlinearity_policy', ['tanh'])
