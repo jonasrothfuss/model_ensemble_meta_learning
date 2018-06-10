@@ -17,13 +17,12 @@ class AntEnv(MujocoEnv, Serializable):
     def __init__(self, *args, **kwargs):
         super(AntEnv, self).__init__(*args, **kwargs)
         Serializable.__init__(self, *args, **kwargs)
+        self.frame_skip = 5
 
     def get_current_obs(self):
         return np.concatenate([
             self.model.data.qpos.flat[2:],
-            self.get_body_comvel("torso"),
             self.model.data.qvel.flat,
-            # self.get_body_com("torso").flat,
         ]).reshape(-1)
 
     def step(self, action):
