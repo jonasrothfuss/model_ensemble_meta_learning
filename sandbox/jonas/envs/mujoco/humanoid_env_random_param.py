@@ -35,12 +35,12 @@ class HumanoidEnvRandParams(BaseEnvRandParams, HumanoidEnv, Serializable):
         if obs.ndim == 2 and action.ndim == 2:
             assert obs.shape == obs_next.shape and action.shape[0] == obs.shape[0]
             vel = obs_next[:, 22:25]
-            lin_vel_reward = vel[0]
+            lin_vel_reward = vel[:, 0]
             alive_bonus = self.alive_bonus
             lb, ub = self.action_bounds
             scaling = (ub - lb) * 0.5
             ctrl_cost = .5 * self.ctrl_cost_coeff * np.sum(np.square(action / scaling), axis=1)
-            vel_deviation_cost = 0.5 * self.vel_deviation_cost_coeff * np.sum(np.square(vel[1:]), axis=1)
+            vel_deviation_cost = 0.5 * self.vel_deviation_cost_coeff * np.sum(np.square(vel[:, 1:]), axis=1)
             reward = lin_vel_reward + alive_bonus - ctrl_cost - vel_deviation_cost
             return reward
         else:
@@ -72,5 +72,4 @@ if __name__ == "__main__":
     print(env.model.body_mass)
     for _ in range(1000):
         env.render()
-        import pdb; pdb.set_trace()
         env.step(env.action_space.sample())  # take a random action

@@ -32,15 +32,14 @@ class HumanoidEnv(MujocoEnv, Serializable):
         self.impact_cost_coeff = impact_cost_coeff
         super(HumanoidEnv, self).__init__(*args, **kwargs)
         Serializable.quick_init(self, locals())
+        self.frame_skip = 5
 
     def get_current_obs(self):
         data = self.model.data
         return np.concatenate([
             data.qpos.flat[2:],
             data.qvel.flat,
-            data.cinert.flat,
             data.cvel.flat,
-            data.qfrc_actuator.flat,
         ])
 
     def _get_com(self):
@@ -56,7 +55,7 @@ class HumanoidEnv(MujocoEnv, Serializable):
         alive_bonus = self.alive_bonus
         data = self.model.data
 
-        comvel = self.get_body_comvel("torso")
+        comvel = self.model.data.qvel[:3, 0]
 
         lin_vel_reward = comvel[0]
         lb, ub = self.action_bounds
