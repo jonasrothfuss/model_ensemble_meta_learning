@@ -86,6 +86,8 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         self.stop_grad = stop_grad
         self.name = name
         self.param_noise_std = param_noise_std
+        self.all_param_ph = None
+        self.compiled = False
 
         with tf.variable_scope(self.name):
             self.param_noise_std_ph = tf.placeholder_with_default(0.0, ())  # default parameter noise std is 0 -> no noise
@@ -135,6 +137,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
                     forward_mean(obs, params, is_train), forward_std(obs, params))
 
                 self.std_parametrization = std_parametrization
+
 
                 if std_parametrization == 'exp':
                     min_std_param = np.log(min_std)
@@ -244,27 +247,37 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
 
         self.all_param_vals = sess.run(self.all_fast_params_tensor,
                                        feed_dict=dict(list(zip(self.input_list_for_grad, inputs))))
+        # if self.all_params_ph is None:
+        #     self.
+        if self.all_param_ph is None:
+            self.all_param_ph = [OrderedDict([(key, tf.placeholder(tf.float32, shape=value.shape))
+                                              for key, value in self.all_param_vals[0].items()])
+                                 for _ in range(num_tasks)]
 
         # reset parameters to original ones
         if init_param_values is not None:  # skip this in first iteration
             self.assign_params(self.all_params, init_param_values)
 
         # compile the _cur_f_dist with updated params
-        outputs = []
-        inputs = tf.split(self.input_tensor, num_tasks, 0)
-        for i in range(num_tasks):
-            # TODO - use a placeholder to feed in the params, so that we don't have to recompile every time.
-            task_inp = inputs[i]
-            info, _ = self.dist_info_sym(task_inp, dict(), all_params=self.all_param_vals[i],
-                                         is_training=False)
+        if not self.compiled:
+            outputs = []
+            with tf.variable_scope("post_updated_policy"):
+                inputs = tf.split(self.input_tensor, num_tasks, 0)
+                for i in range(num_tasks):
+                    # TODO - use a placeholder to feed in the params, so that we don't have to recompile every time.
+                    task_inp = inputs[i]
+                    info, _ = self.dist_info_sym(task_inp, dict(), all_params=self.all_param_ph[i],
+                                                 is_training=False)
 
-            outputs.append([info['mean'], info['log_std']])
+                    outputs.append([info['mean'], info['log_std']])
 
-        self._cur_f_dist = tensor_utils.compile_function(
-            inputs=[self.input_tensor, self.param_noise_std_ph],
-            outputs=outputs,
-        )
-        total_time = time.time() - start
+                self.__cur_f_dist = tensor_utils.compile_function(
+                    inputs=[self.input_tensor, self.param_noise_std_ph] + sum([list(param_ph.values())
+                                                                               for param_ph in self.all_param_ph], []),
+                    outputs=outputs,
+                )
+            self.compiled = True
+        self._cur_f_dist = self.__cur_f_dist
 
     def get_variable_values(self, tensor_dict):
         sess = tf.get_default_session()
@@ -395,8 +408,13 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
                 obs_batch.flatten()
 
         obs_stack = np.concatenate(observations, axis=0)
-
-        result = self._cur_f_dist(obs_stack, param_noise_std)
+        if self._cur_f_dist == self._init_f_dist:
+            result = self._cur_f_dist(obs_stack, param_noise_std)
+        else:
+            params = self.all_param_vals
+            result = self._cur_f_dist(obs_stack, param_noise_std,
+                                  *sum([list(param.values()) for param in params], []),
+                                      )
 
         if len(result) == 2:
             # NOTE - this code assumes that there aren't 2 meta tasks in a batch
@@ -408,6 +426,13 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         rnd = np.random.normal(size=means.shape)
         actions = rnd * np.exp(log_stds) + means
         return actions, dict(mean=means, log_std=log_stds)
+
+    def cur_f_dist(self, *args):
+        if self._cur_f_dist == self._init_f_dist:
+            return self._cur_f_dist(*args)
+        else:
+            params = self.all_param_vals
+            return self._cur_f_dist(*args, sum([list(param.values()) for param in params], []))
 
     @property
     def distribution(self):
@@ -551,8 +576,6 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         :return:
         """
         # Not used
-        import pdb;
-        pdb.set_trace()
         new_dist_info_vars = self.dist_info_sym(obs_var, action_var)
         new_mean_var, new_log_std_var = new_dist_info_vars["mean"], new_dist_info_vars["log_std"]
         old_mean_var, old_log_std_var = old_dist_info_vars["mean"], old_dist_info_vars["log_std"]
