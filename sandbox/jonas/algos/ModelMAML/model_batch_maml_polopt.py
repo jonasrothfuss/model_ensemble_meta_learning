@@ -7,12 +7,15 @@ import rllab.misc.logger as logger
 import rllab_maml.plotter as plotter
 import tensorflow as tf
 import time
+import numpy as np
 
 from rllab_maml.algos.base import RLAlgorithm
 from rllab_maml.sampler.stateful_pool import singleton_pool
 
 from sandbox.jonas.sampler import RandomVectorizedSampler, MAMLModelVectorizedSampler, MAMLVectorizedSampler
 from sandbox.jonas.sampler.MAML_sampler.maml_batch_sampler import BatchSampler
+
+MAX_BUFFER = int(2e5)
 
 
 class ModelBatchMAMLPolopt(RLAlgorithm):
@@ -263,12 +266,14 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
 
                         # flatten dict of paths per task/mode --> list of paths
                         new_env_paths = [path for task_paths in new_env_paths.values() for path in task_paths]
-                        self.all_paths.extend(new_env_paths)
+                        # self.all_paths.extend(new_env_paths)
                         logger.log("Processing environment samples...")
                         # first processing just for logging purposes
                         self.model_sampler.process_samples(itr, new_env_paths, log=True, log_prefix='EnvTrajs-')
 
-                        samples_data_dynamics = self.process_samples_for_dynamics(itr, self.all_paths)
+                        new_samples_data_dynamics = self.process_samples_for_dynamics(itr, new_env_paths)
+                        for k, v in samples_data_dynamics.items():
+                            samples_data_dynamics[k] = np.concatenate([v, new_samples_data_dynamics[k]], axis=0)[-MAX_BUFFER:]
 
                     if self.log_real_performance:
                         logger.log("Evaluating the performance of the real policy")
@@ -357,7 +362,8 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                         logger.log("MAML Step %i of %i - Optimizing policy..." % (maml_itr + 1, self.num_maml_steps_per_iter))
                         # This needs to take all samples_data so that it can construct graph for meta-optimization.
                         self.optimize_policy(itr, all_samples_data_maml_iter, log=False)
-
+                        if itr == 0:
+                            sess.graph.finalize()
 
                     logger.log("Saving snapshot...")
                     params = self.get_itr_snapshot(itr, all_samples_data_maml_iter[-1])  # , **kwargs)
