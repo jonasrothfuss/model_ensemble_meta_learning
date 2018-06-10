@@ -37,10 +37,9 @@ class AntEnvRandParams(BaseEnvRandParams, AntEnv, Serializable):
             forward_vel = obs_next[:, 13]
             lb, ub = self.action_bounds
             scaling = (ub - lb) * 0.5
-            ctrl_cost = .5 * 1e-2 * np.square(action/scaling).sum()
-            contact_cost = 0.5 * 1e-3 * np.sum(np.square(obs_next[:, -84:0]), axis=1)
+            ctrl_cost = .5 * 1e-2 * np.sum(np.square(action/scaling), axis=1)
             survive_reward = 1.0
-            return forward_vel - ctrl_cost - contact_cost + survive_reward
+            return forward_vel - ctrl_cost + survive_reward
         else:
             return self.reward(np.array([obs]), np.array([action]), np.array([obs_next]))[0]
 
@@ -49,7 +48,7 @@ class AntEnvRandParams(BaseEnvRandParams, AntEnv, Serializable):
             notdone = np.all(np.isfinite(obs), axis=1) * (obs[:, 0] >= 0.2) * (obs[:, 0] <= 1.0)
             return np.logical_not(notdone)
         else:
-            notdone = np.isfinite(obs).all()  and obs[0] >= 0.2 and obs[0] <= 1.0
+            notdone = np.isfinite(obs).all()  and obs[2] >= 0.2 and obs[2] <= 1.0
             return not notdone
 
 
@@ -82,4 +81,5 @@ if __name__ == "__main__":
     print(env.model.body_mass)
     for _ in range(1000):
         env.render()
+        import pdb; pdb.set_trace()
         env.step(env.action_space.sample())  # take a random action
