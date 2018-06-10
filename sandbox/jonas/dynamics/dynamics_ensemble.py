@@ -36,6 +36,7 @@ class MLPDynamicsEnsemble(MLPDynamicsModel):
 
         self.normalization = None
         self.normalize_input = normalize_input
+        self.next_batch = None
 
         self.valid_split_ratio = valid_split_ratio
         self.rolling_average_persitency = rolling_average_persitency
@@ -176,8 +177,9 @@ class MLPDynamicsEnsemble(MLPDynamicsModel):
             act_test_batches.append(act_test)
             delta_test_batches.append(delta_test)
             # create data queue
-        next_batch, iterator = self._data_input_fn(obs_train_batches, act_train_batches, delta_train_batches,
-                                                   batch_size=self.batch_size)
+        if self.next_batch is None:
+            self.next_batch, self.iterator = self._data_input_fn(obs_train_batches, act_train_batches, delta_train_batches,
+                                                       batch_size=self.batch_size)
 
         valid_loss_rolling_average = None
         train_op_to_do = self.train_op_model_batches
@@ -192,12 +194,12 @@ class MLPDynamicsEnsemble(MLPDynamicsModel):
                 list(zip(self.act_batches_dataset_ph, act_train_batches)) +
                 list(zip(self.delta_batches_dataset_ph, delta_train_batches))
             )
-            sess.run(iterator.initializer, feed_dict=feed_dict)
+            sess.run(self.iterator.initializer, feed_dict=feed_dict)
 
             batch_losses = []
             while True:
                 try:
-                    obs_act_delta = sess.run(next_batch)
+                    obs_act_delta = sess.run(self.next_batch)
                     obs_batch_stack = np.concatenate(obs_act_delta[:self.num_models], axis=0)
                     act_batch_stack = np.concatenate(obs_act_delta[self.num_models:2*self.num_models], axis=0)
                     delta_batch_stack = np.concatenate(obs_act_delta[2*self.num_models:], axis=0)
@@ -353,9 +355,9 @@ class MLPDynamicsEnsemble(MLPDynamicsModel):
         assert obs.shape[0] == act.shape[0] == delta.shape[0], "inputs must have same length along axis 0"
         assert obs.shape[1] == delta.shape[1], "obs and obs_next must have same length along axis 1 "
 
-        self.obs_batches_dataset_ph = [tf.placeholder(tf.float32, obs.shape) for _ in range(self.num_models)]
-        self.act_batches_dataset_ph = [tf.placeholder(tf.float32, act.shape) for _ in range(self.num_models)]
-        self.delta_batches_dataset_ph = [tf.placeholder(tf.float32, delta.shape) for _ in range(self.num_models)]
+        self.obs_batches_dataset_ph = [tf.placeholder(tf.float32, (None, obs.shape[1])) for _ in range(self.num_models)]
+        self.act_batches_dataset_ph = [tf.placeholder(tf.float32, (None, act.shape[1])) for _ in range(self.num_models)]
+        self.delta_batches_dataset_ph = [tf.placeholder(tf.float32, (None, delta.shape[1])) for _ in range(self.num_models)]
 
         dataset = tf.data.Dataset.from_tensor_slices(
             tuple(self.obs_batches_dataset_ph + self.act_batches_dataset_ph + self.delta_batches_dataset_ph)
