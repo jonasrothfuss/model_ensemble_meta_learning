@@ -15,7 +15,7 @@ from rllab_maml.sampler.stateful_pool import singleton_pool
 from sandbox.jonas.sampler import RandomVectorizedSampler, MAMLModelVectorizedSampler, MAMLVectorizedSampler
 from sandbox.jonas.sampler.MAML_sampler.maml_batch_sampler import BatchSampler
 
-MAX_BUFFER = int(1e5)
+MAX_BUFFER = int(3e5)
 
 
 class ModelBatchMAMLPolopt(RLAlgorithm):
