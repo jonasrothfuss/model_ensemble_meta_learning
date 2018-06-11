@@ -109,13 +109,13 @@ def run_experiment(argv):
     vg.add('path_length_env', [200])
 
     # Model-based MAML algo spec
-    vg.add('n_itr', [100])
+    vg.add('n_itr', [125])
     vg.add('fast_lr', [0.001])
     vg.add('meta_step_size', [0.01])
-    vg.add('meta_batch_size', [10]) # must be a multiple of num_models
+    vg.add('meta_batch_size', [20]) # must be a multiple of num_models
     vg.add('discount', [0.99])
 
-    vg.add('batch_size_env_samples', [5])
+    vg.add('batch_size_env_samples', [1])
     vg.add('batch_size_dynamics_samples', [50])
     vg.add('initial_random_samples', [5000])
     vg.add('num_maml_steps_per_iter', [20, 30])
