@@ -1,5 +1,5 @@
 from __future__ import print_function
-from rllab.envs.mujoco.mujoco_env import MujocoEnv
+from rllab.envs.gym_mujoco.mujoco_env import MujocoEnv
 import numpy as np
 from rllab.core.serializable import Serializable
 from rllab.misc.overrides import overrides
@@ -54,6 +54,10 @@ class PR2Env(MujocoEnv, Serializable):
 
         reward = reward_tip + reward_ctrl#+ reward_occlusion
         done = False
+
+        self.time_step += 1
+        if self.max_path_length and self.time_step > self.max_path_length:
+            done = True
 
         ob = self.get_current_obs()
 
