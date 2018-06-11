@@ -56,7 +56,7 @@ class HopperEnv(MujocoEnv, Serializable):
                     (height > .7) and (abs(ang) < .2))
 
         self.time_step += 1
-        if self.max_path_length and self.time_step >= self.max_path_length:
+        if self.max_path_length and self.time_step > self.max_path_length:
             done = True
 
         return ob, float(reward), done, {}

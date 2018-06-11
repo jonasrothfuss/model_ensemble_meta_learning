@@ -44,7 +44,7 @@ class HalfCheetahEnv(MujocoEnv, Serializable):
         done = False
 
         self.time_step += 1
-        if self.max_path_length and self.time_step >= self.max_path_length:
+        if self.max_path_length and self.time_step > self.max_path_length:
             done = True
 
         # clip reward in case mujoco sim goes crazy

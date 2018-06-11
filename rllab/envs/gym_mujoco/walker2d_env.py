@@ -41,7 +41,7 @@ class Walker2DEnv(MujocoEnv, Serializable):
         ob = self.get_current_obs()
 
         self.time_step += 1
-        if self.max_path_length and self.time_step >= self.max_path_length:
+        if self.max_path_length and self.time_step > self.max_path_length:
             done = True
 
         return ob, float(reward), done, {}

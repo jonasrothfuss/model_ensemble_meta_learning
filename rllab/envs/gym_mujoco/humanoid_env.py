@@ -67,7 +67,7 @@ class HumanoidEnv(MujocoEnv, Serializable):
         done = data.qpos[2] < 0.8 or data.qpos[2] > 2.0
 
         self.time_step += 1
-        if self.max_path_length and self.time_step >= self.max_path_length:
+        if self.max_path_length and self.time_step > self.max_path_length:
             done = True
 
         return next_obs, float(reward), done, {}
