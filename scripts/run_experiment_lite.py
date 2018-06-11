@@ -6,6 +6,7 @@ from rllab.misc.ext import is_iterable, set_seed
 from rllab.misc.instrument import concretize
 from rllab import config
 import rllab.misc.logger as logger
+from baselines import logger as baselines_logger
 import argparse
 import os.path as osp
 import datetime
@@ -107,6 +108,9 @@ def run_experiment(argv):
     logger.set_snapshot_gap(args.snapshot_gap)
     logger.set_log_tabular_only(args.log_tabular_only)
     logger.push_prefix("[%s] " % args.exp_name)
+
+    # baselines logger
+    baselines_logger.configure(dir=log_dir)
 
     if args.resume_from is not None:
         data = joblib.load(args.resume_from)

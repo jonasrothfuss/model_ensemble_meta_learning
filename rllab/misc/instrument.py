@@ -845,7 +845,7 @@ def launch_ec2(params_list, exp_prefix, docker_image, code_full_path,
         if periodic_sync:
             include_png = " --include '*.png' " if sync_s3_png else " "
             include_pkl = " --include '*.pkl' " if sync_s3_pkl else " "
-            include_log = " --include '*.log' " if sync_s3_log else " "
+            include_log = " --include '*.log'  --include '*.txt' " if sync_s3_log else " "
             # sio.write("""
             #     while /bin/true; do
             #         aws s3 sync --exclude '*' {include_png} {include_pkl} {include_log}--include '*.csv' --include '*.json' {log_dir} {remote_log_dir} --region {aws_region}

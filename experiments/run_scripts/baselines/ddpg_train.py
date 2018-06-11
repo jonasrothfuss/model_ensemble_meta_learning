@@ -35,7 +35,7 @@ from mpi4py import MPI
 
 EXP_PREFIX = 'ddpg-baselines'
 
-ec2_instance = 'c4.2xlarge'
+ec2_instance = 'c4.xlarge'
 
 # configure instance
 
@@ -57,9 +57,6 @@ def run_train_task(vv):
     rank = MPI.COMM_WORLD.Get_rank()
     if rank != 0:
         logger.set_level(logger.DISABLED)
-
-    log_dir = os.path.join(rllab.config.LOG_DIR, 'local', vv['exp_prefix'], vv['exp_name'])
-    logger.configure(dir=log_dir)
 
     # Create envs.
     env = HalfCheetahEnvRandParams(log_scale_limit=0.0, max_path_length=vv['path_length'])
@@ -152,10 +149,9 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['HalfCheetahEnvRandParams', 'AntEnvRandParams', 'WalkerEnvRandomParams',
-                   'SwimmerEnvRandParams', 'HopperEnvRandParams', 'PR2EnvRandParams'])
-    vg.add('total_timesteps', [int(10**8)])
-    vg.add('seed', [31, 41, 32])
+    vg.add('env', ['HalfCheetahEnvRandParams']) #['HalfCheetahEnvRandParams', 'AntEnvRandParams', 'WalkerEnvRandomParams',
+                   #'SwimmerEnvRandParams', 'HopperEnvRandParams', 'PR2EnvRandParams'])
+    vg.add('seed', [31]) #TODO set back to [31, 41, 32]
     vg.add('discount', [0.99])
     vg.add('path_length', [200])
     vg.add('hidden_nonlinearity', ['tanh'])

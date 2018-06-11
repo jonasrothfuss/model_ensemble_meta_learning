@@ -144,7 +144,7 @@ def train(env, nb_epochs, nb_epoch_cycles, render_eval, reward_scale, render, pa
             stats = agent.get_stats()
             combined_stats = stats.copy()
             combined_stats['rollout/return'] = np.mean(epoch_episode_rewards)
-            combined_stats['rollout/return_history'] = np.mean(episode_rewards_history)
+            combined_stats['AverageReturn'] = np.mean(epoch_episode_rewards)
             combined_stats['rollout/episode_steps'] = np.mean(epoch_episode_steps)
             combined_stats['rollout/actions_mean'] = np.mean(epoch_actions)
             combined_stats['rollout/Q_mean'] = np.mean(epoch_qs)
@@ -176,6 +176,7 @@ def train(env, nb_epochs, nb_epoch_cycles, render_eval, reward_scale, render, pa
             # Total statistics.
             combined_stats['total/epochs'] = epoch + 1
             combined_stats['total/steps'] = t
+            combined_stats['n_timesteps'] = t
 
             for key in sorted(combined_stats.keys()):
                 logger.record_tabular(key, combined_stats[key])
