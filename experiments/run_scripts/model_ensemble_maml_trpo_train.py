@@ -101,7 +101,7 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
     vg = VariantGenerator()
 
-    vg.add('seed', [22, 33, 10, 11]) #TODO set back to [1, 11, 21, 31, 41]
+    vg.add('seed', [22, 33, 12, 11]) #TODO set back to [1, 11, 21, 31, 41]
 
     # env spec
     vg.add('env', ['WalkerEnvRandomParams'])

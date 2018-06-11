@@ -22,7 +22,7 @@ import argparse
 import random
 import os
 
-EXP_PREFIX = 'model-ensemble-maml-ablation-study'
+EXP_PREFIX = 'model-ensemble-maml-ablation-study-maml-iter'
 
 ec2_instance = 'm4.4xlarge'
 NUM_EC2_SUBNETS = 3
@@ -101,7 +101,7 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
     vg = VariantGenerator()
 
-    vg.add('seed', [22, 33, 44]) #TODO set back to [1, 11, 21, 31, 41]
+    vg.add('seed', [66, 77]) #TODO set back to [22, 33, 44 ]
 
     # env spec
     vg.add('env', ['HalfCheetahEnvRandParams'])
