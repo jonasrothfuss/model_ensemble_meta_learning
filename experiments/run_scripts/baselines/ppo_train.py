@@ -28,7 +28,7 @@ import rllab
 
 EXP_PREFIX = 'ppo-baselines'
 
-ec2_instance = 'c4.2xlarge'
+ec2_instance = 'c4.xlarge'
 
 # configure instance
 
@@ -45,16 +45,11 @@ config.AWS_SPOT_PRICE = str(info["price"])
 
 def run_train_task(vv):
 
-    log_dir = os.path.join(rllab.config.LOG_DIR, 'local', vv['exp_prefix'], vv['exp_name'])
-
     ncpu = multiprocessing.cpu_count()
     config = tf.ConfigProto(allow_soft_placement=True,
                             intra_op_parallelism_threads=ncpu,
                             inter_op_parallelism_threads=ncpu)
     tf.Session(config=config).__enter__()
-
-
-    logger.configure(dir=log_dir)
 
     def make_env():
         env = vv['env'](log_scale_limit=0.0, max_path_length=vv['path_length'])
