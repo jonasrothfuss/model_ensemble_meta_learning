@@ -11,7 +11,7 @@ import random
 import os
 
 from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, \
-    WalkerEnvRandomParams, SwimmerEnvRandParams
+    WalkerEnvRandomParams, SwimmerEnvRandParams, PR2EnvRandParams
 from baselines.common import set_global_seeds
 from baselines.common.vec_env.vec_normalize import VecNormalize
 from baselines.ppo2 import ppo2
@@ -89,7 +89,7 @@ def run_experiment(argv):
 
     vg = VariantGenerator()
     vg.add('env', ['HalfCheetahEnvRandParams', 'AntEnvRandParams', 'WalkerEnvRandomParams',
-                   'SwimmerEnvRandParams', 'HopperEnvRandParams'])
+                   'SwimmerEnvRandParams', 'HopperEnvRandParams', 'PR2EnvRandParams'])
     vg.add('total_timesteps', [int(10**8)])
     vg.add('seed', [31, 41, 32])
     vg.add('discount', [0.99])
