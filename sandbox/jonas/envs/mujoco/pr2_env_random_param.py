@@ -42,13 +42,6 @@ class PR2EnvRandParams(BaseEnvRandParams, PR2Env, Serializable):
         else:
             return self.reward(np.array([obs]), np.array([action]), np.array([obs_next]))[0]
 
-    def done(self, obs):
-        if obs.ndim == 2:
-            return [False] * obs.shape[0]
-        else:
-            return False
-
-
     def _obs_bounds(self):
         self._obs_lower_bounds = -1000 * np.ones(shape=(self.model.data.qpos.shape[0] + self.model.data.qvel.shape[0]-2,))
         self._obs_upper_bounds = 1000 * np.ones(shape=(self.model.data.qpos.shape[0] + self.model.data.qvel.shape[0]-1,))
