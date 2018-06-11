@@ -41,7 +41,7 @@ class BaseEnvRandParams(Serializable):
         self.parameters_already_fixed = False
         self.n_steps = 0
         self.reward_range = None
-        self.metadata = None
+        self.metadata = {}
         if max_path_length is not None:
             self.max_path_length = max_path_length
         else:
