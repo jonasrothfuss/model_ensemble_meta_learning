@@ -1,4 +1,4 @@
-from rllab.envs.mujoco.ant_env import AntEnv
+from rllab.envs.gym_mujoco.ant_env import AntEnv
 from rllab.core.serializable import Serializable
 from sandbox.jonas.envs.mujoco.base_env_rand_param import BaseEnvRandParams
 from sandbox.jonas.envs.helpers import get_all_function_arguments

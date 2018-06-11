@@ -17,12 +17,12 @@ class AntEnv(MujocoEnv, Serializable):
     def __init__(self, *args, **kwargs):
         super(AntEnv, self).__init__(*args, **kwargs)
         Serializable.__init__(self, *args, **kwargs)
+        self.frame_skip = 2
 
     def get_current_obs(self):
         return np.concatenate([
             self.model.data.qpos.flat[2:],
             self.model.data.qvel.flat,
-            np.clip(self.model.data.cfrc_ext, -1, 1).flat,
         ]).reshape(-1)
 
     def step(self, action):
@@ -33,17 +33,14 @@ class AntEnv(MujocoEnv, Serializable):
         ctrl_cost = .5 * 1e-2 * np.square(action/scaling).sum()
         contact_cost = 0.5 * 1e-3 * np.sum(np.square(np.clip(self.model.data.cfrc_ext, -1, 1)))
         survive_reward = 1.0
-        reward = forward_reward - ctrl_cost - contact_cost + survive_reward
+        reward = forward_reward - ctrl_cost + survive_reward
         ob = self.get_current_obs()
         notdone = np.isfinite(ob).all() and ob[0] <= 1.0 and ob[0] >= 0.2
         done = not notdone
 
         reward = np.minimum(np.maximum(-1000.0, reward), 1000.0)
 
-        return ob, reward, done, dict(
-            reward_forward=forward_reward,
-            reward_ctrl=-ctrl_cost,
-            reward_survive=survive_reward)
+        return ob, reward, done, {}
 
     @overrides
     def get_ori(self):
