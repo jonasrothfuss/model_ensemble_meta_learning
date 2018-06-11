@@ -40,7 +40,11 @@ class SwimmerEnv(MujocoEnv, Serializable):
         reward_ctrl = - ctrl_cost_coeff * np.square(action).sum()
         reward = reward_fwd + reward_ctrl
         ob = self.get_current_obs()
-        return ob, float(reward), False, dict(reward_fwd=reward_fwd, reward_ctrl=reward_ctrl)
+        done = False
+        self.time_step += 1
+        if self.max_path_length and self.time_step >= self.max_path_length:
+            done = True
+        return ob, float(reward), done, dict(reward_fwd=reward_fwd, reward_ctrl=reward_ctrl)
 
     @overrides
     def log_diagnostics(self, paths):

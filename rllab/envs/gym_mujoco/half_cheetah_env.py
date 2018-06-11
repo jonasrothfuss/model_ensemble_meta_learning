@@ -43,6 +43,10 @@ class HalfCheetahEnv(MujocoEnv, Serializable):
         reward = reward_ctrl + reward_run
         done = False
 
+        self.time_step += 1
+        if self.max_path_length and self.time_step >= self.max_path_length:
+            done = True
+
         # clip reward in case mujoco sim goes crazy
         reward = np.minimum(np.maximum(-1000, reward), 1000)
 

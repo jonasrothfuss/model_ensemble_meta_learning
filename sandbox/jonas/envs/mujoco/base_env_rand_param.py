@@ -61,6 +61,7 @@ class BaseEnvRandParams(Serializable):
         """
         assert reset_args is None or type(reset_args) == dict, "reset_args must be a dict containing mujoco model params"
 
+        self.time_step = 1
         # reset number of steps taken
         self.n_steps = 0
 

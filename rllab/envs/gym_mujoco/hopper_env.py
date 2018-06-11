@@ -55,6 +55,10 @@ class HopperEnv(MujocoEnv, Serializable):
         done = not (np.isfinite(ob).all() and (np.abs(ob[1:]) < 100).all() and
                     (height > .7) and (abs(ang) < .2))
 
+        self.time_step += 1
+        if self.max_path_length and self.time_step >= self.max_path_length:
+            done = True
+
         return ob, float(reward), done, {}
 
     @overrides

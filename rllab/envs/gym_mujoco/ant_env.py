@@ -40,6 +40,10 @@ class AntEnv(MujocoEnv, Serializable):
 
         reward = np.minimum(np.maximum(-1000.0, reward), 1000.0)
 
+        self.time_step += 1
+        if self.max_path_length and self.time_step >= self.max_path_length:
+            done = True
+
         return ob, reward, done, {}
 
     @overrides
