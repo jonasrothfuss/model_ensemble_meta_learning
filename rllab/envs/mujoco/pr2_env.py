@@ -5,7 +5,7 @@ from rllab.core.serializable import Serializable
 from rllab.misc.overrides import overrides
 
 
-class Pr2EnvLego(MujocoEnv, Serializable):
+class PR2Env(MujocoEnv, Serializable):
 
     FILE = 'pr2_legofree.xml'
 
@@ -19,7 +19,7 @@ class Pr2EnvLego(MujocoEnv, Serializable):
         if model not in [None, 0]:
             self.set_model(model)
 
-        super(Pr2EnvLego, self).__init__(*args, **kwargs)
+        super(PR2Env, self).__init__(*args, **kwargs)
         Serializable.quick_init(self, locals())
 
     def set_model(self, model):
@@ -45,13 +45,12 @@ class Pr2EnvLego(MujocoEnv, Serializable):
         vec_tip_to_goal = self.get_vec_tip_to_goal()
 
         self.forward_dynamics(action)
+        lb, ub = self.action_bounds
+        scaling = (ub - lb) * 0.5
+        reward_ctrl = -self.action_penalty * np.sum(np.square(action/scaling))
 
         distance_tip_to_goal = np.sum(np.square(vec_tip_to_goal))
-
-        # Penalize the robot for being far from the goal and for having the arm far from the lego.
         reward_tip = - distance_tip_to_goal
-        reward_ctrl = -self.action_penalty * np.sum(np.square(action))
-        # print(reward_tip)
 
         reward = reward_tip + reward_ctrl#+ reward_occlusion
         done = False
@@ -63,11 +62,14 @@ class Pr2EnvLego(MujocoEnv, Serializable):
     @overrides
     def reset_mujoco(self, qpos=None, qvel=None):
         qpos = self.init_qpos + np.random.normal(size=self.init_qpos.shape) * 0.01
-        self.goal = np.random.uniform([0.2, -0.25, 0.5], [0.5, 0.25, 0.7])
+        self.goal = np.random.uniform([0.4, 0.25, 0.6], [0.6, 0.75, 1.])
         qpos[-3:, 0] = self.goal
 
+        qvel = self.init_qvel + np.random.normal(size=self.init_qvel.shape) * 0.1
+        qvel[-3:, 0] = 0
+
         self.model.data.qpos = qpos
-        self.model.data.qvel = self.init_qvel + np.random.normal(size=self.init_qvel.shape) * 0.1
+        self.model.data.qvel = qvel
         self.model.data.qacc = self.init_qacc
         self.model.data.ctrl = self.init_ctrl
 

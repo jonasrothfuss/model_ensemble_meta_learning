@@ -161,36 +161,29 @@
                     <body name="r_shoulder_pan_link" pos="0 -0.188 0">
                         <inertial pos="-0.001201 0.024513 -0.098231" quat="0.927482 -0.087656 0.074060 -0.355821" mass="25.799322" diaginertia="0.934201 0.837701 0.242033" />
 
-                        <joint name="r_shoulder_pan_joint" type="hinge" pos="0 0 0" axis="0 0 1" limited="true" range="-0.719 -0.718" />
                         <geom name="geom32" rgba="0.7 0.7 0.7 1" mesh="shoulder_pan" contype="0"/>
                         <body name="r_shoulder_lift_link" pos="0.1 0 0">
                             <inertial pos="0.02195 -0.02664 -0.03127" quat="0.791779 0.478014 0.238985 0.295762" mass="2.74988" diaginertia="0.026187 0.020730 0.015168" />
-                            <joint name="r_shoulder_lift_joint" type="hinge" pos="0 0 0" axis="0 1 0" limited="true" range="-0.225 -0.224"/>
                             <geom name="geom33" rgba="0.7 0.7 0.7 1" mesh="shoulder_lift" contype="0"/>
                             <body name="r_upper_arm_roll_link" pos="0 0 0">
                                 <inertial pos="0 0 0" mass="0.1" diaginertia="0.01 0.01 0.01" />
-                                <joint name="r_upper_arm_roll_joint" type="hinge" pos="0 0 0" axis="1 0 0" limited="true" range="-1.16 -1.15"/>
                                 <body name="r_upper_arm_link" pos="0 0 0">
                                     <inertial pos="0.21398 -0.01621 -0.0002" quat="-0.045020 0.697462 -0.088537 0.709705" mass="6.01769" diaginertia="0.076138 0.074931 0.015133" />
                                     <geom name="geom35" rgba="0.7 0.7 0.7 1" mesh="upper_arm" contype="0"/>
                                     <body name="r_elbow_flex_link" pos="0.4 0 0">
                                         <inertial pos="0.01014 0.00032 -0.01211" quat="0.308784 0.646797 0.639077 0.279083" mass="1.90327" diaginertia="0.004419 0.003965 0.003090" />
-                                        <joint name="r_elbow_flex_joint" type="hinge" pos="0 0 0" axis="0 1 0" limited="true" range="-1.052 -1.051"/>
                                         <geom name="geom36" rgba="0.7 0.7 0.7 1" mesh="elbow_flex" contype="0"/>
                                         <body name="r_forearm_roll_link" pos="0 0 0">
                                             <inertial pos="0 0 0" mass="0.1" diaginertia="0.01 0.01 0.01" />
-                                            <joint name="r_forearm_roll_joint" type="hinge"   pos="0 0 0" axis="1 0 0" limited="true" range="36.11 36.12"/>
                                             <body name="r_forearm_link" pos="0 0 0">
                                                 <inertial pos="0.18791 -0.00017 -0.00912" quat="-0.000587 0.726286 -0.003969 0.687381" mass="2.57968" diaginertia="0.016633 0.015078 0.003609" />
                                                 <geom name="r_forearm" rgba="0.7 0.7 0.7 1" mesh="forearm" contype="0"/>
                                                 <body name="r_wrist_flex_link" pos="0.321 0 0">
                                                     <inertial pos="-0.00157 0 -0.00075" quat="0.695976 0.696411 -0.123560 0.123942" mass="0.61402" diaginertia="0.000653 0.000643 0.000198" />
-                                                    <joint name="r_wrist_flex_joint" type="hinge" pos="0 0 0" axis="0 1 0" limited="true" range="-1.821 -1.820"/>
                                                     <geom name="geom39" rgba="0.7 0.7 0.7 1" mesh="wrist_flex" contype="0"/>
                                                     <body name="r_wrist_roll_link" pos="0 0 0">
                                                         <inertial pos="0 0 0" mass="0.1" diaginertia="0.01 0.01 0.01" />
 
-                                                        <joint name="r_wrist_roll_joint" type="hinge"   pos="0 0 0" axis="1 0 0" limited="true" range="-78.67 -78.66"/>
                                                         <body name="r_gripper_palm_link" pos="0 0 0" childclass="gripper">
                                                             <inertial pos="0.06623 0.00053 -0.00119" quat="-0.018184 0.706274 0.016077 0.707523" mass="0.58007" diaginertia="0.000866 0.000678 0.000351" />
                                                             <geom name="geom41" rgba="0.7 0.7 0.7 1" mesh="gripper_palm" contype="0"/>
