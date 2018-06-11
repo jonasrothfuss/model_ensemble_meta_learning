@@ -148,3 +148,7 @@ class BaseEnvRandParams(Serializable):
             param_sets.append(new_params)
 
         return param_sets
+
+    def seed(self, random_seed):
+        self.random_seed = random_seed
+        self.random_state = np.random.RandomState(random_seed)
