@@ -217,7 +217,6 @@ def learn(*, policy, env, nsteps, total_timesteps, ent_coef, lr,
         tnow = time.time()
         fps = int(nbatch / (tnow - tstart))
         if update % log_interval == 0 or update == 1:
-            print("LOOOOOOOOOOOOOOOOOOOGGGING to : ", logger.get_dir())
             ev = explained_variance(values, returns)
             logger.logkv("serial_timesteps", update*nsteps)
             logger.logkv("nupdates", update)

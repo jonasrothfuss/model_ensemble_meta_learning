@@ -10,6 +10,22 @@ import argparse
 import random
 import os
 
+from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, \
+    WalkerEnvRandomParams, SwimmerEnvRandParams
+from baselines.common import set_global_seeds
+from baselines.common.vec_env.vec_normalize import VecNormalize
+from baselines.ppo2 import ppo2
+from baselines.ppo2.policies import MlpPolicy
+import tensorflow as tf
+from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
+
+from baselines import bench, logger
+import multiprocessing
+import rllab
+
+
+
+
 EXP_PREFIX = 'ppo-baselines'
 
 ec2_instance = 'c4.2xlarge'
@@ -28,18 +44,6 @@ config.AWS_SPOT_PRICE = str(info["price"])
 
 
 def run_train_task(vv):
-    from baselines.common import set_global_seeds
-    from baselines.common.vec_env.vec_normalize import VecNormalize
-    from baselines.ppo2 import ppo2
-    from baselines.ppo2.policies import MlpPolicy
-    from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, \
-        WalkerEnvRandomParams, SwimmerEnvRandParams
-    import tensorflow as tf
-    from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
-
-    from baselines import bench, logger
-    import multiprocessing
-    import rllab
 
     log_dir = os.path.join(rllab.config.LOG_DIR, 'local', vv['exp_prefix'], vv['exp_name'])
 
@@ -147,7 +151,7 @@ def run_experiment(argv):
             python_command="python3", #sys.executable,
             pre_commands=["yes | pip install tensorflow=='1.6.0'",
                           "yes | pip install --upgrade cloudpickle",
-                          "yes | pip install path"],
+                          "yes | pip install gym==0.10.5"],
             mode=args.mode,
             use_cloudpickle=True,
             variant=v,
