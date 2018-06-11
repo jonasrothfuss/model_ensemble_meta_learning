@@ -12,7 +12,7 @@ import os
 
 EXP_PREFIX = 'ppo-baselines'
 
-ec2_instance = 'm4.2xlarge'
+ec2_instance = 'c4.2xlarge'
 
 # configure instance
 
