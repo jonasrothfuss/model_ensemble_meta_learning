@@ -13,7 +13,7 @@ from experiments.helpers.ec2_helpers import cheapest_subnets
 from rllab import config
 
 from sandbox.jonas.envs.own_envs import PointEnvMAML
-from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams
+from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, HumanoidEnvRandParams
 from sandbox.jonas.envs.mujoco import Reacher5DofEnvRandParams
 
 
@@ -106,6 +106,8 @@ def run_experiment(vargs):
 
 
 def instantiate_class_stings(v):
+    if v['env'] == 'WalkerEnvRandomParams':
+        v['hidden_sizes_model'] = (1024, 1024)
     v['env'] = globals()[v['env']]
     v['dynamics_model'] = globals()[v['dynamics_model']]
 

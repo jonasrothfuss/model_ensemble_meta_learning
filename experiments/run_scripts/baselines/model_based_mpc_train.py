@@ -10,7 +10,7 @@ from sandbox.jonas.dynamics import MLPDynamicsEnsemble
 from sandbox.jonas.algos.MBMPC.model_mpc_batch_polopt import ModelMPCBatchPolopt
 from sandbox.jonas.policies.mpc_controller import MPCController
 from experiments.helpers.run_multi_gpu import run_multi_gpu
-from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams, WalkerEnvRandomParams
+from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams, WalkerEnvRandomParams, PR2EnvRandParams
 
 import tensorflow as tf
 import sys
@@ -20,7 +20,7 @@ import os
 
 EXP_PREFIX = 'model-ensemble-mpc-mb'
 
-ec2_instance = 'c4.4xlarge'
+ec2_instance = 'c4.xlarge'
 NUM_EC2_SUBNETS = 3
 
 def run_train_task(vv):
@@ -79,12 +79,12 @@ def run_experiment(argv):
 
     vg = VariantGenerator()
 
-    vg.add('seed', [22, 33])  # TODO set back to [1, 11, 21, 31, 41]
+    vg.add('seed', [20, 30, 40])  # TODO set back to [1, 11, 21, 31, 41]
 
     # env spec
-    vg.add('env', ['HalfCheetahEnvRandParams'])  # HalfCheetahEnvRandParams
+    vg.add('env', ['AntEnvRandParams'])  # HalfCheetahEnvRandParams
     vg.add('log_scale_limit', [0.0])
-    vg.add('path_length', [200, 500])
+    vg.add('path_length', [200])
 
     # Model-based MAML algo spec
     vg.add('n_itr', [100])
@@ -93,7 +93,7 @@ def run_experiment(argv):
 
     vg.add('batch_size_env_samples', [4000])
     vg.add('initial_random_samples', [4000])
-    vg.add('num_models', [5, 10])
+    vg.add('num_models', [5])
     vg.add('n_candidates', [1000])
     vg.add('horizon', [10])
 
@@ -145,7 +145,8 @@ def run_experiment(argv):
 
             config.AWS_INSTANCE_TYPE = ec2_instance
             config.AWS_SPOT_PRICE = str(info["price"])
-            subnets = cheapest_subnets(ec2_instance, num_subnets=NUM_EC2_SUBNETS)
+            subnets = ['us-west-2b', 'us-west-2c',]
+    # ]cheapest_subnets(ec2_instance, num_subnets=NUM_EC2_SUBNETS)
 
             print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format('TRPO', len(variants)))
             print('Running on type {}, with price {}, on the subnets: '.format(config.AWS_INSTANCE_TYPE,

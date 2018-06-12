@@ -14,7 +14,7 @@ from experiments.helpers.run_multi_gpu import run_multi_gpu
 
 from sandbox.jonas.envs.own_envs import PointEnvMAML
 from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, WalkerEnvRandomParams,\
-    SwimmerEnvRandParams, HumanoidEnvRandParams
+    SwimmerEnvRandParams, HumanoidEnvRandParams, PR2EnvRandParams
 from sandbox.jonas.envs.mujoco import Reacher5DofEnvRandParams
 
 
@@ -24,9 +24,9 @@ import argparse
 import random
 import os
 
-EXP_PREFIX = 'model-ensemble-maml-no-bug'
+EXP_PREFIX = 'model-ensemble-maml-good-paper-big-buffer'
 
-ec2_instance = 'm4.4xlarge'
+ec2_instance = 'm4.xlarge'
 NUM_EC2_SUBNETS = 3
 
 
@@ -99,28 +99,28 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
     vg = VariantGenerator()
 
-    vg.add('seed', [11, 22])
+    vg.add('seed', [10, 20, 30])
 
     # env spec
-    vg.add('env', ['HalfCheetahEnvRandParams'])
+    vg.add('env', ['HalfCheetahEnvRandParams', 'HopperEnvRandParams', 'WalkerEnvRandomParams', 'PR2EnvRandParams'])
     vg.add('log_scale_limit', [0.0])
-    vg.add('path_length_env', [500])
+    vg.add('path_length_env', [200])
 
     # Model-based MAML algo spec
-    vg.add('path_length_dyn', [500])
+    vg.add('path_length_dyn', [None])
     vg.add('n_itr', [100])
-    vg.add('fast_lr', [0.0, 0.001, 0.005])
+    vg.add('fast_lr', [0.001, 0.005])
     vg.add('meta_step_size', [0.01])
-    vg.add('meta_batch_size', [10]) # must be a multiple of num_models
+    vg.add('meta_batch_size', [10])  # must be a multiple of num_models
     vg.add('discount', [0.99])
-    vg.add('batch_size_env_samples', [5])
+    vg.add('batch_size_env_samples', [2])
     vg.add('batch_size_dynamics_samples', [50])
     vg.add('initial_random_samples', [None])
-    vg.add('dynamic_model_epochs', [(100, 50)])
+    vg.add('dynamic_model_epochs', [(200, 200)])
     vg.add('num_maml_steps_per_iter', [30])
     vg.add('retrain_model_when_reward_decreases', [False])
-    vg.add('reset_from_env_traj', [False, True])
-    vg.add('num_models', [5, 10])
+    vg.add('reset_from_env_traj', [False])
+    vg.add('num_models', [5])
     vg.add('trainable_step_size', [False])
 
     # neural network configuration

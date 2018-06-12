@@ -12,7 +12,7 @@ from sandbox.ignasi.algos.ModelMAML.model_maml_trpo import ModelMAMLTRPO
 from experiments.helpers.ec2_helpers import cheapest_subnets
 
 from sandbox.jonas.envs.own_envs import PointEnvMAML
-from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams
+from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, HumanoidEnvRandParams
 from sandbox.jonas.envs.mujoco import Reacher5DofEnvRandParams
 import json
 import dateutil.tz
@@ -99,6 +99,8 @@ def run_experiment(exp_args):
 
 
 def instantiate_class_stings(v):
+    if v['env'] == 'WalkerEnvRandomParams':
+        v['hidden_sizes_model'] = (1024, 1024)
     v['env'] = globals()[v['env']]
 
     # optimizer

@@ -17,7 +17,7 @@ import argparse
 import random
 import os
 
-EXP_PREFIX = 'model-ensemble-trpo-new'
+EXP_PREFIX = 'model-ensemble-trpo-'
 
 ec2_instance = 'c4.4xlarge'
 NUM_EC2_SUBNETS = 3
@@ -54,6 +54,7 @@ def run_train_task(vv):
         batch_size_dynamics_samples=vv['batch_size_dynamics_samples'],
         initial_random_samples=vv['initial_random_samples'],
         num_gradient_steps_per_iter=vv['num_gradient_steps_per_iter'],
+        dynamic_model_max_epochs=vv['dynamic_model_epochs'],
         max_path_length=vv['path_length'],
         n_itr=vv['n_itr'],
         retrain_model_when_reward_decreases=vv['retrain_model_when_reward_decreases'],
@@ -82,12 +83,12 @@ def run_experiment(argv):
 
     vg = VariantGenerator()
 
-    vg.add('seed', [22, 33, 44])  # TODO set back to [1, 11, 21, 31, 41]
+    vg.add('seed', [22, 33])  # TODO set back to [1, 11, 21, 31, 41]
 
     # env spec
-    vg.add('env', ['WalkerEnvRandomParams']) # HalfCheetahEnvRandParams
+    vg.add('env', ['HalfCheetahEnvRandParams']) # HalfCheetahEnvRandParams
     vg.add('log_scale_limit', [0.0])
-    vg.add('path_length', [200])
+    vg.add('path_length', [200, 500])
 
     # Model-based MAML algo spec
     vg.add('n_itr', [100])
@@ -95,17 +96,18 @@ def run_experiment(argv):
     vg.add('discount', [0.99])
 
     vg.add('batch_size_env_samples', [4000])
-    vg.add('batch_size_dynamics_samples', [40000])
+    vg.add('batch_size_dynamics_samples', [50000])
     vg.add('initial_random_samples', [4000])
-    vg.add('num_gradient_steps_per_iter', [30, 50])
+    vg.add('num_gradient_steps_per_iter', [30])
     vg.add('retrain_model_when_reward_decreases', [False])
-    vg.add('num_models', [5])
+    vg.add('num_models', [5, 10])
 
     # neural network configuration
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(32, 32)])
     vg.add('hidden_sizes_model', [(512, 512)])
+    vg.add('dynamic_model_epochs', [(100, 50)])
     vg.add('weight_normalization_model', [True])
     vg.add('reset_policy_std', [False])
     vg.add('reinit_model_cycle', [0])
