@@ -12,28 +12,15 @@ import os
 
 from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, \
     WalkerEnvRandomParams, SwimmerEnvRandParams, PR2EnvRandParams
-from baselines.common import set_global_seeds
-from baselines.common.vec_env.vec_normalize import VecNormalize
-from baselines.ppo2 import ppo2
-from baselines.ppo2.policies import MlpPolicy
+
 import tensorflow as tf
-from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
+from baselines import logger
+from baselines.common.cmd_util import make_mujoco_env, mujoco_arg_parser
+from baselines.acktr.acktr_cont import learn
+from baselines.acktr.policies import GaussianMlpPolicy
+from baselines.acktr.value_functions import NeuralNetValueFunction
 
-from baselines import bench, logger
-import multiprocessing
-import rllab
-
-import baselines.ddpg.training as training
-from baselines.ddpg.models import Actor, Critic
-from baselines.ddpg.memory import Memory
-from baselines.ddpg.noise import *
-
-import time
-import tensorflow as tf
-from mpi4py import MPI
-
-
-EXP_PREFIX = 'ddpg-baselines'
+EXP_PREFIX = 'acktr-baselines'
 
 ec2_instance = 'c4.xlarge'
 
@@ -52,88 +39,24 @@ config.AWS_SPOT_PRICE = str(info["price"])
 
 def run_train_task(vv):
 
-
-    # Configure things.
-    rank = MPI.COMM_WORLD.Get_rank()
-    if rank != 0:
-        logger.set_level(logger.DISABLED)
-
     # Create envs.
     env = HalfCheetahEnvRandParams(log_scale_limit=0.0, max_path_length=vv['path_length'])
-    env = bench.Monitor(env, logger.get_dir() and os.path.join(logger.get_dir(), str(rank)))
+
+    with tf.Session(config=tf.ConfigProto()):
+        ob_dim = env.observation_space.shape[0]
+        ac_dim = env.action_space.shape[0]
+        with tf.variable_scope("vf"):
+            vf = NeuralNetValueFunction(ob_dim, ac_dim)
+        with tf.variable_scope("pi"):
+            policy = GaussianMlpPolicy(ob_dim, ac_dim)
+
+        learn(env, policy=policy, vf=vf,
+              gamma=vv['discount'], lam=0.97, timesteps_per_batch=vv['batch_size'],
+              desired_kl=0.002, num_timesteps=vv['num_timesteps'], max_path_length=vv['path_length'], animate=False)
+
+        env.close()
 
 
-    eval_env = None
-
-    # Parse noise_type
-    action_noise = None
-    param_noise = None
-    nb_actions = env.action_space.shape[-1]
-    for current_noise_type in vv['noise_type'].split(','):
-        current_noise_type = current_noise_type.strip()
-        if current_noise_type == 'none':
-            pass
-        elif 'adaptive-param' in current_noise_type:
-            _, stddev = current_noise_type.split('_')
-            param_noise = AdaptiveParamNoiseSpec(initial_stddev=float(stddev), desired_action_stddev=float(stddev))
-        elif 'normal' in current_noise_type:
-            _, stddev = current_noise_type.split('_')
-            action_noise = NormalActionNoise(mu=np.zeros(nb_actions), sigma=float(stddev) * np.ones(nb_actions))
-        elif 'ou' in current_noise_type:
-            _, stddev = current_noise_type.split('_')
-            action_noise = OrnsteinUhlenbeckActionNoise(mu=np.zeros(nb_actions),
-                                                        sigma=float(stddev) * np.ones(nb_actions))
-        else:
-            raise RuntimeError('unknown noise type "{}"'.format(current_noise_type))
-
-    # Configure components.
-    memory = Memory(limit=int(1e6), action_shape=env.action_space.shape, observation_shape=env.observation_space.shape)
-    critic = Critic(layer_norm=vv['layer_norm'])
-    actor = Actor(nb_actions, layer_norm=vv['layer_norm'])
-
-    # Seed everything to make things reproducible.
-    seed = vv['seed'] + 1000000 * rank
-    logger.info('rank {}: seed={}, logdir={}'.format(rank, seed, logger.get_dir()))
-    tf.reset_default_graph()
-    set_global_seeds(seed)
-    env.seed(seed)
-    if eval_env is not None:
-        eval_env.seed(seed)
-
-    # Disable logging for rank != 0 to avoid noise.
-    if rank == 0:
-        start_time = time.time()
-    training.train(env=env,
-                   eval_env=eval_env,
-                   param_noise=param_noise,
-                   action_noise=action_noise,
-                   actor=actor,
-                   critic=critic,
-                   memory=memory,
-                   actor_lr=vv['actor_lr'],
-                   batch_size=vv['batch_size'],
-                   clip_norm=vv['clip_norm'],
-                   critic_l2_reg=vv['critic_l2_reg'],
-                   critic_lr=vv['critic_lr'],
-                   gamma=vv['discount'],
-                   nb_epoch_cycles=vv['nb_epoch_cycles'],
-                   nb_epochs=vv['nb_epochs'],
-                   nb_eval_steps=vv['nb_eval_steps'],
-                   nb_rollout_steps=vv['path_length'],
-                   nb_train_steps=vv['nb_train_steps'],
-                   normalize_observations=vv['normalize_observations'],
-                   normalize_returns=vv['normalize_returns'],
-                   popart=vv['popart'],
-                   render=vv['render'],
-                   render_eval=vv['render_eval'],
-                   reward_scale=vv['reward_scale']
-                   )
-
-    env.close()
-    if eval_env is not None:
-        eval_env.close()
-    if rank == 0:
-        logger.info('total runtime: {}s'.format(time.time() - start_time))
 
 
 def run_experiment(argv):
@@ -151,30 +74,14 @@ def run_experiment(argv):
     vg = VariantGenerator()
     vg.add('env', ['HalfCheetahEnvRandParams', 'AntEnvRandParams', 'WalkerEnvRandomParams',
                    'SwimmerEnvRandParams', 'HopperEnvRandParams', 'PR2EnvRandParams'])
+    vg.add('total_timesteps', [int(10**8)])
     vg.add('seed', [31, 41, 32])
     vg.add('discount', [0.99])
     vg.add('path_length', [200])
+    vg.add('batch_size', [5000])
+    vg.add('num_timesteps', [10**7])
     vg.add('hidden_nonlinearity', ['tanh'])
     vg.add('hidden_sizes', [(32, 32)])
-    vg.add('noise_type', ['adaptive-param_0.2'])
-    vg.add('layer_norm', [True])
-    vg.add('actor_lr', [0.00001])
-    vg.add('batch_size', [64])
-    vg.add('clip_norm', [None])
-    vg.add('critic_l2_reg', [0.01])
-    vg.add('critic_lr', [0.001])
-    vg.add('nb_epoch_cycles', [25])
-    vg.add('nb_epochs', [2000])
-    vg.add('nb_eval_steps', [100])
-    vg.add('nb_train_steps', [50])
-    vg.add('normalize_observations', [True])
-    vg.add('normalize_returns', [False])
-    vg.add('popart', [False])
-    vg.add('render', [False])
-    vg.add('render_eval', [False])
-    vg.add('reward_scale', [1.0])
-
-
 
     variants = vg.variants()
     from pprint import pprint
@@ -195,7 +102,7 @@ def run_experiment(argv):
     # ----------------------- TRAINING ---------------------------------------
     exp_ids = random.sample(range(1, 1000), len(variants))
     for v, exp_id in zip(variants, exp_ids):
-        exp_name = "ddpg_%s_%i_%i_id_%i" % (v['env'], v['path_length'], v['seed'], exp_id)
+        exp_name = "acktr_%s_%i_%i_id_%i" % (v['env'], v['batch_size'], v['seed'], exp_id)
 
         v['exp_name'] = exp_name
         v['exp_prefix'] = EXP_PREFIX

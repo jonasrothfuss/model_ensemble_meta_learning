@@ -45,12 +45,12 @@ def rollout(env, policy, max_pathlength, animate=False, obfilter=None):
             "reward" : np.array(rewards), "action" : np.array(acs),
             "action_dist": np.array(ac_dists), "logp" : np.array(logps)}
 
-def learn(env, policy, vf, gamma, lam, timesteps_per_batch, num_timesteps,
+def learn(env, policy, vf, gamma, lam, timesteps_per_batch, num_timesteps, max_path_length,
     animate=False, callback=None, desired_kl=0.002):
 
     obfilter = ZFilter(env.observation_space.shape)
 
-    max_pathlength = env.spec.timestep_limit
+    max_pathlength = max_path_length
     stepsize = tf.Variable(initial_value=np.float32(np.array(0.03)), name='stepsize')
     inputs, loss, loss_sampled = policy.update_info
     optim = kfac.KfacOptimizer(learning_rate=stepsize, cold_lr=stepsize*(1-0.9), momentum=0.9, kfac_update=2,\
@@ -129,6 +129,8 @@ def learn(env, policy, vf, gamma, lam, timesteps_per_batch, num_timesteps,
         else:
             logger.log("kl just right!")
 
+        logger.record_tabular("n_timesteps", timesteps_so_far)
+        logger.record_tabular("AverageReturn", np.mean([path["reward"].sum() for path in paths]))
         logger.record_tabular("EpRewMean", np.mean([path["reward"].sum() for path in paths]))
         logger.record_tabular("EpRewSEM", np.std([path["reward"].sum()/np.sqrt(len(paths)) for path in paths]))
         logger.record_tabular("EpLenMean", np.mean([pathlength(path) for path in paths]))
