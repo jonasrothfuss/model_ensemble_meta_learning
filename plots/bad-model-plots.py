@@ -19,7 +19,7 @@ def plot_from_exps(exp_data,
                    split_plots_by=None,
                    x_key='n_timesteps',
                    y_key=None,
-                   plot_name='./bad-models.png',
+                   plot_name='./bad-models',
                    subfigure_titles=None,
                    plot_labels=None,
                    x_label=None,
@@ -31,12 +31,16 @@ def plot_from_exps(exp_data,
     fig, axarr = plt.subplots(1, len(exps_per_plot.keys()), figsize=(15, 4))
     fig.tight_layout(pad=3.0, w_pad=4.0, h_pad=3.0, rect=[0, 0, 0.95, 1])
 
+    # x axis formatter
+    xfmt = matplotlib.ticker.ScalarFormatter()
+    xfmt.set_powerlimits((3, 3))
 
     # iterate over subfigures
     for i, (default_plot_title, plot_exps) in enumerate(sorted(exps_per_plot.items())):
         plots_in_figure_exps = group_by(plot_exps, split_plots_by)
         subfigure_title = subfigure_titles[i] if subfigure_titles else default_plot_title
         axarr[i].set_title(subfigure_title, fontsize=fontsize)
+        axarr[i].xaxis.set_major_formatter(xfmt)
         axarr[i].xaxis.set_major_locator(plt.MaxNLocator(5))
 
         # iterate over plots in figure
@@ -53,7 +57,8 @@ def plot_from_exps(exp_data,
             axarr[i].set_ylabel(y_label if y_label else y_key, fontsize=fontsize)
 
     fig.legend(loc='center right', ncol=1, bbox_transform = plt.gcf().transFigure)
-    fig.savefig(plot_name)
+    fig.savefig(plot_name + '.png')
+    fig.savefig(plot_name + '.pdf')
 
 
 filter_dict = {'output_bias_range': [0, 0.1]}
@@ -65,9 +70,9 @@ plot_from_exps(exps_data,
                split_figures_by='output_bias_range',
                split_plots_by='exp_prefix',
                y_key='EnvTrajs-AverageReturn',
-               subfigure_titles=['HalfCheetah - output_bias_range [0.0, 0.1]',
-                                'HalfCheetah - output_bias_range [0.0, 0.5]',
-                                'HalfCheetah - output_bias_range [0.0, 1.0]'],
+               subfigure_titles=['output_bias_range [0.0, 0.1]',
+                                'output_bias_range [0.0, 0.5]',
+                                'output_bias_range [0.0, 1.0]'],
                plot_labels=['ME-MPG', 'ME-TRPO'],
                x_label='time steps',
                y_label='average return',
