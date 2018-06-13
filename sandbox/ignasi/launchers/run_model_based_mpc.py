@@ -7,7 +7,8 @@ from rllab.misc.instrument import VariantGenerator
 from rllab import config
 from experiments.helpers.ec2_helpers import cheapest_subnets
 from sandbox.jonas.dynamics import MLPDynamicsEnsemble
-from sandbox.jonas.algos.ModelTRPO.model_trpo import ModelTRPO
+from sandbox.jonas.algos.MBMPC.model_mpc_batch_polopt import ModelMPCBatchPolopt
+from sandbox.jonas.policies.mpc_controller import MPCController
 from experiments.helpers.run_multi_gpu import run_multi_gpu
 from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams, WalkerEnvRandomParams
 
@@ -17,7 +18,7 @@ import argparse
 import random
 import os
 
-EXP_PREFIX = 'model-ensemble-trpo-'
+EXP_PREFIX = 'model-ensemble-mpc-mb'
 
 ec2_instance = 'c4.4xlarge'
 NUM_EC2_SUBNETS = 3
@@ -36,31 +37,26 @@ def run_train_task(vv):
         rolling_average_persitency=vv['rolling_average_persitency']
     )
 
-    policy = GaussianMLPPolicy(
+    policy = MPCController(
         name="policy",
-        env_spec=env.spec,
-        hidden_sizes=vv['hidden_sizes_policy'],
-        hidden_nonlinearity=vv['hidden_nonlinearity_policy'],
+        env=env,
+        dynamics_model=dynamics_model,
+        discount=vv['discount'],
+        n_candidates=vv['n_candidates'],
+        horizon=vv['horizon'],
     )
 
-    baseline = LinearFeatureBaseline(env_spec=env.spec)
-
-    algo = ModelTRPO(
+    algo = ModelMPCBatchPolopt(
         env=env,
         policy=policy,
         dynamics_model=dynamics_model,
-        baseline=baseline,
         batch_size_env_samples=vv['batch_size_env_samples'],
-        batch_size_dynamics_samples=vv['batch_size_dynamics_samples'],
         initial_random_samples=vv['initial_random_samples'],
-        num_gradient_steps_per_iter=vv['num_gradient_steps_per_iter'],
         dynamic_model_max_epochs=vv['dynamic_model_epochs'],
         max_path_length=vv['path_length'],
         n_itr=vv['n_itr'],
-        retrain_model_when_reward_decreases=vv['retrain_model_when_reward_decreases'],
         discount=vv['discount'],
         step_size=vv["step_size"],
-        reset_policy_std=vv['reset_policy_std'],
         reinit_model_cycle=vv['reinit_model_cycle']
     )
     algo.train()
@@ -86,7 +82,7 @@ def run_experiment(argv):
     vg.add('seed', [22, 33])  # TODO set back to [1, 11, 21, 31, 41]
 
     # env spec
-    vg.add('env', ['HalfCheetahEnvRandParams']) # HalfCheetahEnvRandParams
+    vg.add('env', ['HalfCheetahEnvRandParams'])  # HalfCheetahEnvRandParams
     vg.add('log_scale_limit', [0.0])
     vg.add('path_length', [200, 500])
 
@@ -96,20 +92,16 @@ def run_experiment(argv):
     vg.add('discount', [0.99])
 
     vg.add('batch_size_env_samples', [4000])
-    vg.add('batch_size_dynamics_samples', [50000])
     vg.add('initial_random_samples', [4000])
-    vg.add('num_gradient_steps_per_iter', [30])
-    vg.add('retrain_model_when_reward_decreases', [False])
     vg.add('num_models', [5, 10])
+    vg.add('n_candidates', [1000])
+    vg.add('horizon', [10])
 
     # neural network configuration
-    vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
-    vg.add('hidden_sizes_policy', [(32, 32)])
     vg.add('hidden_sizes_model', [(512, 512)])
-    vg.add('dynamic_model_epochs', [(100, 50)])
+    vg.add('dynamic_model_epochs', [(200, 200)])
     vg.add('weight_normalization_model', [True])
-    vg.add('reset_policy_std', [False])
     vg.add('reinit_model_cycle', [0])
 
     vg.add('valid_split_ratio', [0.2])
@@ -162,7 +154,7 @@ def run_experiment(argv):
         # ----------------------- TRAINING ---------------------------------------
         exp_ids = random.sample(range(1, 1000), len(variants))
         for v, exp_id in zip(variants, exp_ids):
-            exp_name = "model_trpo_train_env_%s_%i_%i_%i_%i_id_%i" % (v['env'], v['path_length'], v['num_gradient_steps_per_iter'],
+            exp_name = "model_based_mpc_train_env_%s_%i_%i_%i_id_%i" % (v['env'], v['path_length'],
                                                                    v['batch_size_env_samples'], v['seed'], exp_id)
             v = instantiate_class_stings(v)
 
@@ -203,15 +195,6 @@ def run_experiment(argv):
 
 def instantiate_class_stings(v):
     v['env'] = globals()[v['env']]
-    for nonlinearity_key in ['hidden_nonlinearity_policy', 'hidden_nonlinearity_model']:
-        if v[nonlinearity_key] == 'relu':
-            v[nonlinearity_key] = tf.nn.relu
-        elif v[nonlinearity_key] == 'tanh':
-            v[nonlinearity_key] = tf.tanh
-        elif v[nonlinearity_key] == 'elu':
-            v[nonlinearity_key] = tf.nn.elu
-        else:
-            raise NotImplementedError('Not able to recognize spicified hidden_nonlinearity: %s' % v['hidden_nonlinearity'])
     return v
 
 

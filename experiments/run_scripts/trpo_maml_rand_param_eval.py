@@ -10,7 +10,6 @@ from sandbox.jonas.envs.base import TfEnv
 from experiments.helpers.ec2_helpers import cheapest_subnets
 
 from rllab import config
-
 import tensorflow as tf
 import sys
 import argparse
