@@ -89,7 +89,23 @@ if __name__ == "__main__":
 
     env = WalkerEnvRandomParams()
     env.reset()
-    print(env.model.body_mass)
-    for _ in range(100):
-        env.render()
-        env.step(env.action_space.sample())  # take a random action
+    import time
+    # print(env.model.body_mass)
+    while True:
+        env.reset()
+        qpos = env.model.data.qpos.copy()
+        qpos[3, 0] = -20/180 * np.pi
+        qpos[-3, 0] = 40 / 180 * np.pi
+
+        env.model.data.qpos = qpos
+        for i in range(50):
+            qpos = env.model.data.qpos.copy()
+            qpos[2] = 0
+            env.model.data.qpos = qpos
+            env.render()
+            if i > 5:
+                env.step(np.zeros_like(env.action_space.sample()))  # take a random action
+            else:
+                env.step(env.action_space.sample())
+            time.sleep(0.5)
+

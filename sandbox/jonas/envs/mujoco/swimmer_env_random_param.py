@@ -58,3 +58,12 @@ class SwimmerEnvRandParams(BaseEnvRandParams, SwimmerEnv, Serializable):
             logger.record_tabular(prefix + 'MaxForwardProgress', np.nan)
             logger.record_tabular(prefix + 'MinForwardProgress', np.nan)
             logger.record_tabular(prefix + 'StdForwardProgress', np.nan)
+
+
+if __name__ == "__main__":
+    env = SwimmerEnvRandParams()
+    env.reset()
+    print(env.model.body_mass)
+    for _ in range(1000):
+        env.render()
+        env.step(env.action_space.sample())  # take a random action
