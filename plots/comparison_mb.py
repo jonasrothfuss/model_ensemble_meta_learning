@@ -13,11 +13,10 @@ data_path = '/home/ignasi/Desktop/mb-comparison'
 exps_data = core.load_exps_data([data_path], False)
 
 
-
 SMALL_SIZE = 20
 MEDIUM_SIZE = 22
-BIGGER_SIZE = 30
-LINEWIDTH=3
+BIGGER_SIZE = 26
+LINEWIDTH = 3
 
 plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
 plt.rc('axes', titlesize=BIGGER_SIZE)     # fontsize of the axes title
@@ -26,6 +25,23 @@ plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
 plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
 plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
+
+
+
+prop_cycle = plt.rcParams['axes.prop_cycle']
+colors = prop_cycle.by_key()['color']
+COLORS = dict(ours=colors.pop(0))
+
+
+LEGEND_ORDER={'ours':0, 'me-trpo':1, 'mb-mpc':2}
+def sorting_legend(label):
+    return LEGEND_ORDER[label]
+
+
+def get_color(label):
+    if label not in COLORS.keys():
+        COLORS[label] = colors.pop(0)
+    return COLORS[label]
 
 
 def plot_from_exps(exp_data,
@@ -55,7 +71,7 @@ def plot_from_exps(exp_data,
     assert num_columns % num_rows == 0
     num_columns = num_columns // num_rows
     fig, axarr = plt.subplots(num_rows, num_columns, figsize=(20, 8))
-    fig.tight_layout(pad=4.0, w_pad=1.5, h_pad=2.5, rect=[0, 0, 1, 1])
+    fig.tight_layout(pad=4.0, w_pad=1.5, h_pad=3, rect=[0, 0, 1, 1])
 
     # iterate over subfigures
     for i, (default_plot_title, plot_exps) in enumerate(sorted(exps_per_plot.items())):
@@ -70,17 +86,18 @@ def plot_from_exps(exp_data,
         y_max_mean = -1e10
         y_axis_min = 1e10
         y_axis_max = -1e10
-        for j, (default_label, exps) in enumerate(sorted(plots_in_figure_exps.items())):
+        for j, default_label in enumerate(sorted(plots_in_figure_exps, key=sorting_legend)):
+            exps = plots_in_figure_exps[default_label]
             x, y_mean, y_std = prepare_data_for_plot(exps, x_key=x_key, y_key=y_key, sup_y_key=sup_y_key, round_x=round_x)
 
             label = plot_labels[j] if plot_labels else default_label
-            label = label if i == 0 else "__nolabel__"
+            _label = label if i == 0 else "__nolabel__"
             if log_scale:
-                axarr[r, c].semilogx(x, y_mean, label=label, linewidth=LINEWIDTH)
+                axarr[r, c].semilogx(x, y_mean, label=_label, linewidth=LINEWIDTH, color=get_color(label))
             else:
-                axarr[r, c].plot(x, y_mean, label=label, linewidth=LINEWIDTH)
+                axarr[r, c].plot(x, y_mean, label=_label, linewidth=LINEWIDTH, color=get_color(label))
 
-            axarr[r, c].fill_between(x, y_mean + y_std, y_mean - y_std, alpha=0.2)
+            axarr[r, c].fill_between(x, y_mean + y_std, y_mean - y_std, alpha=0.2, color=get_color(label))
 
             # axis labels
             axarr[r, c].set_xlabel(x_label if x_label else x_key)

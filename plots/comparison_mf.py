@@ -26,6 +26,19 @@ plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 data_path = '/home/ignasi/Desktop/mf-comparison'
 exps_data = core.load_exps_data([data_path], False)
 
+prop_cycle = plt.rcParams['axes.prop_cycle']
+colors = prop_cycle.by_key()['color']
+COLORS = dict(ours=colors.pop(0))
+LEGEND_ORDER=dict(ours=0, acktr=1, trpo=2, ppo=3, ddpg=4)
+def sorting_legend(label):
+    return LEGEND_ORDER[label]
+
+
+def get_color(label):
+    if label not in COLORS.keys():
+        COLORS[label] = colors.pop(0)
+    return COLORS[label]
+
 
 def plot_from_exps(exp_data,
                    filters={},
@@ -54,7 +67,7 @@ def plot_from_exps(exp_data,
     assert num_columns % num_rows == 0
     num_columns = num_columns // num_rows
     fig, axarr = plt.subplots(num_rows, num_columns, figsize=(20, 8))
-    fig.tight_layout(pad=4.0, w_pad=1.5, h_pad=2, rect=[0, 0, 1, 1])
+    fig.tight_layout(pad=4.0, w_pad=1.5, h_pad=3, rect=[0, 0, 1, 1])
     # iterate over subfigures
     for i, (default_plot_title, plot_exps) in enumerate(sorted(exps_per_plot.items())):
         plots_in_figure_exps = group_by(plot_exps, split_plots_by)
@@ -65,7 +78,8 @@ def plot_from_exps(exp_data,
 
         # iterate over plots in figure
         y_max_mean = -1e10
-        for j, (default_label, exps) in enumerate(sorted(plots_in_figure_exps.items())):
+        for j, default_label in enumerate(sorted(plots_in_figure_exps, key=sorting_legend)):
+            exps = plots_in_figure_exps[default_label]
             if default_label != 'ours':
                 _round_x = round_x
             else:
@@ -73,13 +87,13 @@ def plot_from_exps(exp_data,
             x, y_mean, y_std = prepare_data_for_plot(exps, x_key=x_key, y_key=y_key, sup_y_key=sup_y_key, round_x=_round_x)
 
             label = plot_labels[j] if plot_labels else default_label
-            label = label if i == 0 else "__nolabel__"
+            _label = label if i == 0 else "__nolabel__"
             if log_scale:
-                axarr[r, c].semilogx(x, y_mean, label=label, linewidth=LINEWIDTH)
+                axarr[r, c].semilogx(x, y_mean, label=_label, linewidth=LINEWIDTH, color=get_color(label))
             else:
-                axarr[r, c].plot(x, y_mean, label=label, linewidth=LINEWIDTH)
+                axarr[r, c].plot(x, y_mean, label=_label, linewidth=LINEWIDTH, color=get_color(label))
 
-            axarr[r, c].fill_between(x, y_mean + y_std, y_mean - y_std, alpha=0.2)
+            axarr[r, c].fill_between(x, y_mean + y_std, y_mean - y_std, alpha=0.2, color=get_color(label))
 
             # axis labels
             axarr[r, c].set_xlabel(x_label if x_label else x_key)

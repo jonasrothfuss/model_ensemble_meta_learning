@@ -27,6 +27,20 @@ data_path = '/home/ignasi/Desktop/long-horizon'
 exps_data = core.load_exps_data([data_path], False)
 prop_cycle = plt.rcParams['axes.prop_cycle']
 colors = prop_cycle.by_key()['color']
+COLORS = dict(ours=colors.pop(0))
+
+
+
+
+LEGEND_ORDER={'ours':0, 'no-adapt':1}
+def sorting_legend(label):
+    return LEGEND_ORDER[label]
+
+
+def get_color(label):
+    if label not in COLORS.keys():
+        COLORS[label] = colors.pop(0)
+    return COLORS[label]
 
 
 def plot_from_exps(exp_data,
@@ -64,17 +78,18 @@ def plot_from_exps(exp_data,
         ax.xaxis.set_major_locator(plt.MaxNLocator(5))
 
         # iterate over plots in figure
-        for j, (default_label, exps) in enumerate(sorted(plots_in_figure_exps.items())):
+        for j, default_label in enumerate(sorted(plots_in_figure_exps, key=sorting_legend)):
+            exps = plots_in_figure_exps[default_label]
             if plot_type == 'all':
                 x_y = prepare_data_for_plot_all(exps, x_key=x_key, y_key=y_key, sup_y_key=sup_y_key, round_x=None)
 
                 label = plot_labels[j] if plot_labels else default_label
                 for k, (x, y) in enumerate(x_y):
-                    label = label if k == 0 else "__nolabel__"
+                    _label = label if k == 0 else "__nolabel__"
                     if log_scale:
-                        ax.semilogx(x, y, label=label, linewidth=LINEWIDTH, color=colors[j])
+                        ax.semilogx(x, y, label=_label, linewidth=LINEWIDTH, color=get_color(label))
                     else:
-                        ax.plot(x, y, label=label, linewidth=LINEWIDTH, color=colors[j])
+                        ax.plot(x, y, label=_label, linewidth=LINEWIDTH, color=get_color(label))
             else:
                 x, y_mean, y_std = prepare_data_for_plot(exps, x_key=x_key, y_key=y_key, sup_y_key=sup_y_key,
                                                          round_x=round_x)
