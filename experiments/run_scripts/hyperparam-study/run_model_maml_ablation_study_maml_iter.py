@@ -22,7 +22,7 @@ import argparse
 import random
 import os
 
-EXP_PREFIX = 'model-ensemble-maml-ablation-study-fast-lr'
+EXP_PREFIX = 'model-ensemble-maml-ablation-study-maml-iter'
 
 ec2_instance = 'm4.4xlarge'
 NUM_EC2_SUBNETS = 3
@@ -101,16 +101,15 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
     vg = VariantGenerator()
 
-    vg.add('seed',  [66, 77]) #TODO set back to [22, 33, 44]
-
+    vg.add('seed', [22, 33, 44, 66, 77])
     # env spec
     vg.add('env', ['HalfCheetahEnvRandParams'])
     vg.add('log_scale_limit', [0.0])
     vg.add('path_length_env', [200])
 
     # Model-based MAML algo spec
-    vg.add('n_itr', [60])
-    vg.add('fast_lr', [0.01, 0.005, 0.001, 0.0])
+    vg.add('n_itr', [50])
+    vg.add('fast_lr', [0.001])
     vg.add('meta_step_size', [0.01])
     vg.add('meta_batch_size', [10]) # must be a multiple of num_models
     vg.add('discount', [0.99])
@@ -118,7 +117,7 @@ def run_experiment(argv):
     vg.add('batch_size_env_samples', [2])
     vg.add('batch_size_dynamics_samples', [50])
     vg.add('initial_random_samples', [4000])
-    vg.add('num_maml_steps_per_iter', [30])
+    vg.add('num_maml_steps_per_iter', [5, 15, 30, 60])
     vg.add('retrain_model_when_reward_decreases', [False])
     vg.add('reset_from_env_traj', [False])
     vg.add('trainable_step_size', [False])

@@ -22,7 +22,7 @@ import argparse
 import random
 import os
 
-EXP_PREFIX = 'model-ensemble-maml-ablation-study-maml-iter'
+EXP_PREFIX = 'model-ensemble-maml-ablation-study-num-models'
 
 ec2_instance = 'm4.4xlarge'
 NUM_EC2_SUBNETS = 3
@@ -101,7 +101,7 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
     vg = VariantGenerator()
 
-    vg.add('seed', [66, 77]) #TODO set back to [22, 33, 44 ]
+    vg.add('seed', [22, 33, 44, 66, 77]) #TODO set back to  [22, 33, 44,]
 
     # env spec
     vg.add('env', ['HalfCheetahEnvRandParams'])
@@ -109,20 +109,22 @@ def run_experiment(argv):
     vg.add('path_length_env', [200])
 
     # Model-based MAML algo spec
-    vg.add('n_itr', [60])
+    vg.add('n_itr', [50])
     vg.add('fast_lr', [0.001])
     vg.add('meta_step_size', [0.01])
-    vg.add('meta_batch_size', [10]) # must be a multiple of num_models
+    vg.add('meta_batch_size', [None]) # must be a multiple of num_models of None
     vg.add('discount', [0.99])
 
-    vg.add('batch_size_env_samples', [2])
-    vg.add('batch_size_dynamics_samples', [50])
+    #vg.add('batch_size_env_samples', [2])
+    #vg.add('batch_size_dynamics_samples', [50])
     vg.add('initial_random_samples', [4000])
-    vg.add('num_maml_steps_per_iter', [5, 15, 30, 60])
+    vg.add('num_maml_steps_per_iter', [30])
     vg.add('retrain_model_when_reward_decreases', [False])
     vg.add('reset_from_env_traj', [False])
     vg.add('trainable_step_size', [False])
-    vg.add('num_models', [5])
+    #vg.add('num_models', [1, 5, 10])
+
+    vg.add('num_models_batch_sample_tuple', [(1, 20, 100), (5, 4, 40), (10, 2, 20), (20, 1, 10)])
 
     # neural network configuration
     vg.add('hidden_nonlinearity_policy', ['tanh'])
@@ -188,8 +190,8 @@ def run_experiment(argv):
         # ----------------------- TRAINING ---------------------------------------
         exp_ids = random.sample(range(1, 1000), len(variants))
         for v, exp_id in zip(variants, exp_ids):
-            exp_name = "model_ensemble_maml_train_env_%s_%i_%i_%i_%i_id_%i" % (v['env'], v['path_length_env'], v['num_models'],
-                                                           v['batch_size_env_samples'], v['seed'], exp_id)
+            exp_name = "model_ensemble_maml_train_env_%s_%i_%i_%i_%i_id_%i" % (v['env'], v['path_length_env'], v['num_models_batch_sample_tuple'][0],
+                                                                               v['num_models_batch_sample_tuple'][1], v['seed'], exp_id)
             v = instantiate_class_stings(v)
 
             if args.mode == 'ec2':
@@ -230,6 +232,10 @@ def run_experiment(argv):
 
 def instantiate_class_stings(v):
     v['env'] = globals()[v['env']]
+
+    v['num_models'] = v['num_models_batch_sample_tuple'][0]
+    v['batch_size_env_samples'] = v['num_models_batch_sample_tuple'][1]
+    v['batch_size_dynamics_samples'] = v['num_models_batch_sample_tuple'][2]
 
     # optimizer
     if v['optimizer_model'] == 'sgd':
