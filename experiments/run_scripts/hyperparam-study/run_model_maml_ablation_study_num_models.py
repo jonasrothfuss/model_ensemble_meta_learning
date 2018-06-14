@@ -101,7 +101,7 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
     vg = VariantGenerator()
 
-    vg.add('seed', [22, 33, 44, 66, 77]) #TODO set back to  [22, 33, 44,]
+    vg.add('seed', [22, 33, 44, 66, 77])
 
     # env spec
     vg.add('env', ['HalfCheetahEnvRandParams'])
