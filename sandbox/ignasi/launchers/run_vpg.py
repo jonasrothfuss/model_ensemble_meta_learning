@@ -1,11 +1,14 @@
 from sandbox.rocky.tf.algos.vpg import VPG
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
-from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, WalkerEnvRandomParams
 from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from sandbox.rocky.tf.envs.base import TfEnv
 from rllab.misc.instrument import VariantGenerator
 from rllab.misc.instrument import run_experiment_lite
+from rllab.envs.gym_mujoco.half_cheetah_env import HalfCheetahEnv
+from rllab.envs.gym_mujoco.hopper_env import HopperEnv
+from rllab.envs.gym_mujoco.walker2d_env import Walker2DEnv
+from rllab.envs.gym_mujoco.ant_env import AntEnv
 from rllab import config
 import random
 
@@ -42,9 +45,8 @@ if __name__ == '__main__':
     mode = 'ec2'
 
     vg = VariantGenerator()
-    # vg.add('env', ['HalfCheetahEnv', 'HumanoidEnv', 'SnakeEnv', 'SwimmerEnv', 'HopperEnv', 'AntEnv', 'Walker2DEnv'])
-    vg.add('env', ['HalfCheetahEnvRandParams', 'HopperEnvRandParams', 'WalkerEnvRandomParams'])
     vg.add('seed', [0, 30, 60])
+    vg.add('env', ['HalfCheetahEnv', 'HopperEnv', 'Walker2DEnv', 'AntEnv'])
 
 
     subnets = [

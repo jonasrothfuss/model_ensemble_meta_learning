@@ -5,13 +5,19 @@ from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from sandbox.rocky.tf.envs.base import TfEnv
 from rllab.misc.instrument import VariantGenerator
 from rllab.misc.instrument import run_experiment_lite
-from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, WalkerEnvRandomParams
+from rllab.envs.gym_mujoco.half_cheetah_env import HalfCheetahEnv
+from rllab.envs.gym_mujoco.hopper_env import HopperEnv
+from sandbox.jonas.envs.mujoco.hopper_env_random_param import HopperEnvRandParams
+from rllab.envs.gym_mujoco.walker2d_env import Walker2DEnv
+from rllab.envs.gym_mujoco.ant_env import AntEnv
+from rllab.envs.gym_mujoco.humanoid_env import HumanoidEnv
+from rllab.envs.gym_mujoco.swimmer_env import SwimmerEnv
 from rllab import config
 import random
 
 def main(variant):
     real_env = TfEnv(normalize(
-        variant['env']()
+        variant['env'](log_scale_limit=0)
     ))
 
 
@@ -28,29 +34,31 @@ def main(variant):
         env=real_env,
         policy=policy,
         baseline=baseline,
-        n_itr=10000,
-        discount=0.99,
+        n_itr=2000,
+        discount=variant['discount'],
         step_size=0.05,
         batch_size=50000,
-        max_path_length=1000,
+        max_path_length=variant['max_path_length'],
     )
 
     algo.train()
 
 if __name__ == '__main__':
-    log_dir = 'trpo-baselines' #osp.join('vine_trpo', datetime.datetime.today().)
+    log_dir = 'trpo-baselines-paper-hopper' #osp.join('vine_trpo', datetime.datetime.today().)
     mode = 'ec2'
 
     vg = VariantGenerator()
-    # vg.add('env', ['HalfCheetahEnv', 'HumanoidEnv', 'SnakeEnv', 'SwimmerEnv', 'HopperEnv', 'AntEnv', 'Walker2DEnv'])
-    vg.add('env', ['HalfCheetahEnvRandParams', 'HopperEnvRandParams', 'WalkerEnvRandomParams'])
+    vg.add('env', ['HopperEnvRandParams'])
+    # vg.add('env', ['HumanoidEnv'])
+    vg.add('discount', [0.99])
+    vg.add('max_path_length', [200])
     vg.add('seed', [0, 30, 60])
 
 
     subnets = [
-        'us-west-1b', 'us-west-1c',
+        'us-west-2b', 'us-west-2c',
     ]
-    ec2_instance = 'm4.4xlarge'
+    ec2_instance = 'm4.2xlarge'
     # configure instan
     info = config.INSTANCE_TYPE_INFO[ec2_instance]
     config.AWS_INSTANCE_TYPE = ec2_instance

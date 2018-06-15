@@ -24,9 +24,9 @@ import argparse
 import random
 import os
 
-EXP_PREFIX = 'model-ensemble-maml-good-paper-big-buffer'
+EXP_PREFIX = 'model-ensemble-maml-good-paper-big-buffer-swimmer'
 
-ec2_instance = 'm4.xlarge'
+ec2_instance = 'm4.2xlarge'
 NUM_EC2_SUBNETS = 3
 
 
@@ -101,14 +101,14 @@ def run_experiment(argv):
 
     vg.add('seed', [10, 20, 30])
     # env spec
-    vg.add('env', ['HalfCheetahEnvRandParams', 'HopperEnvRandParams', 'WalkerEnvRandomParams', 'PR2EnvRandParams'])
+    vg.add('env', ['SwimmerEnvRandParams'])
     vg.add('log_scale_limit', [0.0])
     vg.add('path_length_env', [200])
 
     # Model-based MAML algo spec
     vg.add('path_length_dyn', [None])
     vg.add('n_itr', [100])
-    vg.add('fast_lr', [0.001, 0.005])
+    vg.add('fast_lr', [0.001])
     vg.add('meta_step_size', [0.01])
     vg.add('meta_batch_size', [20])  # must be a multiple of num_models
     vg.add('discount', [0.99])
