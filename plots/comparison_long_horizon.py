@@ -4,11 +4,8 @@ import matplotlib.pyplot as plt
 from plots.plot_utils_lh import *
 
 plt.style.use('ggplot')
-#plt.rc('font', family='Times New Roman')
 import matplotlib
 matplotlib.use('TkAgg')
-#matplotlib.font_manager._rebuild()
-
 
 SMALL_SIZE = 20
 MEDIUM_SIZE = 22
@@ -23,16 +20,20 @@ plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
 plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
-data_path = '/home/ignasi/Desktop/long-horizon'
-exps_data = core.load_exps_data([data_path], False)
 prop_cycle = plt.rcParams['axes.prop_cycle']
 colors = prop_cycle.by_key()['color']
 COLORS = dict(ours=colors.pop(0))
+LEGEND_ORDER = {'ours': 0, 'no-adapt': 1}
 
 
 
 
-LEGEND_ORDER={'ours':0, 'no-adapt':1}
+########## Add data path here #############
+data_path = None
+###########################################
+exps_data = core.load_exps_data([data_path], False)
+
+
 def sorting_legend(label):
     return LEGEND_ORDER[label]
 
