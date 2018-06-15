@@ -9,9 +9,6 @@ import matplotlib
 matplotlib.use('TkAgg')
 #matplotlib.font_manager._rebuild()
 
-data_path = '/home/ignasi/Desktop/mb-comparison'
-exps_data = core.load_exps_data([data_path], False)
-
 
 SMALL_SIZE = 20
 MEDIUM_SIZE = 22
@@ -31,9 +28,18 @@ plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 prop_cycle = plt.rcParams['axes.prop_cycle']
 colors = prop_cycle.by_key()['color']
 COLORS = dict(ours=colors.pop(0))
+LEGEND_ORDER = {'ours': 0, 'me-trpo': 1, 'mb-mpc': 2}
 
 
-LEGEND_ORDER={'ours':0, 'me-trpo':1, 'mb-mpc':2}
+########## Add data path here #############
+data_path = None
+###########################################
+
+exps_data = core.load_exps_data([data_path], False)
+
+
+
+
 def sorting_legend(label):
     return LEGEND_ORDER[label]
 

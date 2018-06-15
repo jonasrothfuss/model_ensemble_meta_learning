@@ -4,11 +4,8 @@ import matplotlib.pyplot as plt
 from plots.plot_utils_lh import *
 
 plt.style.use('ggplot')
-#plt.rc('font', family='Times New Roman')
 import matplotlib
 matplotlib.use('TkAgg')
-#matplotlib.font_manager._rebuild()
-
 
 SMALL_SIZE = 20
 MEDIUM_SIZE = 22
@@ -23,16 +20,20 @@ plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
 plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
-data_path = '/home/ignasi/Desktop/long-horizon'
-exps_data = core.load_exps_data([data_path], False)
 prop_cycle = plt.rcParams['axes.prop_cycle']
 colors = prop_cycle.by_key()['color']
 COLORS = dict(ours=colors.pop(0))
+LEGEND_ORDER = {'ours': 0, 'no-adapt': 1}
 
 
 
 
-LEGEND_ORDER={'ours':0, 'no-adapt':1}
+########## Add data path here #############
+data_path = None
+###########################################
+exps_data = core.load_exps_data([data_path], False)
+
+
 def sorting_legend(label):
     return LEGEND_ORDER[label]
 
@@ -67,7 +68,7 @@ def plot_from_exps(exp_data,
 
     exp_data = filter(exp_data, filters=filters)
     exps_per_plot = {'Long Horizon HalfCheetah': exp_data}
-    fig, ax = plt.subplots(figsize=(20, 8))
+    fig, ax = plt.subplots(figsize=(10, 8))
     fig.tight_layout(pad=4.0, w_pad=1.5, h_pad=2, rect=[0, 0, 1, 1])
     ax.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
     # iterate over subfigures
@@ -110,6 +111,7 @@ def plot_from_exps(exp_data,
                 ax.set_xlim(*y_limits)
 
     fig.legend(loc='lower center', ncol=6, bbox_transform=plt.gcf().transFigure)
+
     fig.savefig(plot_name)
 
 
