@@ -86,18 +86,19 @@ def run_experiment(argv):
     vg.add('seed', [12, 22, 44])
 
     # env spec
-    vg.add('env', ['HalfCheetahEnvRandParams'])
+    vg.add('env', ['HalfCheetahEnvRandParams', 'AntEnvRandParams', 'WalkerEnvRandomParams',
+                   'SwimmerEnvRandParams', 'HopperEnvRandParams', 'PR2EnvRandParams'])
     vg.add('log_scale_limit', [0.0])
-    vg.add('path_length', [1000])
+    vg.add('path_length', [200])
 
     # Model-based MAML algo spec
     vg.add('n_itr', [100])
     vg.add('step_size', [0.01])
     vg.add('discount', [0.99])
 
-    vg.add('batch_size_env_samples', [40000])
+    vg.add('batch_size_env_samples', [4000])
     vg.add('batch_size_dynamics_samples', [50000])
-    vg.add('initial_random_samples', [40000])
+    vg.add('initial_random_samples', [4000])
     vg.add('num_gradient_steps_per_iter', [30])
     vg.add('retrain_model_when_reward_decreases', [False])
     vg.add('num_models', [5])

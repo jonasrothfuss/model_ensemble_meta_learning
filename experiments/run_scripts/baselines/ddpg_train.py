@@ -59,7 +59,7 @@ def run_train_task(vv):
         logger.set_level(logger.DISABLED)
 
     # Create envs.
-    env = HalfCheetahEnvRandParams(log_scale_limit=0.0, max_path_length=vv['path_length'])
+    env = vv['env'](log_scale_limit=0.0, max_path_length=vv['path_length'])
     env = bench.Monitor(env, logger.get_dir() and os.path.join(logger.get_dir(), str(rank)))
 
 

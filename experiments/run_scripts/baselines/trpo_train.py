@@ -69,12 +69,13 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['WalkerEnvRandomParams'])
-    vg.add('n_itr', [1000])
-    vg.add('step_size', [0.01]) #[0.01,0.05, 0.1])
+    vg.add('env', ['HalfCheetahEnvRandParams', 'AntEnvRandParams', 'WalkerEnvRandomParams',
+                   'SwimmerEnvRandParams', 'HopperEnvRandParams', 'PR2EnvRandParams'])
+    vg.add('n_itr', [2000])
+    vg.add('step_size', [0.01])
     vg.add('seed', [1, 11, 21])
     vg.add('discount', [0.99])
-    vg.add('path_length', [100, 200])
+    vg.add('path_length', [200])
     vg.add('batch_size', [50000])
     vg.add('hidden_nonlinearity', ['tanh'])
     vg.add('hidden_sizes', [(32, 32)])
