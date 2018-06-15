@@ -47,3 +47,7 @@ dependencies:
         - jupyter
         - progressbar2
         - chainer==1.15.0
+        - cloudpickle
+        - tensorflow
+        - mpi4py
+        - gym
