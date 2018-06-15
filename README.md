@@ -1,32 +1,36 @@
-# Model-Ensemble Meta-Learning
+# Model-Based Meta-Policy Optimization (MB-MPO)
 
-This project is currently in the depelopment phase.
+This repository contains code corresponding to the paper "Model-Based Meta-Policy Optimization" which is currently under review.
 
 
 ### Dependencies
-This code is based off of the rllab code repository as well as the maml_rl repository and can be installed in the same way (see below).
-This codebase is not necessarily backwards compatible with rllab. The MAML code uses the TensorFlow rllab version, so be sure to install TensorFlow v1.0+.
+This code is based off of the [rllab](https://github.com/rll/rllab) code repository as well as the [maml_rl](https://github.com/cbfinn/maml_rl) repository and can be installed in the same way (see below).
+This codebase is not necessarily backwards compatible with rllab. The code uses the TensorFlow rllab version which can be find in the folder sandbox, so be sure to install TensorFlow v1.0+.
+Furthermore baseline inplementations of PPO, ACKTR and DDPG from [open-ai baselines](https://github.com/openai/baselines) are also included in the paper
+
+
+### Installation
+
+To install all neccessary packages and dependencies, please follow th instructions on the [rllab documentation](https://rllab.readthedocs.io/en/latest/user/installation.html#express-install).
+Also be aware that for running the experiments, the [Mujoco physics simulator](http://www.mujoco.org/) 1.3 is required, which requires a licence.
+
 
 ### Usage
-Scripts for running the experiments found in the paper are located in `maml_examples/`.
 
-The pointmass environment is located in `maml_examples/` whereas the MuJoCo environments are located in `rllab/envs/mujoco/`.
+The core components of our code such as the algorithm can be found in the directory `sandbox/ours/`.
 
-### Speed of Code
-One current limitation of the code is that it is particularly slow. We welcome contributions to speed it up. We expect the biggest speed improvements to come from better parallelization of sampling and meta-learning graph computation.
+Scripts for running the experiments found in the paper are located in `experiments/run_scripts`.
+For each experiment in the paper a corresponding folder in `experiments/run_scripts` contains the runscripts.
 
+For instance, in order to run MB-MPO on your local machine execute the folloowing command from the root of this repository:
 
-### Contact
-To ask questions or report issues, please open an issue on the [issues tracker](https://github.com/cbfinn/maml/issues).
+`python experiments/run_scripts/mb_mpo_train.py --mode local`
 
-# rllab
+The hyperparameters and the environment(s) on which to run the experiments can be specified in the same file.
 
+The results and logs of the experiment run are saved into the folder `data/local/`.
 
-[![Docs](https://readthedocs.org/projects/rllab/badge)](http://rllab.readthedocs.org/en/latest/)
-[![Circle CI](https://circleci.com/gh/rllab/rllab.svg?style=shield)](https://circleci.com/gh/rllab/rllab)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/rllab/rllab/blob/master/LICENSE)
-[![Join the chat at https://gitter.im/rllab/rllab](https://badges.gitter.im/rllab/rllab.svg)](https://gitter.im/rllab/rllab?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
+## rllab
 
 rllab is a framework for developing and evaluating reinforcement learning algorithms. It includes a wide range of continuous control tasks plus implementations of the following algorithms:
 
@@ -48,20 +52,22 @@ rllab comes with support for running reinforcement learning experiments on an EC
 
 The main modules use [Theano](http://deeplearning.net/software/theano/) as the underlying framework, and we have support for TensorFlow under [sandbox/rocky/tf](https://github.com/openai/rllab/tree/master/sandbox/rocky/tf).
 
-# Documentation
+### Documentation
 
 Documentation is available online: [https://rllab.readthedocs.org/en/latest/](https://rllab.readthedocs.org/en/latest/).
 
-# Citing rllab
+#$ Citing rllab
 
 If you use rllab for academic research, you are highly encouraged to cite the following paper:
 
 - Yan Duan, Xi Chen, Rein Houthooft, John Schulman, Pieter Abbeel. "[Benchmarking Deep Reinforcement Learning for Continuous Control](http://arxiv.org/abs/1604.06778)". _Proceedings of the 33rd International Conference on Machine Learning (ICML), 2016._
 
-# Credits
+### Credits
 
 rllab was originally developed by Rocky Duan (UC Berkeley / OpenAI), Peter Chen (UC Berkeley), Rein Houthooft (UC Berkeley / OpenAI), John Schulman (UC Berkeley / OpenAI), and Pieter Abbeel (UC Berkeley / OpenAI). The library is continued to be jointly developed by people at OpenAI and UC Berkeley.
 
-# Slides
+### Slides
 
 Slides presented at ICML 2016: https://www.dropbox.com/s/rqtpp1jv2jtzxeg/ICML2016_benchmarking_slides.pdf?dl=0
+
+#
