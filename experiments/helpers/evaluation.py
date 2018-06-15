@@ -32,7 +32,10 @@ def prepare_evaluation_runs(exp_prefix_dir, eval_exp_prefix, num_sampled_envs=5)
     exp_dirs = glob.glob(os.path.join(exp_prefix_dir, '*/'))
 
     eval_task_list = [] #list that contains ordered pairs like (eval_exp_name, variant_dict)
-
+    if not exp_dirs:
+        pkl_files = glob.glob(os.path.join(exp_prefix_dir, '*.pkl'))
+        assert pkl_files
+        exp_dirs = [exp_prefix_dir]
     for exp_dir in exp_dirs:
         # get variant dir with additional params_pickle_file entry
         variant_dict = extract_files_from_dir(exp_dir)
@@ -74,9 +77,10 @@ def extract_files_from_dir(results_dir_path):
     :return: variant_dict with additional entries 'params_pickle_file'
     """
     assert os.path.isdir(results_dir_path)
-
-    assert len(glob.glob(os.path.join(results_dir_path,'*params*.pkl'))) == 1, 'Directory must not contain more than one parameter file'
-    params_pickle_file = glob.glob(os.path.join(results_dir_path,'*params*.pkl'))[0]
+    pkl_files = glob.glob(os.path.join(results_dir_path, '*.pkl'))
+    assert pkl_files, 'Directory must not contain more than one parameter file'
+    pkl_files.sort()
+    params_pickle_file = pkl_files[-1]
 
     assert len(glob.glob(os.path.join(results_dir_path,'*variant*.json'))) == 1, 'Directory must not contain more than one variant file'
     variant_json_path =  glob.glob(os.path.join(results_dir_path,'*variant*.json'))[0]
