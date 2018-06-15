@@ -67,7 +67,7 @@ def plot_from_exps(exp_data,
 
     exp_data = filter(exp_data, filters=filters)
     exps_per_plot = {'Long Horizon HalfCheetah': exp_data}
-    fig, ax = plt.subplots(figsize=(20, 8))
+    fig, ax = plt.subplots(figsize=(10, 8))
     fig.tight_layout(pad=4.0, w_pad=1.5, h_pad=2, rect=[0, 0, 1, 1])
     ax.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
     # iterate over subfigures
@@ -110,6 +110,7 @@ def plot_from_exps(exp_data,
                 ax.set_xlim(*y_limits)
 
     fig.legend(loc='lower center', ncol=6, bbox_transform=plt.gcf().transFigure)
+
     fig.savefig(plot_name)
 
 
