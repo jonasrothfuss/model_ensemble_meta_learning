@@ -40,7 +40,7 @@ config.AWS_SPOT_PRICE = str(info["price"])
 def run_train_task(vv):
 
     # Create envs.
-    env = HalfCheetahEnvRandParams(log_scale_limit=0.0, max_path_length=vv['path_length'])
+    env = vv['env'](log_scale_limit=0.0, max_path_length=vv['path_length'])
 
     with tf.Session(config=tf.ConfigProto()):
         ob_dim = env.observation_space.shape[0]
