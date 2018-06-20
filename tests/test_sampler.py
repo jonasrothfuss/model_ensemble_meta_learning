@@ -1,20 +1,20 @@
 import unittest
 from rllab.envs.own_envs.point_2d_env import PointEnv
-from sandbox.jonas.controllers import RandomController
-from sandbox.jonas.model_based_rl.helpers import sample
-from sandbox.jonas.dynamics import MLPDynamicsModel, MLPDynamicsEnsemble
+from sandbox.ours.controllers import RandomController
+from sandbox.ours.model_based_rl.helpers import sample
+from sandbox.ours.dynamics import MLPDynamicsModel, MLPDynamicsEnsemble
 import numpy as np
 
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.envs.base import TfEnv
-from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
-from sandbox.jonas.algos.ModelMAML.model_maml_trpo import ModelMAMLTRPO
+from sandbox.ours.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
+from sandbox.ours.algos.ModelMAML.model_maml_trpo import ModelMAMLTRPO
 from sandbox.rocky.tf.algos.trpo import TRPO
 
-from sandbox.jonas.sampler.MAML_model_sampler.maml_model_vectorized_sampler import MAMLModelVectorizedSampler
-from sandbox.jonas.sampler.model_sampler.model_vectorized_sampler import ModelVectorizedSampler
-from sandbox.jonas.sampler.random_vectorized_sampler import RandomVectorizedSampler
+from sandbox.ours.sampler.MAML_model_sampler.maml_model_vectorized_sampler import MAMLModelVectorizedSampler
+from sandbox.ours.sampler.model_sampler.model_vectorized_sampler import ModelVectorizedSampler
+from sandbox.ours.sampler.random_vectorized_sampler import RandomVectorizedSampler
 
 import tensorflow as tf
 
