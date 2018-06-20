@@ -1,16 +1,20 @@
-from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
-from sandbox.jonas.envs.normalized_env import normalize
-from sandbox.jonas.envs.base import TfEnv
-from sandbox.jonas.policies.improved_gauss_mlp_policy import GaussianMLPPolicy
-from rllab.misc.instrument import run_experiment_lite
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
+from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
+from rllab_maml.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
+from sandbox.jonas.envs.normalized_env import normalize
+from sandbox.jonas.envs.base import TfEnv
+from rllab.misc.instrument import stub, run_experiment_lite
+from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
+from sandbox.jonas.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
+from sandbox.jonas.algos.ModelMAML.model_maml_trpo import ModelMAMLTRPO
 from experiments.helpers.ec2_helpers import cheapest_subnets
-from sandbox.jonas.dynamics import MLPDynamicsEnsemble
-from sandbox.jonas.algos.ModelTRPO.model_trpo import ModelTRPO
 from experiments.helpers.run_multi_gpu import run_multi_gpu
-from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, \
-    SwimmerEnvRandParams, WalkerEnvRandomParams, PR2EnvRandParams
+
+from sandbox.jonas.envs.own_envs import PointEnvMAML
+from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams, WalkerEnvRandomParams
+from sandbox.jonas.envs.mujoco import Reacher5DofEnvRandParams
+
 
 import tensorflow as tf
 import sys
@@ -18,10 +22,11 @@ import argparse
 import random
 import os
 
-EXP_PREFIX = 'model-ensemble-trpo-new'
+EXP_PREFIX = 'model-ensemble-maml-new'
 
-ec2_instance = 'c4.4xlarge'
+ec2_instance = 'm4.4xlarge'
 NUM_EC2_SUBNETS = 3
+
 
 def run_train_task(vv):
 
@@ -33,35 +38,49 @@ def run_train_task(vv):
         hidden_sizes=vv['hidden_sizes_model'],
         weight_normalization=vv['weight_normalization_model'],
         num_models=vv['num_models'],
+        optimizer=vv['optimizer_model'],
         valid_split_ratio=vv['valid_split_ratio'],
         rolling_average_persitency=vv['rolling_average_persitency']
     )
 
-    policy = GaussianMLPPolicy(
+    policy = MAMLImprovedGaussianMLPPolicy(
         name="policy",
         env_spec=env.spec,
         hidden_sizes=vv['hidden_sizes_policy'],
         hidden_nonlinearity=vv['hidden_nonlinearity_policy'],
+        grad_step_size=vv['fast_lr'],
+        trainable_step_size=vv['trainable_step_size'],
+        bias_transform=vv['bias_transform'],
+        param_noise_std=vv['param_noise_std']
     )
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
 
-    algo = ModelTRPO(
+    algo = ModelMAMLTRPO(
         env=env,
         policy=policy,
         dynamics_model=dynamics_model,
         baseline=baseline,
+        n_itr=vv['n_itr'],
+        n_iter=vv['n_itr'],
         batch_size_env_samples=vv['batch_size_env_samples'],
         batch_size_dynamics_samples=vv['batch_size_dynamics_samples'],
+        meta_batch_size=vv['meta_batch_size'],
         initial_random_samples=vv['initial_random_samples'],
-        num_gradient_steps_per_iter=vv['num_gradient_steps_per_iter'],
-        max_path_length=vv['path_length'],
-        n_itr=vv['n_itr'],
-        retrain_model_when_reward_decreases=vv['retrain_model_when_reward_decreases'],
+        num_maml_steps_per_iter=vv['num_maml_steps_per_iter'],
+        reset_from_env_traj=vv.get('reset_from_env_traj', False),
+        max_path_length_env=vv['path_length_env'],
+        max_path_length_dyn=vv.get('path_length_dyn', None),
+        dynamic_model_max_epochs=vv.get('dynamic_model_max_epochs', (500, 500)),
         discount=vv['discount'],
-        step_size=vv["step_size"],
+        step_size=vv["meta_step_size"],
+        num_grad_updates=1,
+        retrain_model_when_reward_decreases=vv['retrain_model_when_reward_decreases'],
         reset_policy_std=vv['reset_policy_std'],
-        reinit_model_cycle=vv['reinit_model_cycle']
+        reinit_model_cycle=vv['reinit_model_cycle'],
+        frac_gpu=vv.get('frac_gpu', 0.85),
+        log_real_performance=True,
+        clip_obs=vv.get('clip_obs', True)
     )
     algo.train()
 
@@ -80,27 +99,30 @@ def run_experiment(argv):
     args = parser.parse_args(argv[1:])
 
     # -------------------- Define Variants -----------------------------------
-
     vg = VariantGenerator()
 
-    vg.add('seed', [12, 22, 44])
+    vg.add('seed', [22, 33, 12])
 
     # env spec
     vg.add('env', ['HalfCheetahEnvRandParams', 'AntEnvRandParams', 'WalkerEnvRandomParams',
                    'SwimmerEnvRandParams', 'HopperEnvRandParams', 'PR2EnvRandParams'])
     vg.add('log_scale_limit', [0.0])
-    vg.add('path_length', [200])
+    vg.add('path_length_env', [200])
 
     # Model-based MAML algo spec
     vg.add('n_itr', [100])
-    vg.add('step_size', [0.01])
+    vg.add('fast_lr', [0.001])
+    vg.add('meta_step_size', [0.01])
+    vg.add('meta_batch_size', [20]) # must be a multiple of num_models
     vg.add('discount', [0.99])
 
-    vg.add('batch_size_env_samples', [4000])
-    vg.add('batch_size_dynamics_samples', [50000])
-    vg.add('initial_random_samples', [4000])
-    vg.add('num_gradient_steps_per_iter', [30])
+    vg.add('batch_size_env_samples', [1])
+    vg.add('batch_size_dynamics_samples', [50])
+    vg.add('initial_random_samples', [5000])
+    vg.add('num_maml_steps_per_iter', [30])
     vg.add('retrain_model_when_reward_decreases', [False])
+    vg.add('reset_from_env_traj', [False])
+    vg.add('trainable_step_size', [False])
     vg.add('num_models', [5])
 
     # neural network configuration
@@ -111,6 +133,11 @@ def run_experiment(argv):
     vg.add('weight_normalization_model', [True])
     vg.add('reset_policy_std', [False])
     vg.add('reinit_model_cycle', [0])
+    vg.add('optimizer_model', ['adam'])
+    vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
+    vg.add('bias_transform', [False])
+    vg.add('param_noise_std', [0.0])
+    vg.add('dynamic_model_max_epochs', [(500, 500)])
 
     vg.add('valid_split_ratio', [0.2])
     vg.add('rolling_average_persitency', [0.99])
@@ -135,7 +162,7 @@ def run_experiment(argv):
 
     if args.mode == 'mgpu':
         current_path = os.path.dirname(os.path.abspath(__file__))
-        script_path = os.path.join(current_path, 'run_gpu_model_ensemble_trpo_train.py')
+        script_path = os.path.join(current_path, 'gpu-mb-mpo-train.py')
         n_gpu = args.n_gpu
         if n_gpu == 0:
             n_gpu = len(os.listdir('/proc/driver/nvidia/gpus'))
@@ -145,16 +172,16 @@ def run_experiment(argv):
         # ----------------------- AWS conficuration ---------------------------------
         if args.mode == 'ec2':
             info = config.INSTANCE_TYPE_INFO[ec2_instance]
-            n_parallel = int(info["vCPU"] / 2)  # make the default 4 if not using ec2
+            n_parallel = int(info["vCPU"])
         else:
-            n_parallel = 6
+            n_parallel = 12
 
         if args.mode == 'ec2':
+
 
             config.AWS_INSTANCE_TYPE = ec2_instance
             config.AWS_SPOT_PRICE = str(info["price"])
             subnets = cheapest_subnets(ec2_instance, num_subnets=NUM_EC2_SUBNETS)
-
             print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format('TRPO', len(variants)))
             print('Running on type {}, with price {}, on the subnets: '.format(config.AWS_INSTANCE_TYPE,
                                                                                config.AWS_SPOT_PRICE, ), str(subnets))
@@ -162,8 +189,8 @@ def run_experiment(argv):
         # ----------------------- TRAINING ---------------------------------------
         exp_ids = random.sample(range(1, 1000), len(variants))
         for v, exp_id in zip(variants, exp_ids):
-            exp_name = "model_trpo_train_env_%s_%i_%i_%i_%i_id_%i" % (v['env'], v['path_length'], v['num_gradient_steps_per_iter'],
-                                                                   v['batch_size_env_samples'], v['seed'], exp_id)
+            exp_name = "model_ensemble_maml_train_env_%s_%i_%i_%i_%i_id_%i" % (v['env'], v['path_length_env'], v['num_models'],
+                                                           v['batch_size_env_samples'], v['seed'], exp_id)
             v = instantiate_class_stings(v)
 
             if args.mode == 'ec2':
@@ -176,6 +203,7 @@ def run_experiment(argv):
                 config.AWS_SECURITY_GROUP_IDS = \
                     config.ALL_REGION_AWS_SECURITY_GROUP_IDS[
                         config.AWS_REGION_NAME]
+
 
             run_experiment_lite(
                 run_train_task,
@@ -191,7 +219,7 @@ def run_experiment(argv):
                 # Specifies the seed for the experiment. If this is not provided, a random seed
                 # will be used
                 seed=v["seed"],
-                python_command='python3',
+                python_command="python3",
                 pre_commands=["yes | pip install tensorflow=='1.6.0'",
                               "pip list",
                               "yes | pip install --upgrade cloudpickle"],
@@ -203,6 +231,16 @@ def run_experiment(argv):
 
 def instantiate_class_stings(v):
     v['env'] = globals()[v['env']]
+
+    # optimizer
+    if v['optimizer_model'] == 'sgd':
+        v['optimizer_model'] = tf.train.GradientDescentOptimizer
+    elif v['optimizer_model'] == 'adam':
+        v['optimizer_model'] = tf.train.AdamOptimizer
+    elif v['optimizer_model'] == 'momentum':
+        v['optimizer_model'] = tf.train.MomentumOptimizer
+
+    # nonlinearlity
     for nonlinearity_key in ['hidden_nonlinearity_policy', 'hidden_nonlinearity_model']:
         if v[nonlinearity_key] == 'relu':
             v[nonlinearity_key] = tf.nn.relu
