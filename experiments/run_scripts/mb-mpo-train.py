@@ -101,11 +101,10 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
     vg = VariantGenerator()
 
-    vg.add('seed', [22, 33, 12])
+    vg.add('seed', [22])
 
     # env spec
-    vg.add('env', ['HalfCheetahEnvRandParams', 'AntEnvRandParams', 'WalkerEnvRandomParams',
-                   'SwimmerEnvRandParams', 'HopperEnvRandParams', 'PR2EnvRandParams'])
+    vg.add('env', ['HalfCheetahEnvRandParams'])
     vg.add('log_scale_limit', [0.0])
     vg.add('path_length_env', [200])
 
