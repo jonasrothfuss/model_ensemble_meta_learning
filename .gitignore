@@ -35,4 +35,5 @@ docs/_build
 blackbox.zip
 blackbox
 rllab/config_personal.py
+rllab_maml/config_personal.py
 *.swp
