@@ -1,16 +1,12 @@
-from sandbox.jonas.envs.mujoco import AntEnvMAMLRandParams, HalfCheetahMAMLEnvRandParams, HopperEnvMAMLRandParams
-
 from rllab_maml.envs.mujoco.half_cheetah_env import HalfCheetahEnv
 from rllab_maml.envs.mujoco.half_cheetah_env_rand_direc import HalfCheetahEnvRandDirec
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
 from sandbox.jonas.algos.MAML.maml_trpo import MAMLTRPO
 from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
-from rllab_maml.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
 from sandbox.jonas.envs.normalized_env import normalize
 from sandbox.jonas.envs.base import TfEnv
-from rllab_maml.misc.instrument import stub, run_experiment_lite
-from sandbox_maml.rocky.tf.policies.maml_minimal_gauss_mlp_policy import MAMLGaussianMLPPolicy
+from rllab.misc.instrument import run_experiment_lite
 from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
 from experiments.helpers.ec2_helpers import cheapest_subnets
 
@@ -22,7 +18,7 @@ import random
 
 EXP_PREFIX = 'trpo-maml-rand-goal-env'
 
-ec2_instance = 'm4.2xlarge'
+ec2_instance = 'c4.xlarge'
 
 
 def run_train_task(vv):
@@ -48,7 +44,7 @@ def run_train_task(vv):
         max_path_length=vv['path_length'],
         meta_batch_size=vv['meta_batch_size'],
         num_grad_updates=vv['num_grad_updates'],
-        n_itr=vv['n_iter'],
+        n_itr=vv['n_itr'],
         discount=vv['discount'],
         step_size=vv["meta_step_size"],
     )
@@ -69,14 +65,13 @@ def run_experiment(argv):
     vg = VariantGenerator()
     vg.add('env', ['HalfCheetahEnvRandDirec'])
     vg.add('n_itr', [500])
-    vg.add('fast_lr', [0.1])
+    vg.add('fast_lr', [0.1, 0.05])
     vg.add('meta_batch_size', [40])
     vg.add('num_grad_updates', [1])
     vg.add('meta_step_size', [0.01])
     vg.add('fast_batch_size', [20])
     vg.add('seed', [1, 11, 21])
     vg.add('discount', [0.99])
-    vg.add('n_iter', [500])
     vg.add('path_length', [100])
     vg.add('hidden_nonlinearity', ['tanh'])
     vg.add('hidden_sizes', [(64, 64)])
