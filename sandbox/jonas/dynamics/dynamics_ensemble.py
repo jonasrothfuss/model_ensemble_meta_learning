@@ -252,7 +252,7 @@ class MLPDynamicsEnsemble(MLPDynamicsModel):
                     break
 
             for i in range(self.num_models):
-                if valid_loss_rolling_average_prev[i] < valid_loss_rolling_average[i] and i not in idx_to_remove:
+                if (valid_loss_rolling_average_prev[i] < valid_loss_rolling_average[i] or epoch == self.epochs - 1) and i not in idx_to_remove:
                     idx_to_remove.append(i)
                     epochs_per_model.append(epoch)
                     logger.log('Stopping Training of Model %i since its valid_loss_rolling_average decreased'%i)
