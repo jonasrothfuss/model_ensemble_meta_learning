@@ -37,8 +37,9 @@ blackbox
 rllab/config_personal.py
 rllab_maml/config_personal.py
 *.swp
-vendor/cassie-mujoco-sim/mjpro*
-vendor/cassie-mujoco-sim/build/
-vendor/cassie-mujoco-sim/test/
-vendor/cassie-mujoco-sim/mjkey*
+vendor/cassie_mujoco_sim/mjpro*
+vendor/cassie_mujoco_sim/build/
+vendor/cassie_mujoco_sim/test/
+vendor/cassie_mujoco_sim/mjkey*
+*~
 
