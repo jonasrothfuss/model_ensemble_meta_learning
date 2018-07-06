@@ -51,3 +51,5 @@ dependencies:
         - tensorflow
         - mpi4py
         - gym
+        - ctypeslib2
+        - clang-5
