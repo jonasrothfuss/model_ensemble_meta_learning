@@ -74,6 +74,10 @@ class DiagonalGaussian(Distribution):
                0.5 * tf.reduce_sum(tf.square(zs), reduction_indices=-1) - \
                0.5 * self.dim * np.log(2 * np.pi)
 
+    def entropy_sym(self, dist_info_vars):
+        log_stds = dist_info_vars["log_std"]
+        return tf.reduce_sum(log_stds + np.log(np.sqrt(2 * np.pi * np.e)), reduction_indices=-1)
+
     def sample(self, dist_info):
         means = dist_info["mean"]
         log_stds = dist_info["log_std"]

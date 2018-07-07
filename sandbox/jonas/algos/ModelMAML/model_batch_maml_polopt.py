@@ -34,6 +34,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
             max_path_length_dyn=None,
             num_grad_updates=1,
             discount=0.99,
+            beta=0,
             gae_lambda=1,
             dynamic_model_max_epochs=(1000, 1000),
             num_maml_steps_per_iter=10,
@@ -73,6 +74,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         :param max_path_length_dyn: Maximum path length of a single (imaginary) rollout with the dynamics model
         :param num_grad_updates: Number of fast gradient updates
         :param discount: Discount.
+        :param beta: Entropy bonus
         :param gae_lambda: Lambda used for generalized advantage estimation.
         :param dynamic_model_max_epochs: (int) maximum number of epochs for training the dynamics model
         :param num_maml_steps_per_iter: number of policy gradients steps before retraining dynamics model
@@ -114,6 +116,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         else:
             self.initial_random_samples = initial_random_samples
         self.discount = discount
+        self.beta = beta
         self.gae_lambda = gae_lambda
 
         # dynamics model config
