@@ -15,10 +15,10 @@ class HalfCheetahEnv(MujocoEnv, Serializable):
 
     FILE = 'half_cheetah.xml'
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, target_velocity=None, **kwargs):
         super(HalfCheetahEnv, self).__init__(*args, **kwargs)
         Serializable.__init__(self, *args, **kwargs)
-
+        self.target_velocity = target_velocity
     def get_current_obs(self):
         return np.concatenate([
             self.model.data.qpos.flatten()[1:],
@@ -39,7 +39,11 @@ class HalfCheetahEnv(MujocoEnv, Serializable):
         xposafter = self.model.data.qpos[0]
         ob = self.get_current_obs()
         reward_ctrl = - 0.1 * np.square(action).sum()
-        reward_run = (xposafter - xposbefore) / self.dt
+        velocity = (xposafter - xposbefore) / self.dt
+        if self.target_velocity:
+            reward_run = np.abs(velocity - self.target_velocity)
+        else:
+            reward_run = velocity
         reward = reward_ctrl + reward_run
         done = False
 
