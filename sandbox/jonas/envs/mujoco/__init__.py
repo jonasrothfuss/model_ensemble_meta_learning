@@ -8,3 +8,4 @@ from. walker_env_random_param import WalkerEnvRandomParams
 from .reacher_env_rand_param import ReacherEnvRandParams
 from .humanoid_env_random_param import HumanoidEnvRandParams
 from .pr2_env_random_param import PR2EnvRandParams
+from .cassie_env import CassieEnv
