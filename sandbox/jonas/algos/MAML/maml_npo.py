@@ -106,6 +106,7 @@ class MAMLNPO(BatchMAMLPolopt):
 
             all_surr_objs.append(surr_objs)
 
+        """ TRPO-Objective """
         obs_vars, action_vars, adv_vars = self.make_vars('test')
         surr_objs = []
         for i in range(self.meta_batch_size):
@@ -117,6 +118,7 @@ class MAMLNPO(BatchMAMLPolopt):
             lr = dist.likelihood_ratio_sym(action_vars[i], old_dist_info_vars[i], dist_info_vars)
             surr_objs.append(- tf.reduce_mean(lr*adv_vars[i]))
 
+        """ Sum over meta tasks """
         if self.use_maml:
             surr_obj = tf.reduce_mean(tf.stack(surr_objs, 0))  # mean over meta_batch_size (the diff tasks)
             input_list += obs_vars + action_vars + adv_vars + old_dist_info_vars_list
@@ -145,6 +147,16 @@ class MAMLNPO(BatchMAMLPolopt):
 
     @overrides
     def optimize_policy(self, itr, all_samples_data):
+        """
+        :param itr: (int) iteration
+        :param all_samples_data: list which length corresponds to num_grad_updates+1 (contains the data collected by
+        the pre- and post-update policies.
+        Each entry of the list is a dict which number of entries corresponds to
+        the meta-batch size.
+        Each dict contains numpy arrays with actions, advantages, observations, returns, rewards & env_infos & agent_infos (i.e. log_std, mean)
+        :return:
+        """
+
         assert len(all_samples_data) == self.num_grad_updates + 1  # we collected the rollouts to compute the grads and then the test!
 
         if not self.use_maml:
@@ -163,6 +175,7 @@ class MAMLNPO(BatchMAMLPolopt):
                 action_list.append(inputs[1])
                 adv_list.append(inputs[2])
             input_list += obs_list + action_list + adv_list  # [ [obs_0], [act_0], [adv_0], [obs_1], ... ]
+            #TODO consider normalizing the advantages
 
             if step == 0:  ##CF not used?
                 init_inputs = input_list
