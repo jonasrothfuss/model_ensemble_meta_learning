@@ -2,6 +2,10 @@ from vendor.cassie_mujoco_sim.test.cassiemujoco import CassieSim, CassieVis, pd_
 import numpy as np
 import time
 from rllab.spaces import Box
+from rllab.envs.base import Env
+from rllab.core.serializable import Serializable
+from rllab.misc.overrides import overrides
+from rllab.misc import logger
 
 CASSIE_TORQUE_LIMITS = np.array([4.5*25, 4.5*25, 12.2*16, 12.2*16, 0.9*50]) # ctrl_limit * gear_ratio
 CASSIE_MOTOR_VEL_LIMIT = np.array([2900, 2900, 1300, 1300, 5500]) / 60 / (2*np.pi) # max_rpm / 60 / 2*pi
@@ -15,7 +19,7 @@ NUM_QVEL = 32
 CTRL_COST_COEF = 0.001
 STABILISTY_COST_COEF = 0.01
 
-class CassieEnv():
+class CassieEnv(Env, Serializable):
 
     # TODO: add randomization of initial state
 
@@ -30,23 +34,22 @@ class CassieEnv():
         self.model_timestep = 0.001
         self.frame_skip = frame_skip
 
-        # action space
+        # action and observation space specs
         self.act_limits_array = _build_act_limits_array()
-        self.action_space = Box(low=self.act_limits_array[:,0], high=self.act_limits_array[:,1])
         self.act_dim = self.act_limits_array.shape[0]
 
-        # observation space
         self.num_qpos = NUM_QPOS
         self.num_qvel = NUM_QVEL
         self.obs_dim = self.num_qpos + self.num_qvel
-        obs_limit = np.inf * np.ones(self.obs_dim)
-        self.observation_space = Box(-obs_limit, obs_limit)
 
         # reward function coeffs
         self.ctrl_cost_coef = CTRL_COST_COEF
         self.stability_cost_coef = STABILISTY_COST_COEF
+        self.alive_bonus = 1
 
         if fix_pelvis: self.sim.hold()
+
+        Serializable.quick_init(self, locals())
 
     def reset(self):
         self.sim = CassieSim()
@@ -75,10 +78,10 @@ class CassieEnv():
 
         motor_torques = _to_np(internal_state.motor.torque)
         forward_vel = pelvis_vel[0]
-        ctrl_cost = self.ctrl_cost_coef *np.mean(motor_torques**2)
+        ctrl_cost = self.ctrl_cost_coef * np.mean(np.abs(motor_torques))
         stability_cost = self.stability_cost_coef * np.mean(pelvis_vel[1:3]**2) # quadratic velocity of pelvis in y and z direction ->
                                                                                 # enforces to hold the pelvis in same position while walking
-        reward = forward_vel - ctrl_cost - stability_cost
+        reward = forward_vel - ctrl_cost - stability_cost + self.alive_bonus
 
         done = self.done(obs)
         info = {'forward_vel': forward_vel, 'ctrl_cost': ctrl_cost, 'stability_cost': stability_cost}
@@ -99,6 +102,28 @@ class CassieEnv():
     @property
     def dt(self):
         return self.model_timestep * self.frame_skip
+
+    @property
+    def action_space(self):
+        return Box(low=self.act_limits_array[:,0], high=self.act_limits_array[:,1])
+
+    @property
+    def observation_space(self):
+        obs_limit = np.inf * np.ones(self.obs_dim)
+        return Box(-obs_limit, obs_limit)
+
+    @overrides
+    def log_diagnostics(self, paths):
+        forward_vel = [np.sum(path['env_infos']['forward_vel']) for path in paths]
+        ctrl_cost = [np.sum(path['env_infos']['ctrl_cost']) for path in paths]
+        stability_cost = [np.sum(path['env_infos']['stability_cost']) for path in paths]
+        path_length = [path["observations"].shape[0] for path in paths]
+
+        logger.record_tabular('AvgForwardVel', np.mean(forward_vel))
+        logger.record_tabular('StdForwardVel', np.std(forward_vel))
+        logger.record_tabular('AvgCtrlCost', np.mean(ctrl_cost))
+        logger.record_tabular('AvgStabilityCost', np.mean(stability_cost))
+        logger.record_tabular('AvgPathLength', np.mean(path_length))
 
     def _cassie_state_to_obs(self, state):
         qpos = np.asarray(state.qpos()[1:])
