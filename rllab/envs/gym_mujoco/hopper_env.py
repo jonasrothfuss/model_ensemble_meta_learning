@@ -28,11 +28,12 @@ class HopperEnv(MujocoEnv, Serializable):
             self,
             alive_coeff=1,
             ctrl_cost_coeff=0.01,
-            *args, **kwargs):
+            *args, target_velocity=None, **kwargs):
         self.alive_coeff = alive_coeff
         self.ctrl_cost_coeff = ctrl_cost_coeff
         super(HopperEnv, self).__init__(*args, **kwargs)
         self.frame_skip = 4
+        self.target_velocity = target_velocity
         Serializable.quick_init(self, locals())
 
     @overrides
@@ -48,7 +49,11 @@ class HopperEnv(MujocoEnv, Serializable):
         self.forward_dynamics(action)
         posafter, height, ang = self.model.data.qpos[0:3, 0]
         alive_bonus = 1.0
-        reward = (posafter - posbefore) / self.dt
+        velocity = ((posafter - posbefore) / self.dt)
+        if self.target_velocity:
+            reward = np.abs(velocity - self.target_velocity)
+        else:
+            reward = velocity        
         reward += alive_bonus
         reward -= 1e-3 * np.square(action).sum()
         ob = self.get_current_obs()

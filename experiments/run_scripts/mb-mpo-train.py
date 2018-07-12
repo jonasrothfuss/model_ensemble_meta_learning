@@ -8,6 +8,7 @@ from rllab.misc.instrument import stub, run_experiment_lite
 from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
 from sandbox.jonas.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
 from sandbox.jonas.algos.ModelMAML.model_maml_trpo import ModelMAMLTRPO
+# from sandbox.jonas.algos.ModelMAML.model_maml_ppo import ModelMAMLPPO
 from experiments.helpers.ec2_helpers import cheapest_subnets
 from experiments.helpers.run_multi_gpu import run_multi_gpu
 
@@ -24,13 +25,16 @@ import os
 
 EXP_PREFIX = 'model-ensemble-maml-new'
 
-ec2_instance = 'm4.4xlarge'
+ec2_instance = 'c4.2xlarge'
 NUM_EC2_SUBNETS = 3
 
 
 def run_train_task(vv):
 
-    env = TfEnv(normalize(vv['env'](log_scale_limit=vv['log_scale_limit'])))
+    env = TfEnv(normalize(vv['env'](
+        log_scale_limit=vv['log_scale_limit'],
+        target_velocity=vv['target_velocity'],
+    )))
 
     dynamics_model = MLPDynamicsEnsemble(
         name="dyn_model",
@@ -56,6 +60,8 @@ def run_train_task(vv):
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
 
+    optimizer_args = None
+
     algo = ModelMAMLTRPO(
         env=env,
         policy=policy,
@@ -80,7 +86,12 @@ def run_train_task(vv):
         reinit_model_cycle=vv['reinit_model_cycle'],
         frac_gpu=vv.get('frac_gpu', 0.85),
         log_real_performance=True,
-        clip_obs=vv.get('clip_obs', True)
+        clip_obs=vv.get('clip_obs', True),
+        beta=vv['entropy_bonus'],
+        # clip_eps=vv['clip_eps'], 
+        # target_inner_step=vv['target_inner_step'],
+        # init_kl_penalty=vv['init_kl_penalty'],
+        # optimizer_args=optimizer_args,
     )
     algo.train()
 
@@ -104,16 +115,21 @@ def run_experiment(argv):
     vg.add('seed', [22])
 
     # env spec
-    vg.add('env', ['HalfCheetahEnvRandParams'])
+    vg.add('env', ['WalkerEnvRandomParams'])
     vg.add('log_scale_limit', [0.0])
+    vg.add('target_velocity', [None])
     vg.add('path_length_env', [200])
 
     # Model-based MAML algo spec
-    vg.add('n_itr', [100])
+    vg.add('n_itr', [500])
     vg.add('fast_lr', [0.001])
     vg.add('meta_step_size', [0.01])
     vg.add('meta_batch_size', [20]) # must be a multiple of num_models
     vg.add('discount', [0.99])
+    vg.add('entropy_bonus', [0])
+    vg.add('clip_eps', [0.2])
+    vg.add('target_inner_step', [0.01])
+    vg.add('init_kl_penalty', [1])
 
     vg.add('batch_size_env_samples', [1])
     vg.add('batch_size_dynamics_samples', [50])
@@ -139,7 +155,7 @@ def run_experiment(argv):
     vg.add('dynamic_model_max_epochs', [(500, 500)])
 
     vg.add('valid_split_ratio', [0.2])
-    vg.add('rolling_average_persitency', [0.99])
+    vg.add('rolling_average_persitency', [0.95])
 
     # other stuff
     vg.add('exp_prefix', [EXP_PREFIX])
