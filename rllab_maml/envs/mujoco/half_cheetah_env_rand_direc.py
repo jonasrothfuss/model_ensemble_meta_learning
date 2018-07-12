@@ -3,7 +3,7 @@ import numpy as np
 from rllab_maml.misc import autoargs
 from rllab_maml.core.serializable import Serializable
 from rllab_maml.envs.base import Step
-from rllab_maml.envs.mujoco.mujoco_env import MujocoEnv
+from rllab.envs.mujoco.mujoco_env import MujocoEnv
 from rllab_maml.misc import logger
 from rllab_maml.misc.overrides import overrides
 

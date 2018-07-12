@@ -1,10 +1,4 @@
-import matplotlib
-matplotlib.use('Pdf')
-
-import matplotlib.pyplot as plt
-import os.path as osp
 import rllab.misc.logger as logger
-import rllab_maml.plotter as plotter
 import tensorflow as tf
 import time
 import numpy as np
@@ -14,9 +8,6 @@ from rllab_maml.sampler.stateful_pool import singleton_pool
 
 from sandbox.ours.sampler import RandomVectorizedSampler, MAMLModelVectorizedSampler, MAMLVectorizedSampler
 from sandbox.ours.sampler.MAML_sampler.maml_batch_sampler import BatchSampler
-
-MAX_BUFFER = int(3e5)
-
 
 class ModelBatchMAMLPolopt(RLAlgorithm):
     """
@@ -43,27 +34,23 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
             max_path_length_dyn=None,
             num_grad_updates=1,
             discount=0.99,
+            beta=0,
             gae_lambda=1,
             dynamic_model_max_epochs=(1000, 1000),
             num_maml_steps_per_iter=10,
             reset_from_env_traj=False,
+            dynamics_data_buffer_size=1e5,
             retrain_model_when_reward_decreases=True,
             reset_policy_std=False,
             reinit_model_cycle=0,
-            plot=False,
-            pause_for_plot=False,
             center_adv=True,
             positive_adv=False,
             store_paths=False,
-            whole_paths=True,
-            fixed_horizon=False,
             sampler_cls=None,
             sampler_args=None,
-            force_batch_sampler=False,
-            use_maml=True,
             load_policy=None,
             frac_gpu=0.85,
-            log_real_performance=False,
+            log_real_performance=True,
             clip_obs=False,
             **kwargs
     ):
@@ -87,21 +74,19 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         :param max_path_length_dyn: Maximum path length of a single (imaginary) rollout with the dynamics model
         :param num_grad_updates: Number of fast gradient updates
         :param discount: Discount.
+        :param beta: Entropy bonus
         :param gae_lambda: Lambda used for generalized advantage estimation.
         :param dynamic_model_max_epochs: (int) maximum number of epochs for training the dynamics model
         :param num_maml_steps_per_iter: number of policy gradients steps before retraining dynamics model
         :param reset_from_env_traj: (boolean) whether to use the real environment observations for resetting the imaginary dynamics model rollouts
+        :param dynamics_data_buffer_size: (int) size of the queue/buffer that holds data for the model training
         :param retrain_model_when_reward_decreases: (boolean) if true - stop inner gradient steps when performance decreases
         :param reset_policy_std: whether to reset the policy std after each iteration
         :param reinit_model_cycle: number of iterations before re-initializing the dynamics model (if 0 the dynamic model is not re-initialized at all)
-        :param plot: Plot evaluation run after each iteration.
-        :param pause_for_plot: Whether to pause before contiuing when plotting.
-        :param center_adv: Whether to rescale the advantages so that they have mean 0 and standard deviation 1.
-        :param positive_adv: Whether to shift the advantages so that they are always positive. When used in
-        conjunction with center_adv the advantages will be standardized before shifting.
         :param store_paths: Whether to save all paths data to the snapshot.
         :param frac_gpu: memory fraction of the gpu that shall be used for this task
-        :return:
+        :param log_real_performance: (boolean) if true the pre-update and post-update performance in the real env is evaluated and logged
+        :param clip_obs: (boolean) whether to clip the predicted next observations of the dynamics model in order to avoid numerical instabilities
         """
         self.env = env
         self.policy = policy
@@ -131,24 +116,22 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         else:
             self.initial_random_samples = initial_random_samples
         self.discount = discount
+        self.beta = beta
         self.gae_lambda = gae_lambda
 
         # dynamics model config
         self.dynamic_model_epochs = dynamic_model_max_epochs
         self.num_maml_steps_per_iter = num_maml_steps_per_iter
         self.reset_from_env_traj = reset_from_env_traj
+        self.dynamics_data_buffer_size = dynamics_data_buffer_size
         self.retrain_model_when_reward_decreases = retrain_model_when_reward_decreases
         self.reset_policy_std = reset_policy_std
         self.reinit_model = reinit_model_cycle
         self.log_real_performance = log_real_performance
 
-        self.plot = plot
-        self.pause_for_plot = pause_for_plot
         self.center_adv = center_adv
         self.positive_adv = positive_adv
         self.store_paths = store_paths
-        self.whole_paths = whole_paths
-        self.fixed_horizon = fixed_horizon
         self.num_grad_updates = num_grad_updates # number of gradient steps during training
         self.frac_gpu = frac_gpu
 
@@ -175,9 +158,6 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
 
         if self.initial_random_samples:
             self.random_sampler.start_worker()
-
-        if self.plot:
-            plotter.init_plot(self.env, self.policy)
 
     def shutdown_worker(self):
         self.env_sampler.shutdown_worker()
@@ -242,6 +222,8 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
 
                     ''' get rollouts from the environment'''
 
+                    time_env_sampling_start = time.time()
+
                     if self.initial_random_samples and itr == 0:
                         logger.log("Obtaining random samples from the environment...")
                         new_env_paths = self.obtain_random_samples(itr, log=True)
@@ -273,7 +255,9 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
 
                         new_samples_data_dynamics = self.process_samples_for_dynamics(itr, new_env_paths)
                         for k, v in samples_data_dynamics.items():
-                            samples_data_dynamics[k] = np.concatenate([v, new_samples_data_dynamics[k]], axis=0)[-MAX_BUFFER:]
+                            samples_data_dynamics[k] = np.concatenate([v, new_samples_data_dynamics[k]], axis=0)[-int(self.dynamics_data_buffer_size):]
+
+                    logger.record_tabular('Time-EnvSampling', time.time() - time_env_sampling_start)
 
                     if self.log_real_performance:
                         logger.log("Evaluating the performance of the real policy")
@@ -289,7 +273,9 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                         _ = self.process_samples_for_policy(itr,  flatten_list(new_env_paths.values()), log_prefix='PostPolicy-')
 
 
-                    ''' fit dynamics model '''
+                    ''' --------------- fit dynamics model --------------- '''
+
+                    time_fit_start = time.time()
 
                     epochs = self.dynamic_model_epochs[min(itr, len(self.dynamic_model_epochs) - 1)]
                     if self.reinit_model and itr % self.reinit_model == 0:
@@ -299,9 +285,19 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                     self.dynamics_model.fit(samples_data_dynamics['observations_dynamics'],
                                             samples_data_dynamics['actions_dynamics'],
                                             samples_data_dynamics['next_observations_dynamics'],
-                                            epochs=epochs, verbose=True)
+                                            epochs=epochs, verbose=True, log_tabular=True)
 
-                    ''' MAML steps '''
+                    logger.record_tabular('Time-ModelFit', time.time() - time_fit_start)
+
+                    ''' --------------- MAML steps --------------- '''
+
+                    times_dyn_sampling = []
+                    times_dyn_sample_processing = []
+                    times_inner_step = []
+                    times_outer_step = []
+
+                    time_maml_steps_start = time.time()
+
                     for maml_itr in range(self.num_maml_steps_per_iter):
 
                         self.policy.switch_to_init_dist()  # Switch to pre-update policy
@@ -309,8 +305,12 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                         all_samples_data_maml_iter, all_paths_maml_iter = [], []
                         for step in range(self.num_grad_updates + 1):
 
+                            ''' --------------- Sampling from Dynamics Models --------------- '''
+
                             logger.log("MAML Step %i%s of %i - Obtaining samples from the dynamics model..." % (
                                 maml_itr + 1, chr(97 + step), self.num_maml_steps_per_iter))
+
+                            time_dyn_sampling_start = time.time()
 
                             if self.reset_from_env_traj:
                                 new_model_paths = self.obtain_model_samples(itr, traj_starting_obs=samples_data_dynamics['observations_dynamics'],
@@ -321,7 +321,12 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                             assert type(new_model_paths) == dict and len(new_model_paths) == self.meta_batch_size
                             all_paths_maml_iter.append(new_model_paths)
 
+                            times_dyn_sampling.append(time.time() - time_dyn_sampling_start)
+
+                            ''' --------------- Processing Dynamics Samples --------------- '''
+
                             logger.log("Processing samples...")
+                            time_dyn_sample_processing_start = time.time()
                             samples_data = {}
 
                             for key in new_model_paths.keys():  # the keys are the tasks
@@ -336,9 +341,18 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                                                                              log_prefix="DynTrajs%i%s-" % (
                                                                                  maml_itr + 1, chr(97 + step)),
                                                                              return_reward=True)
+
+                            times_dyn_sample_processing.append(time.time() - time_dyn_sample_processing_start)
+
+                            ''' --------------- Inner Policy Update --------------- '''
+
+                            time_inner_step_start = time.time()
+
                             if step < self.num_grad_updates:
                                 logger.log("Computing policy updates...")
                                 self.policy.compute_updated_dists(samples_data)
+
+                            times_inner_step.append(time.time() - time_inner_step_start)
 
                         if maml_itr == 0:
                             prev_rolling_reward_mean = mean_reward
@@ -359,11 +373,27 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                                 logger.record_tabular('DynTrajs%ib-AverageReturn' % (i+1), 0.0)
                             break
 
+                        ''' --------------- Meta Policy Update --------------- '''
+
                         logger.log("MAML Step %i of %i - Optimizing policy..." % (maml_itr + 1, self.num_maml_steps_per_iter))
+                        time_outer_step_start = time.time()
+
                         # This needs to take all samples_data so that it can construct graph for meta-optimization.
                         self.optimize_policy(itr, all_samples_data_maml_iter, log=False)
-                        if itr == 0:
-                            sess.graph.finalize()
+                        if itr == 0: sess.graph.finalize()
+
+                        times_outer_step.append(time.time() - time_outer_step_start)
+
+
+
+                    ''' --------------- Logging Stuff --------------- '''
+
+                    logger.record_tabular('Time-MAMLSteps', time.time() - time_maml_steps_start)
+                    logger.record_tabular('Time-DynSampling', np.mean(times_dyn_sampling))
+                    logger.record_tabular('Time-DynSampleProc', np.mean(times_dyn_sample_processing))
+                    logger.record_tabular('Time-InnerStep', np.mean(times_inner_step))
+                    logger.record_tabular('Time-OuterStep', np.mean(times_outer_step))
+
 
                     logger.log("Saving snapshot...")
                     params = self.get_itr_snapshot(itr, all_samples_data_maml_iter[-1])  # , **kwargs)
@@ -371,8 +401,8 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                         params["paths"] = all_samples_data_maml_iter[-1]["paths"]
                     logger.save_itr_params(itr, params)
                     logger.log("Saved")
-                    logger.record_tabular('Time', time.time() - start_time)
-                    logger.record_tabular('ItrTime', time.time() - itr_start_time)
+                    logger.record_tabular('Time-Overall', time.time() - start_time)
+                    logger.record_tabular('Time-Itr', time.time() - itr_start_time)
 
                     logger.dump_tabular(with_prefix=False)
 
@@ -400,10 +430,6 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
 
     def optimize_policy(self, itr, samples_data, log=True):
         raise NotImplementedError
-
-    def update_plot(self):
-        if self.plot:
-            plotter.update_plot(self.policy, self.max_path_length)
 
     def initialize_uninitialized_variables(self, sess):
         uninit_vars = []

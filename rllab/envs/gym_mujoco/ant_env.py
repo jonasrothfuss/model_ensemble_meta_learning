@@ -14,10 +14,11 @@ class AntEnv(MujocoEnv, Serializable):
     FILE = 'ant.xml'
     ORI_IND = 3
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, target_velocity=None, **kwargs):
         super(AntEnv, self).__init__(*args, **kwargs)
         Serializable.__init__(self, *args, **kwargs)
         self.frame_skip = 2
+        self.target_velocity = None
 
     def get_current_obs(self):
         return np.concatenate([
@@ -27,7 +28,11 @@ class AntEnv(MujocoEnv, Serializable):
 
     def step(self, action):
         self.forward_dynamics(action)
-        forward_reward = self.model.data.qvel[0, 0] # velocity in x direction
+        velocity = self.model.data.qvel[0, 0] # velocity in x direction
+        if self.target_velocity:
+            forward_reward = np.abs(velocity - self.target_velocity)
+        else:
+            forward_reward = velocity
         lb, ub = self.action_bounds
         scaling = (ub - lb) * 0.5
         ctrl_cost = .5 * 1e-2 * np.square(action/scaling).sum()

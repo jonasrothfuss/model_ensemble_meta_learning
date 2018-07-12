@@ -1,16 +1,13 @@
 <!-- ======================================================
 	This file is part of MuJoCo.
 	Copyright 2009-2015 Roboti LLC.
-
 	Model 		:: PR2 from Willow Garage
 		Source		: (Provided by Sergey Levine, UC Berkeley)
 		Downloaded	: 18July'14
-
 	Mujoco		:: Advanced physics simulation engine
 		Source		: www.roboti.us
 		Version		: 1.22
 		Released 	: 26Nov15
-
 	Author		:: Vikash Kumar
 		Contacts 	: kumar@roboti.us
 		Last edits 	: 14Dec'15, 10Oct'15
@@ -64,9 +61,9 @@
     </default>
 
     <worldbody>
+    <camera name="camera" pos="2 0.0 2" euler="0.0 0.98539816339 1.5707" fovy="40"/>
 	<light directional="true" cutoff="4" exponent="20" diffuse="1 1 1" specular="0 0 0" pos=".5 0.75 1.5" dir="-.5 -0.75 -1.5"/>
 	<geom name="gnd" material="MatGnd" type="plane" contype="0" conaffinity="1" pos="0 0 0" size="1.5 1.5 0.25"/>
-
         <body name="base_footprint" pos="0 0 0">
             <inertial pos="0 0 0" mass="1" diaginertia="0.01 0.01 0.01" />
             <body name="base_link" pos="0 0 0.051">

@@ -8,7 +8,8 @@ from sandbox.rocky.tf.misc import tensor_utils
 from rllab.misc import logger
 from collections import OrderedDict
 import sandbox.rocky.tf.core.layers as L
-from sandbox.ours.dynamics import MLPDynamicsModel
+from sandbox.jonas.dynamics import MLPDynamicsModel
+import time
 
 
 class MLPDynamicsEnsemble(MLPDynamicsModel):
@@ -128,7 +129,7 @@ class MLPDynamicsEnsemble(MLPDynamicsModel):
 
         LayersPowered.__init__(self, [mlp.output_layer for mlp in mlps])
 
-    def fit(self, obs, act, obs_next, epochs=1000, compute_normalization=True, verbose=False, valid_split_ratio=None, rolling_average_persitency=None):
+    def fit(self, obs, act, obs_next, epochs=1000, compute_normalization=True, valid_split_ratio=None, rolling_average_persitency=None, verbose=False, log_tabular=False):
         """
         Fits the NN dynamics model
         :param obs: observations - numpy array of shape (n_samples, ndim_obs)
@@ -137,6 +138,7 @@ class MLPDynamicsEnsemble(MLPDynamicsModel):
         :param epochs: number of training epochs
         :param compute_normalization: boolean indicating whether normalization shall be (re-)computed given the data
         :param valid_split_ratio: relative size of validation split (float between 0.0 and 1.0)
+        :param (boolean) whether to log training stats in tabular format
         :param verbose: logging verbosity
         """
         assert obs.ndim == 2 and obs.shape[1] == self.obs_space_dims
@@ -184,8 +186,10 @@ class MLPDynamicsEnsemble(MLPDynamicsModel):
         valid_loss_rolling_average = None
         train_op_to_do = self.train_op_model_batches
         idx_to_remove = []
+        epoch_times = []
+        epochs_per_model = []
 
-        # Training loop
+        """ ------- Looping over training epochs ------- """
         for epoch in range(epochs):
 
             # initialize data queue
@@ -196,7 +200,11 @@ class MLPDynamicsEnsemble(MLPDynamicsModel):
             )
             sess.run(self.iterator.initializer, feed_dict=feed_dict)
 
+            # preparations for recording training stats
+            epoch_start_time = time.time()
             batch_losses = []
+
+            """ ------- Looping through the shuffled and batched dataset for one epoch -------"""
             while True:
                 try:
                     obs_act_delta = sess.run(self.next_batch)
@@ -244,16 +252,27 @@ class MLPDynamicsEnsemble(MLPDynamicsModel):
                     break
 
             for i in range(self.num_models):
-                if valid_loss_rolling_average_prev[i] < valid_loss_rolling_average[i] and i not in idx_to_remove:
+                if (valid_loss_rolling_average_prev[i] < valid_loss_rolling_average[i] or epoch == epochs - 1) and i not in idx_to_remove:
                     idx_to_remove.append(i)
+                    epochs_per_model.append(epoch)
                     logger.log('Stopping Training of Model %i since its valid_loss_rolling_average decreased'%i)
 
             train_op_to_do = [op for idx, op in enumerate(self.train_op_model_batches) if idx not in idx_to_remove]
+
+            if not idx_to_remove: epoch_times.append(time.time() - epoch_start_time) # only track epoch times while all models are trained
 
             if not train_op_to_do:
                 logger.log('Stopping DynamicsEnsemble Training since valid_loss_rolling_average decreased')
                 break
             valid_loss_rolling_average_prev = valid_loss_rolling_average
+
+        """ ------- Tabular Logging ------- """
+        if log_tabular:
+            logger.record_tabular('AvgModelEpochTime', np.mean(epoch_times))
+            assert len(epochs_per_model) == self.num_models
+            logger.record_tabular('AvgEpochsPerModel', np.mean(epochs_per_model))
+            logger.record_tabular('StdEpochsPerModel', np.std(epochs_per_model))
+
 
     def predict(self, obs, act, pred_type='rand'):
         """

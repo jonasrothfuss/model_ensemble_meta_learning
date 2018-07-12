@@ -17,9 +17,10 @@ class Walker2DEnv(MujocoEnv, Serializable):
     FILE = 'walker2d.xml'
 
     def __init__(
-            self, *args, **kwargs):
+            self, *args, target_velocity=None, **kwargs):
         super(Walker2DEnv, self).__init__(*args, **kwargs)
         self.frame_skip = 4
+        self.target_velocity = target_velocity
         Serializable.quick_init(self, locals())
 
     def get_current_obs(self):
@@ -33,7 +34,11 @@ class Walker2DEnv(MujocoEnv, Serializable):
         self.forward_dynamics(action)
         posafter, height, ang = self.model.data.qpos[0:3]
         alive_bonus = 1.0
-        reward = ((posafter - posbefore) / self.dt)
+        velocity = ((posafter - posbefore) / self.dt)
+        if self.target_velocity:
+            reward = np.abs(velocity - self.target_velocity)
+        else:
+            reward = velocity
         reward += alive_bonus
         reward -= 1e-3 * np.square(action).sum()
         done = not (height > 0.8 and height < 2.0 and

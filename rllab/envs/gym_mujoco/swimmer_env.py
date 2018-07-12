@@ -17,8 +17,9 @@ class SwimmerEnv(MujocoEnv, Serializable):
     def __init__(
             self,
             ctrl_cost_coeff=1e-2,
-            *args, **kwargs):
+            *args, target_velocity=None, **kwargs):
         self.ctrl_cost_coeff = ctrl_cost_coeff
+        self.target_velocity = target_velocity
         super(SwimmerEnv, self).__init__(*args, **kwargs)
         Serializable.quick_init(self, locals())
 
@@ -36,7 +37,11 @@ class SwimmerEnv(MujocoEnv, Serializable):
         xposbefore = self.model.data.qpos[0]
         self.forward_dynamics(action)
         xposafter = self.model.data.qpos[0]
-        reward_fwd = (xposafter - xposbefore) / self.dt
+        velocity = (xposafter - xposbefore) / self.dt
+        if self.target_velocity:
+            reward_fwd = np.abs(velocity - self.target_velocity)
+        else:
+            reward_fwd = velocity
         reward_ctrl = - ctrl_cost_coeff * np.square(action).sum()
         reward = reward_fwd + reward_ctrl
         ob = self.get_current_obs()

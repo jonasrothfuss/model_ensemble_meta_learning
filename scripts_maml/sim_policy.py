@@ -19,6 +19,8 @@ if __name__ == "__main__":
                         help='path to the out video file')
     parser.add_argument('--prompt', type=bool, default=False,
                         help='Whether or not to prompt for more sim')
+    parser.add_argument('--ignore_done', type=bool, default=True,
+                        help='Whether stop animation when environment done or continue anyway')
     args = parser.parse_args()
 
     max_tries = 10
@@ -31,7 +33,7 @@ if __name__ == "__main__":
             env = data['env']
             while True:
                 path = rollout(env, policy, max_path_length=args.max_path_length,
-                               animated=True, speedup=args.speedup, video_filename=args.video_filename)
+                               animated=True, speedup=args.speedup, video_filename=args.video_filename, ignore_done=args.ignore_done)
                 if args.prompt:
                     if not query_yes_no('Continue simulation?'):
                         break

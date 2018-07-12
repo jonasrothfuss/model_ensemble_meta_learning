@@ -24,6 +24,7 @@ ENV LANG C.UTF-8
 ENTRYPOINT [ "/usr/bin/tini", "--" ]
 
 # ========== Special Deps ==========
+RUN apt-get update
 RUN apt-get -y install git make cmake unzip
 RUN pip install awscli
 # ALE requires zlib
@@ -38,6 +39,7 @@ RUN pip install --upgrade pip
 # usual pip install pygame will fail
 RUN apt-get build-dep -y python-pygame
 RUN pip install Pillow
+RUN apt install -y libopenmpi-dev
 
 # ========== OpenAI Gym ==========
 RUN apt-get -y install libgtk2.0-0
@@ -60,4 +62,7 @@ WORKDIR /root/code
 # gpu theanno
 ENV THEANO_FLAGS mode=FAST_RUN,device=gpu,floatX=float32
 
-
+# ========= Cassie Environment ===========
+RUN apt-get install -y llvm-5.0
+RUN apt-get install -y libglfw3-dev
+RUN apt-get install -y clang-5.0

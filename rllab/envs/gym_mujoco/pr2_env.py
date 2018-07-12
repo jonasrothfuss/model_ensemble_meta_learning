@@ -3,10 +3,10 @@ from rllab.envs.gym_mujoco.mujoco_env import MujocoEnv
 import numpy as np
 from rllab.core.serializable import Serializable
 from rllab.misc.overrides import overrides
+from rllab.mujoco_py import MjModel, MjViewer
 
 
 class PR2Env(MujocoEnv, Serializable):
-
     FILE = 'pr2_legofree.xml'
 
     def __init__(
@@ -47,12 +47,12 @@ class PR2Env(MujocoEnv, Serializable):
         self.forward_dynamics(action)
         lb, ub = self.action_bounds
         scaling = (ub - lb) * 0.5
-        reward_ctrl = -self.action_penalty * np.sum(np.square(action/scaling))
+        reward_ctrl = -self.action_penalty * np.sum(np.square(action / scaling))
 
         distance_tip_to_goal = np.sum(np.square(vec_tip_to_goal))
         reward_tip = - distance_tip_to_goal
 
-        reward = reward_tip + reward_ctrl#+ reward_occlusion
+        reward = reward_tip + reward_ctrl  # + reward_occlusion
         done = False
 
         self.time_step += 1
@@ -62,6 +62,14 @@ class PR2Env(MujocoEnv, Serializable):
         ob = self.get_current_obs()
 
         return ob, float(reward), done, {}
+
+    def get_viewer(self):
+        if self.viewer is None:
+            self.viewer = MjViewer()
+            self.viewer.start()
+            self.viewer.set_model(self.model)
+            self.viewer.cam.camid = 0
+        return self.viewer
 
     @overrides
     def reset_mujoco(self, qpos=None, qvel=None):
@@ -76,7 +84,3 @@ class PR2Env(MujocoEnv, Serializable):
         self.model.data.qvel = qvel
         self.model.data.qacc = self.init_qacc
         self.model.data.ctrl = self.init_ctrl
-
-
-
-

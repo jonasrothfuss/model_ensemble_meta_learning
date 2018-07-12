@@ -3,13 +3,23 @@ from rllab_maml.misc import tensor_utils
 import time
 
 
-def rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1, save_video=True, video_filename='sim_out.mp4', reset_arg=None):
+def rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1, save_video=True, video_filename='sim_out.mp4', reset_arg=None, ignore_done=False):
     observations = []
     actions = []
     rewards = []
     agent_infos = []
     env_infos = []
     images = []
+
+    ''' get wrapped env '''
+    wrapped_env = env
+    while hasattr(wrapped_env, '_wrapped_env'):
+        wrapped_env = wrapped_env._wrapped_env
+
+    frame_skip = wrapped_env.frame_skip if hasattr(wrapped_env, 'frame_skip') else 1
+    assert hasattr(wrapped_env, 'dt'), 'environment must have dt attribute that specifies the timestep'
+    timestep = wrapped_env.dt
+
     o = env.reset(reset_args=reset_arg)
     agent.reset()
     path_length = 0
@@ -24,13 +34,12 @@ def rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1, save_
         agent_infos.append(agent_info)
         env_infos.append(env_info)
         path_length += 1
-        if d: # and not animated:  # TODO testing
+        if d and not ignore_done:
             break
         o = next_o
         if animated:
             env.render()
-            timestep = 0.05
-            time.sleep(timestep / speedup)
+            time.sleep(timestep*frame_skip / speedup)
             if save_video:
                 from PIL import Image
                 image = env.wrapped_env.wrapped_env.get_viewer().get_image()
@@ -38,13 +47,14 @@ def rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1, save_
                 images.append(np.flipud(np.array(pil_image)))
 
     if animated:
-        if save_video and len(images) >= max_path_length:
+        if save_video:
             import moviepy.editor as mpy
-            clip = mpy.ImageSequenceClip(images, fps=20*speedup)
+            fps = int(speedup/timestep * frame_skip)
+            clip = mpy.ImageSequenceClip(images, fps=fps)
             if video_filename[-3:] == 'gif':
-                clip.write_gif(video_filename, fps=20*speedup)
+                clip.write_gif(video_filename, fps=fps)
             else:
-                clip.write_videofile(video_filename, fps=20*speedup)
+                clip.write_videofile(video_filename, fps=fps)
         #return
 
     return dict(

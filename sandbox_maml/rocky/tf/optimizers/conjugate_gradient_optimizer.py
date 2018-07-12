@@ -78,7 +78,7 @@ class FiniteDifferenceHvp(object):
 
         flat_grad = tensor_utils.flatten_tensor_variables(constraint_grads)
 
-        def f_Hx_plain(*args):
+        def f_Hx_plain(*args): #receives inputs and xs(flattened inputs) as arguments
             inputs_ = args[:len(inputs)]
             xs = args[len(inputs):]
             flat_xs = np.concatenate([np.reshape(x, (-1,)) for x in xs])
@@ -192,6 +192,7 @@ class ConjugateGradientOptimizer(Serializable):
                 grads[idx] = tf.zeros_like(param)
         flat_grad = tensor_utils.flatten_tensor_variables(grads)
 
+        # f=KL-divergence and target is policy
         self._hvp_approach.update_opt(f=constraint_term, target=target, inputs=inputs + extra_inputs,
                                       reg_coeff=self._reg_coeff)
 
@@ -240,6 +241,7 @@ class ConjugateGradientOptimizer(Serializable):
         if extra_inputs is None:
             extra_inputs = tuple()
 
+        """ Subsamlpling for CG"""
         if self._subsample_factor < 1:
             if subsample_grouped_inputs is None:
                 subsample_grouped_inputs = [inputs]
@@ -263,8 +265,11 @@ class ConjugateGradientOptimizer(Serializable):
         logger.log("gradient computed")
 
         logger.log("computing descent direction")
+
+        # symbol for the hessian vector product (H is fisher information matrix) with finite differences
         Hx = self._hvp_approach.build_eval(subsample_inputs + extra_inputs)
 
+        # use CG
         descent_direction = krylov.cg(Hx, flat_g, cg_iters=self._cg_iters)
 
         initial_step_size = np.sqrt(
