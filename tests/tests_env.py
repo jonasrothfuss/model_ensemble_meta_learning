@@ -1,7 +1,8 @@
 import unittest
 from sandbox.jonas.envs.mujoco.reacher5dof_env_random_param import Reacher5DofEnvRandParams
 from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, \
-    SwimmerEnvRandParams, SnakeEnvRandParams, WalkerEnvRandomParams, ReacherEnvRandParams
+    SwimmerEnvRandParams, SnakeEnvRandParams, WalkerEnvRandomParams, ReacherEnvRandParams, CassieEnv
+import sandbox.jonas.envs.mujoco.cassie_env as cassie_env
 
 import numpy as np
 import pickle
@@ -414,6 +415,24 @@ class TestReacherEnv(unittest.TestCase):
         reward_est2 = env.reward(obses[:-1], actions[:-1], obses[1:])
         diff = np.sum(np.abs(reward_est2 - reward_ests[:-1]))
         self.assertAlmostEqual(diff, 0.0)
+
+class TestCassieEnv(unittest.TestCase):
+
+    def test_simulation_run(self):
+        env = CassieEnv(render=False, fix_pelvis=False)
+        for j in range(500):
+            act = env.action_space.sample()
+            obs = env.step(act)
+
+    def test_pelvis_hight(self):
+        env = CassieEnv(render=False, fix_pelvis=False)
+        for j in range(200):
+            act = env.action_space.sample()
+            obs, rew, done, info = env.step(act)
+            pelv_hight = cassie_env.pelvis_hight_from_obs(obs)
+            print(env.sim.get_state().qpos()[2], pelv_hight)
+            self.assertAlmostEqual(env.sim.get_state().qpos()[2], pelv_hight)
+
 
 if __name__ == '__main__':
     unittest.main()
