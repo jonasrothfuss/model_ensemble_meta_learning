@@ -95,12 +95,12 @@ class ModelMAMLNPO(ModelBatchMAMLPolopt):
                 new_params.append(params)
                 logli = dist.log_likelihood_sym(action_vars[i], dist_info_vars)
                 if self.beta > 0:
-                    entropy = self.beta * dist.entropy_sym(dist_info_vars)
+                    entropy_bonus = self.beta * dist.entropy_sym(dist_info_vars)
                 else:
-                    entropy = 0
+                    entropy_bonus = 0
                 # formulate as a minimization problem
                 # The gradient of the surrogate objective is the policy gradient
-                surr_objs.append(- tf.reduce_mean(logli * adv_vars[i] - entropy))
+                surr_objs.append(- tf.reduce_mean(logli * adv_vars[i] + entropy_bonus))
 
             input_list += obs_vars + action_vars + adv_vars + state_info_vars_list
             if j == 0:
@@ -121,10 +121,10 @@ class ModelMAMLNPO(ModelBatchMAMLPolopt):
                 kls.append(kl)
             lr = dist.likelihood_ratio_sym(action_vars[i], old_dist_info_vars[i], dist_info_vars)
             if self.beta > 0:
-                entropy = self.beta * dist.entropy_sym(dist_info_vars)
+                entropy_bonus = self.beta * dist.entropy_sym(dist_info_vars)
             else:
-                entropy = 0
-            surr_objs.append(- tf.reduce_mean(lr*adv_vars[i] - entropy))
+                entropy_bonus = 0
+            surr_objs.append(- tf.reduce_mean(lr*adv_vars[i] + entropy_bonus))
 
         if self.use_maml:
             surr_obj = tf.reduce_mean(tf.stack(surr_objs, 0))  # mean over meta_batch_size (the diff tasks)
