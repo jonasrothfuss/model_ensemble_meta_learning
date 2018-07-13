@@ -28,7 +28,6 @@ private
 lua
 iterate.dat
 .env
-src/
 .settings
 .pods
 docs/_build
