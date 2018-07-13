@@ -96,12 +96,14 @@ class CassieEnv(Env, Serializable):
         return joint_state, internal_state_obj
 
     def render(self):
-        assert self.vis is not None, 'render attribute must be set true in __init__'
+        if self.vis is None:
+            print('Setting up cassie visualizer')
+            self.setup_cassie_vis()
         self.vis.draw(self.sim)
 
     @property
     def dt(self):
-        return self.model_timestep * self.frame_skip
+        return self.model_timestep
 
     @property
     def action_space(self):
@@ -114,9 +116,9 @@ class CassieEnv(Env, Serializable):
 
     @overrides
     def log_diagnostics(self, paths):
-        forward_vel = [np.sum(path['env_infos']['forward_vel']) for path in paths]
-        ctrl_cost = [np.sum(path['env_infos']['ctrl_cost']) for path in paths]
-        stability_cost = [np.sum(path['env_infos']['stability_cost']) for path in paths]
+        forward_vel = [np.mean(path['env_infos']['forward_vel']) for path in paths]
+        ctrl_cost = [np.mean(path['env_infos']['ctrl_cost']) for path in paths]
+        stability_cost = [np.mean(path['env_infos']['stability_cost']) for path in paths]
         path_length = [path["observations"].shape[0] for path in paths]
 
         logger.record_tabular('AvgForwardVel', np.mean(forward_vel))
@@ -131,6 +133,9 @@ class CassieEnv(Env, Serializable):
         qvel = np.asarray(state.qvel())
         assert self.num_qvel == qvel.shape[0]
         return np.concatenate([qpos, qvel], axis=0)
+
+    def setup_cassie_vis(self):
+        self.vis = CassieVis()
 
     # #TODO: sth. is wrong with the pelvis_pos -> should be absolute from world coord. e.g. (0,0,1) in the beginning but that is not the case
     # def _cassie_state_to_obs(self, state):
@@ -225,4 +230,4 @@ if __name__ == '__main__':
             obs, reward, done, info = env.step(act)
             if render: env.render()
             if done: break
-            time.sleep(env.dt)
+            time.sleep(env.dt * env.frame_skip)
