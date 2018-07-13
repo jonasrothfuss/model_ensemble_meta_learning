@@ -9,9 +9,9 @@ import matplotlib
 # matplotlib.use('TkAgg')
 #matplotlib.font_manager._rebuild()
 
-data_path_fast_lr = '/home/ignasi/Desktop/hyperparams/hyperparam-study-fast-lr'
-data_path_num_models = '/home/ignasi/Desktop/hyperparams/hyperparam-study-num-models'
-data_path_maml_iter = '/home/ignasi/Desktop/hyperparams/hyperparam-study-maml-iter'
+data_path_fast_lr = None
+data_path_num_models = None
+data_path_maml_iter = None
 
 exps_data_fast_lr = core.load_exps_data([data_path_fast_lr], False)
 exps_data_num_models = core.load_exps_data([data_path_num_models], False)
@@ -38,7 +38,7 @@ def plot_from_exps(exps_data_fast_lr,
                    split_plots_by=None,
                    x_key='n_timesteps',
                    y_key=None,
-                   plot_name='./hyperparam-study',
+                   plot_name='./hyperparam_study',
                    subfigure_titles=None,
                    plot_labels=None,
                    x_label=None,

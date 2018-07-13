@@ -1,15 +1,15 @@
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
-from sandbox.jonas.envs.normalized_env import normalize
-from sandbox.jonas.envs.base import TfEnv
-from sandbox.jonas.policies.improved_gauss_mlp_policy import GaussianMLPPolicy
+from sandbox.ours.envs.normalized_env import normalize
+from sandbox.ours.envs.base import TfEnv
+from sandbox.ours.policies.improved_gauss_mlp_policy import GaussianMLPPolicy
 from rllab.misc.instrument import run_experiment_lite
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
 from experiments.helpers.ec2_helpers import cheapest_subnets
-from sandbox.jonas.dynamics import MLPDynamicsEnsemble
-from sandbox.jonas.algos.ModelTRPO.model_trpo import ModelTRPO
+from sandbox.ours.dynamics import MLPDynamicsEnsemble
+from sandbox.ours.algos.ModelTRPO.model_trpo import ModelTRPO
 from experiments.helpers.run_multi_gpu import run_multi_gpu
-from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, \
+from sandbox.ours.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, \
     SwimmerEnvRandParams, WalkerEnvRandomParams, PR2EnvRandParams
 
 import tensorflow as tf

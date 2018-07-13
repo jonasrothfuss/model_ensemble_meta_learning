@@ -1,6 +1,6 @@
 import unittest
 from rllab.envs.own_envs.point_2d_env import PointEnv
-from sandbox.jonas.dynamics import MLPDynamicsModel
+from sandbox.ours.dynamics import MLPDynamicsModel
 import numpy as np
 
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
@@ -8,7 +8,7 @@ from rllab.envs.normalized_env import normalize
 from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 
-from sandbox.jonas.algos.ModelTRPO.model_trpo import ModelTRPO
+from sandbox.ours.algos.ModelTRPO.model_trpo import ModelTRPO
 
 import tensorflow as tf
 
