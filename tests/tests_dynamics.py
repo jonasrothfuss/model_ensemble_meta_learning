@@ -1,13 +1,13 @@
 import unittest
 from rllab.envs.own_envs.point_2d_env import PointEnv
-from sandbox.jonas.controllers import RandomController
-from sandbox.jonas.model_based_rl.helpers import sample, path_reward
-from sandbox.jonas.dynamics import MLPDynamicsModel, MLPDynamicsEnsemble, MetaDynamicsEnsemble
-from sandbox.jonas.bad_model_exps.bad_dynamics_ensemble import BadDynamicsEnsemble
+from sandbox.ours.controllers import RandomController
+from sandbox.ours.model_based_rl.helpers import sample, path_reward
+from sandbox.ours.dynamics import MLPDynamicsModel, MLPDynamicsEnsemble, MetaDynamicsEnsemble
+from sandbox.ours.bad_model_exps.bad_dynamics_ensemble import BadDynamicsEnsemble
 import tensorflow as tf
 import numpy as np
 import pickle
-from sandbox.jonas.dynamics.mlp_dynamics import train_test_split
+from sandbox.ours.dynamics.mlp_dynamics import train_test_split
 
 
 def sample_random_trajectories_point_env(env, num_paths=100, horizon=100):

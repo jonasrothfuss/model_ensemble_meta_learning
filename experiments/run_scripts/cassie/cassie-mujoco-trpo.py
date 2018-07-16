@@ -4,7 +4,7 @@ from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from sandbox.rocky.tf.algos.trpo import TRPO
 from rllab.misc.instrument import run_experiment_lite
-from sandbox.jonas.envs.mujoco import CassieEnv
+from sandbox.ours.envs.mujoco import CassieEnv
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
 from experiments.helpers.ec2_helpers import cheapest_subnets

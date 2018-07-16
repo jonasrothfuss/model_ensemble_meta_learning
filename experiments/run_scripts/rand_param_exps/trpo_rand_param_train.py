@@ -4,7 +4,7 @@ from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from sandbox.rocky.tf.algos.trpo import TRPO
 from rllab.misc.instrument import run_experiment_lite
-from sandbox.jonas.envs.mujoco import HalfCheetahEnvRandParams, AntEnvRandParams, HopperEnvRandParams, Reacher5DofEnvRandParams
+from sandbox.ours.envs.mujoco import HalfCheetahEnvRandParams, AntEnvRandParams, HopperEnvRandParams, Reacher5DofEnvRandParams
 from rllab.envs.mujoco.half_cheetah_env import HalfCheetahEnv
 from rllab.misc.instrument import VariantGenerator
 from rllab import config

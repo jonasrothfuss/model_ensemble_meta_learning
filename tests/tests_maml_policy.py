@@ -1,8 +1,8 @@
 import unittest
 from rllab.envs.own_envs.point_2d_env import PointEnv
-from sandbox.jonas.controllers import RandomController
-from sandbox.jonas.model_based_rl.helpers import sample, path_reward
-from sandbox.jonas.dynamics import MLPDynamicsModel
+from sandbox.ours.controllers import RandomController
+from sandbox.ours.model_based_rl.helpers import sample, path_reward
+from sandbox.ours.dynamics import MLPDynamicsModel
 import tensorflow as tf
 import numpy as np
 import pickle
@@ -11,11 +11,11 @@ import os
 
 
 from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
-from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
-from sandbox.jonas.envs.own_envs import PointEnvMAML
+from sandbox.ours.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
+from sandbox.ours.envs.own_envs import PointEnvMAML
 from sandbox_maml.rocky.tf.envs.base import TfEnv
 from rllab_maml.envs.normalized_env import normalize
-from sandbox.jonas.algos.MAML.maml_trpo import MAMLTRPO
+from sandbox.ours.algos.MAML.maml_trpo import MAMLTRPO
 
 class TestMAMLImprovedGaussPolicy(unittest.TestCase):
 

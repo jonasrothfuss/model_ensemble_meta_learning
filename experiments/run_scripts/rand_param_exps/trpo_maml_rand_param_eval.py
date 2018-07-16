@@ -5,8 +5,8 @@ from rllab_maml.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
 from rllab_maml.misc.instrument import stub, run_experiment_lite
 from sandbox_maml.rocky.tf.algos.vpg import VPG
 from sandbox_maml.rocky.tf.policies.maml_minimal_gauss_mlp_policy import MAMLGaussianMLPPolicy
-from sandbox.jonas.envs.normalized_env import normalize
-from sandbox.jonas.envs.base import TfEnv
+from sandbox.ours.envs.normalized_env import normalize
+from sandbox.ours.envs.base import TfEnv
 from experiments.helpers.ec2_helpers import cheapest_subnets
 
 from rllab import config
