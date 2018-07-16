@@ -2,19 +2,19 @@ from rllab.misc.instrument import VariantGenerator
 from rllab import config
 from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab_maml.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
-from sandbox.jonas.envs.normalized_env import normalize
-from sandbox.jonas.envs.base import TfEnv
+from sandbox.ours.envs.normalized_env import normalize
+from sandbox.ours.envs.base import TfEnv
 from rllab.misc.instrument import stub, run_experiment_lite
-from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
-from sandbox.jonas.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
+from sandbox.ours.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
+from sandbox.ours.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
 # from sandbox.jonas.algos.ModelMAML.model_maml_trpo import ModelMAMLTRPO
-from sandbox.jonas.algos.ModelMAML.model_maml_ppo import ModelMAMLPPO
+from sandbox.dennis.algos.ModelMAML.model_maml_ppo import ModelMAMLPPO
 from experiments.helpers.ec2_helpers import cheapest_subnets
 from experiments.helpers.run_multi_gpu import run_multi_gpu
 
-from sandbox.jonas.envs.own_envs import PointEnvMAML
-from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams, WalkerEnvRandomParams
-from sandbox.jonas.envs.mujoco import Reacher5DofEnvRandParams
+from sandbox.ours.envs.own_envs import PointEnvMAML
+from sandbox.ours.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams, WalkerEnvRandomParams
+from sandbox.ours.envs.mujoco import Reacher5DofEnvRandParams
 
 
 import tensorflow as tf
