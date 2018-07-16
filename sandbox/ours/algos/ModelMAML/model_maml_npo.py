@@ -74,6 +74,8 @@ class ModelMAMLNPO(ModelBatchMAMLPolopt):
 
         all_surr_objs, input_list = [], []
         new_params = None
+        entropy_list = []
+
         # MAML inner loop
         for j in range(self.num_grad_updates):
             obs_vars, action_vars, adv_vars = self.make_vars(str(j))
@@ -82,6 +84,7 @@ class ModelMAMLNPO(ModelBatchMAMLPolopt):
             cur_params = new_params
             new_params = []  # if there are several grad_updates the new_params are overwritten
             kls = []
+            entropies = []
 
             for i in range(self.meta_batch_size):
                 if j == 0:
@@ -94,13 +97,14 @@ class ModelMAMLNPO(ModelBatchMAMLPolopt):
 
                 new_params.append(params)
                 logli = dist.log_likelihood_sym(action_vars[i], dist_info_vars)
-                if self.entropy_bonus_coef > 0:
-                    entropy_bonus = self.entropy_bonus_coef * dist.entropy_sym(dist_info_vars)
+                if self.entropy_bonus > 0:
+                    entropy = self.entropy_bonus * tf.reduce_mean(dist.entropy_sym(dist_info_vars))
                 else:
-                    entropy_bonus = 0
+                    entropy = 0
+                entropies.append(entropy)
                 # formulate as a minimization problem
                 # The gradient of the surrogate objective is the policy gradient
-                surr_objs.append(- tf.reduce_mean(logli * adv_vars[i] + entropy_bonus))
+                surr_objs.append(- tf.reduce_mean(logli * adv_vars[i]))
 
             input_list += obs_vars + action_vars + adv_vars + state_info_vars_list
             if j == 0:
@@ -120,11 +124,8 @@ class ModelMAMLNPO(ModelBatchMAMLPolopt):
                 kl = dist.kl_sym(old_dist_info_vars[i], dist_info_vars)
                 kls.append(kl)
             lr = dist.likelihood_ratio_sym(action_vars[i], old_dist_info_vars[i], dist_info_vars)
-            if self.entropy_bonus_coef > 0:
-                entropy_bonus = self.entropy_bonus_coef * dist.entropy_sym(dist_info_vars)
-            else:
-                entropy_bonus = 0
-            surr_objs.append(- tf.reduce_mean(lr*adv_vars[i] + entropy_bonus))
+            surr_objs.append(- tf.reduce_mean(lr*adv_vars[i]
+                                              + sum(list(entropy_list[j][i] for j in range(self.num_grad_updates)))))
 
         if self.use_maml:
             surr_obj = tf.reduce_mean(tf.stack(surr_objs, 0))  # mean over meta_batch_size (the diff tasks)

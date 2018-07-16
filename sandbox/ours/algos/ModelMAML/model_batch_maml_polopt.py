@@ -34,7 +34,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
             max_path_length_dyn=None,
             num_grad_updates=1,
             discount=0.99,
-            entropy_bonus_coef=0,
+            entropy_bonus=0,
             gae_lambda=1,
             dynamic_model_max_epochs=(1000, 1000),
             num_maml_steps_per_iter=10,
@@ -116,7 +116,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         else:
             self.initial_random_samples = initial_random_samples
         self.discount = discount
-        self.entropy_bonus_coef = entropy_bonus_coef
+        self.entropy_bonus = entropy_bonus
         self.gae_lambda = gae_lambda
 
         # dynamics model config

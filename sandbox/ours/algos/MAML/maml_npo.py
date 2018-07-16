@@ -123,8 +123,8 @@ class MAMLNPO(BatchMAMLPolopt):
                 kl = dist.kl_sym(old_dist_info_vars[i], dist_info_vars)
                 kls.append(kl)
             lr = dist.likelihood_ratio_sym(action_vars[i], old_dist_info_vars[i], dist_info_vars)
-            surr_objs.append(- tf.reduce_mean(lr*adv_vars[i])
-                             - sum(list(entropy_list[j][i] for j in range(self.num_grad_updates))))
+            surr_objs.append(- tf.reduce_mean(lr*adv_vars[i]
+                             + sum(list(entropy_list[j][i] for j in range(self.num_grad_updates)))))
 
         """ Sum over meta tasks """
         if self.use_maml:
