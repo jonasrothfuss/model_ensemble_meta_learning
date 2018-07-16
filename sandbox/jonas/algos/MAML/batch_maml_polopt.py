@@ -38,6 +38,7 @@ class BatchMAMLPolopt(RLAlgorithm):
             num_grad_updates=1,
             discount=0.99,
             gae_lambda=1,
+            entropy_bonus=0,
             plot=False,
             pause_for_plot=False,
             center_adv=True,
@@ -88,6 +89,7 @@ class BatchMAMLPolopt(RLAlgorithm):
         self.max_path_length = max_path_length
         self.discount = discount
         self.gae_lambda = gae_lambda
+        self.entropy_bonus = entropy_bonus
         self.plot = plot
         self.pause_for_plot = pause_for_plot
         self.center_adv = center_adv
@@ -99,7 +101,8 @@ class BatchMAMLPolopt(RLAlgorithm):
         self.num_grad_updates = num_grad_updates # number of gradient steps during training
 
         if sampler_cls is None:
-            singleton_pool.n_parallel = 1 # Use vectorized sampler since batch sampler is buggy
+            import multiprocessing
+            singleton_pool.initialize(n_parallel=1) # Use vectorized sampler since batch sampler is buggy # multiprocessing.cpu_count()
             if singleton_pool.n_parallel > 1:
                 sampler_cls = BatchSampler
                 sampler_args = dict(n_envs=self.meta_batch_size)

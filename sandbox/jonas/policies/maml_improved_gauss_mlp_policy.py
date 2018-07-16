@@ -650,4 +650,97 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
             tf.get_default_session().run(tf.variables_initializer(self.get_params(all_params=True)))
             self.set_param_values(d["params"], all_params=True)
 
+class PPOMAMLImprovedGaussianMLPPolicy(MAMLImprovedGaussianMLPPolicy):
+    def compute_updated_dists(self, samples):
+        """ Compute fast gradients once per iteration and pull them out of tensorflow for sampling with the post-update policy.
+        """
+        start = time.time()
+        num_tasks = len(samples)
+        param_keys = self.all_params.keys()
+        update_param_keys = param_keys
+        no_update_param_keys = []
 
+        sess = tf.get_default_session()
+
+        obs_list, action_list, adv_list = [], [], [], []
+        for i in range(num_tasks):
+            inputs = ext.extract(samples[i],
+                                 'observations', 'actions', 'advantages', 'agent_infos')
+            obs_list.append(inputs[0])
+            action_list.append(inputs[1])
+            adv_list.append(inputs[2])
+            distr_list.extend(inputs[3][k] for k in self.distribution.dist_info_keys)
+             
+        inputs = obs_list + action_list + adv_list + distr_list
+
+        # To do a second update, replace self.all_params below with the params that were used to collect the policy.
+        init_param_values = None
+        if self.all_param_vals is not None:  # skip this in first iteration
+            init_param_values = self.get_variable_values(self.all_params)
+
+        for i in range(num_tasks):
+            if self.all_param_vals is not None:  # skip this in first iteration
+                self.assign_params(self.all_params, self.all_param_vals[i])
+
+        if 'all_fast_params_tensor' not in dir(self):  # only enter if first iteration
+            # make computation graph once
+            self.all_fast_params_tensor = []
+            # compute gradients for a current task (symbolic)
+            for i in range(num_tasks):
+                # compute gradients for a current task (symbolic)
+                gradients = dict(zip(update_param_keys, tf.gradients(self.surr_objs[i],
+                                                                     [self.all_params[key] for key in
+                                                                      update_param_keys])))
+
+                # gradient update for params of current task (symbolic)
+                fast_params_tensor = OrderedDict(zip(update_param_keys,
+                                                     [self.all_params[key] - tf.multiply(
+                                                         self.param_step_sizes[key + "_step_size"], gradients[key]) for
+                                                      key in update_param_keys]))
+
+                # add step sizes to fast_params_tensor
+                fast_params_tensor.update(self.param_step_sizes)
+
+                # undo gradient update for no_update_params (symbolic)
+                for k in no_update_param_keys:
+                    fast_params_tensor[k] = self.all_params[k]
+
+                # tensors that represent the updated params for all of the tasks (symbolic)
+                self.all_fast_params_tensor.append(fast_params_tensor)
+
+        # pull new param vals out of tensorflow, so gradient computation only done once ## first is the vars, second the values
+        # these are the updated values of the params after the gradient step
+
+        self.all_param_vals = sess.run(self.all_fast_params_tensor,
+                                       feed_dict=dict(list(zip(self.input_list_for_grad, inputs))))
+        # if self.all_params_ph is None:
+        #     self.
+        if self.all_param_ph is None:
+            self.all_param_ph = [OrderedDict([(key, tf.placeholder(tf.float32, shape=value.shape))
+                                              for key, value in self.all_param_vals[0].items()])
+                                 for _ in range(num_tasks)]
+
+        # reset parameters to original ones
+        if init_param_values is not None:  # skip this in first iteration
+            self.assign_params(self.all_params, init_param_values)
+
+        # compile the _cur_f_dist with updated params
+        if not self.compiled:
+            outputs = []
+            with tf.variable_scope("post_updated_policy"):
+                inputs = tf.split(self.input_tensor, num_tasks, 0)
+                for i in range(num_tasks):
+                    # TODO - use a placeholder to feed in the params, so that we don't have to recompile every time.
+                    task_inp = inputs[i]
+                    info, _ = self.dist_info_sym(task_inp, dict(), all_params=self.all_param_ph[i],
+                                                 is_training=False)
+
+                    outputs.append([info['mean'], info['log_std']])
+
+                self.__cur_f_dist = tensor_utils.compile_function(
+                    inputs=[self.input_tensor, self.param_noise_std_ph] + sum([list(param_ph.values())
+                                                                               for param_ph in self.all_param_ph], []),
+                    outputs=outputs,
+                )
+            self.compiled = True
+        self._cur_f_dist = self.__cur_f_dist
