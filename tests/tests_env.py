@@ -1,8 +1,8 @@
 import unittest
-from sandbox.jonas.envs.mujoco.reacher5dof_env_random_param import Reacher5DofEnvRandParams
-from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, \
+from sandbox.ours.envs.mujoco.reacher5dof_env_random_param import Reacher5DofEnvRandParams
+from sandbox.ours.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, \
     SwimmerEnvRandParams, SnakeEnvRandParams, WalkerEnvRandomParams, ReacherEnvRandParams, CassieEnv
-import sandbox.jonas.envs.mujoco.cassie_env as cassie_env
+import sandbox.ours.envs.mujoco.cassie_env as cassie_env
 
 import numpy as np
 import pickle
