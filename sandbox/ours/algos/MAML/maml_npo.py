@@ -73,6 +73,7 @@ class MAMLNPO(BatchMAMLPolopt):
         state_info_vars, state_info_vars_list = {}, []
 
         all_surr_objs, input_list = [], []
+        entropy_list = []
         new_params = None
         for j in range(self.num_grad_updates):
             obs_vars, action_vars, adv_vars = self.make_vars(str(j))
@@ -81,6 +82,7 @@ class MAMLNPO(BatchMAMLPolopt):
             cur_params = new_params
             new_params = []  # if there are several grad_updates the new_params are overwritten
             kls = []
+            entropies = []
 
             for i in range(self.meta_batch_size):
                 if j == 0:
@@ -90,6 +92,11 @@ class MAMLNPO(BatchMAMLPolopt):
                         kls.append(kl)
                 else:
                     dist_info_vars, params = self.policy.updated_dist_info_sym(i, all_surr_objs[-1][i], obs_vars[i], params_dict=cur_params[i])
+                if self.entropy_bonus > 0:
+                    entropy = self.entropy_bonus * tf.reduce_mean(dist.entropy_sym(dist_info_vars))
+                else:
+                    entropy = 0
+                entropies.append(entropy)
 
                 new_params.append(params)
                 logli = dist.log_likelihood_sym(action_vars[i], dist_info_vars)
@@ -116,7 +123,8 @@ class MAMLNPO(BatchMAMLPolopt):
                 kl = dist.kl_sym(old_dist_info_vars[i], dist_info_vars)
                 kls.append(kl)
             lr = dist.likelihood_ratio_sym(action_vars[i], old_dist_info_vars[i], dist_info_vars)
-            surr_objs.append(- tf.reduce_mean(lr*adv_vars[i]))
+            surr_objs.append(- tf.reduce_mean(lr*adv_vars[i])
+                             - sum(list(entropy_list[j][i] for j in range(self.num_grad_updates))))
 
         """ Sum over meta tasks """
         if self.use_maml:
