@@ -94,8 +94,8 @@ class ModelMAMLNPO(ModelBatchMAMLPolopt):
 
                 new_params.append(params)
                 logli = dist.log_likelihood_sym(action_vars[i], dist_info_vars)
-                if self.beta > 0:
-                    entropy_bonus = self.beta * dist.entropy_sym(dist_info_vars)
+                if self.entropy_bonus_coef > 0:
+                    entropy_bonus = self.entropy_bonus_coef * dist.entropy_sym(dist_info_vars)
                 else:
                     entropy_bonus = 0
                 # formulate as a minimization problem
@@ -120,8 +120,8 @@ class ModelMAMLNPO(ModelBatchMAMLPolopt):
                 kl = dist.kl_sym(old_dist_info_vars[i], dist_info_vars)
                 kls.append(kl)
             lr = dist.likelihood_ratio_sym(action_vars[i], old_dist_info_vars[i], dist_info_vars)
-            if self.beta > 0:
-                entropy_bonus = self.beta * dist.entropy_sym(dist_info_vars)
+            if self.entropy_bonus_coef > 0:
+                entropy_bonus = self.entropy_bonus_coef * dist.entropy_sym(dist_info_vars)
             else:
                 entropy_bonus = 0
             surr_objs.append(- tf.reduce_mean(lr*adv_vars[i] + entropy_bonus))
