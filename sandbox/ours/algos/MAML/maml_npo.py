@@ -112,6 +112,7 @@ class MAMLNPO(BatchMAMLPolopt):
                 init_input_list = input_list
 
             all_surr_objs.append(surr_objs)
+            entropy_list.append(entropies)
 
         """ TRPO-Objective """
         obs_vars, action_vars, adv_vars = self.make_vars('test')
