@@ -662,7 +662,7 @@ class PPOMAMLImprovedGaussianMLPPolicy(MAMLImprovedGaussianMLPPolicy):
 
         sess = tf.get_default_session()
 
-        obs_list, action_list, adv_list = [], [], [], []
+        obs_list, action_list, adv_list, distr_list = [], [], [], []
         for i in range(num_tasks):
             inputs = ext.extract(samples[i],
                                  'observations', 'actions', 'advantages', 'agent_infos')
