@@ -16,13 +16,18 @@ import random
 
 EXP_PREFIX = 'cassie-trpo'
 
-ec2_instance = 'c4.2xlarge'
-subnets = cheapest_subnets(ec2_instance, num_subnets=3)
+ec2_instance = 'm4.2xlarge'
+subnets = ['us-west-1b', 'us-west-1c'] #cheapest_subnets(ec2_instance, num_subnets=3)
 
 
 def run_train_task(vv):
 
-    env = TfEnv(normalize(CassieEnv()))
+    env = TfEnv(normalize(CassieEnv(
+        fixed_gains=vv['fixed_gains'],
+        stability_cost_coef=vv['stability_cost_coef'],
+        ctrl_cost_coef=vv['ctrl_cost_coef'],
+        alive_bonus=vv['alive_bonus']
+    )))
 
     policy = GaussianMLPPolicy(
         name="policy",
@@ -59,14 +64,18 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('n_itr', [2000])
-    vg.add('step_size', [0.01, 0.02])
-    vg.add('seed', [1, 11, 21])
+    vg.add('n_itr', [5000])
+    vg.add('fixed_gains', [False])
+    vg.add('stability_cost_coef', [1e-2])
+    vg.add('ctrl_cost_coef', [1e-3])
+    vg.add('alive_bonus', [0.2])
+    vg.add('step_size', [0.025])
+    vg.add('seed', [1, 11])
     vg.add('discount', [0.99])
-    vg.add('path_length', [500])
-    vg.add('batch_size', [50000])
+    vg.add('path_length', [100])
+    vg.add('batch_size', [50000, 100000])
     vg.add('hidden_nonlinearity', ['tanh'])
-    vg.add('hidden_sizes', [(32, 32), (64, 64)])
+    vg.add('hidden_sizes', [(64, 64), (128, 64)])
 
     variants = vg.variants()
 
@@ -78,6 +87,7 @@ def run_experiment(argv):
         n_parallel = 12
 
     if args.mode == 'ec2':
+
 
         config.AWS_INSTANCE_TYPE = ec2_instance
         config.AWS_SPOT_PRICE = str(info["price"])
@@ -119,8 +129,7 @@ def run_experiment(argv):
             seed=v["seed"],
             #sync_all_data_node_to_s3=True,
             python_command="python3",
-            pre_commands=["yes | pip install --upgrade pip",
-                          "yes | pip install tensorflow=='1.6.0'",
+            pre_commands=["yes | pip install tensorflow=='1.6.0'",
                           "yes | pip install --upgrade cloudpickle"],
             mode=args.mode,
             use_cloudpickle=True,
