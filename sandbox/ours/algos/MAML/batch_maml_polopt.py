@@ -166,35 +166,64 @@ class BatchMAMLPolopt(RLAlgorithm):
                     elif 'sample_env_params':
                         learner_env_params = env.sample_env_params(self.meta_batch_size)
 
-
                     self.policy.switch_to_init_dist()  # Switch to pre-update policy
 
                     all_samples_data, all_paths = [], []
+                    list_sampling_time, list_inner_step_time, list_outer_step_time, list_proc_samples_time = [], [], [], []
+                    start_total_inner_time = time.time()
                     for step in range(self.num_grad_updates+1):
                         #if step > 0:
                         #    import pdb; pdb.set_trace() # test param_vals functions.
                         logger.log('** Step ' + str(step) + ' **')
+
+                        """ -------------------- Sampling --------------------------"""
+
                         logger.log("Obtaining samples...")
+                        time_env_sampling_start = time.time()
                         paths = self.obtain_samples(itr, reset_args=learner_env_params, log_prefix=str(step))
+                        list_sampling_time.append(time.time() - time_env_sampling_start)
                         all_paths.append(paths)
+
+                        """ ----------------- Processing Samples ---------------------"""
+
                         logger.log("Processing samples...")
+                        time_proc_samples_start = time.time()
                         samples_data = {}
                         for key in paths.keys():  # the keys are the tasks
                             # don't log because this will spam the consol with every task.
                             samples_data[key] = self.process_samples(itr, paths[key], log=False)
                         all_samples_data.append(samples_data)
+                        list_proc_samples_time.append(time.time() - time_proc_samples_start)
+
                         # for logging purposes
                         self.process_samples(itr, flatten_list(paths.values()), prefix=str(step), log=True)
                         logger.log("Logging diagnostics...")
                         self.log_diagnostics(flatten_list(paths.values()), prefix=str(step))
+
+                        """ ------------------- Inner Policy Update --------------------"""
+
+                        time_inner_step_start = time.time()
                         if step < self.num_grad_updates:
                             logger.log("Computing policy updates...")
                             self.policy.compute_updated_dists(samples_data)
+                        list_inner_step_time.append(time.time() - time_inner_step_start)
+                    total_inner_time = time.time() - start_total_inner_time
 
+                    """ ------------------ Outer Policy Update ---------------------"""
 
                     logger.log("Optimizing policy...")
                     # This needs to take all samples_data so that it can construct graph for meta-optimization.
+                    time_outer_step_start = time.time()
                     self.optimize_policy(itr, all_samples_data)
+
+                    """ ------------------- Logging Stuff --------------------------"""
+
+                    logger.record_tabular('Time-OuterStep', time.time() - time_outer_step_start)
+                    logger.record_tabular('Time-TotalInner', total_inner_time)
+                    logger.record_tabular('Time-InnerStep', np.sum(list_inner_step_time))
+                    logger.record_tabular('Time-SampleProc', np.sum(list_proc_samples_time))
+                    logger.record_tabular('Time-Sampling', np.sum(list_sampling_time))
+
                     logger.log("Saving snapshot...")
                     params = self.get_itr_snapshot(itr, all_samples_data[-1])  # , **kwargs)
                     if self.store_paths:
@@ -238,6 +267,7 @@ class BatchMAMLPolopt(RLAlgorithm):
                             plt.ylim([-0.8, 0.8])
                             plt.legend(['goal', 'preupdate path', 'postupdate path'])
                             plt.savefig(osp.join(logger.get_snapshot_dir(), 'prepost_path'+str(ind)+'.png'))
+
                     elif False and itr % 2 == 0:  # swimmer or cheetah
                         logger.log("Saving visualization of paths")
                         for ind in range(min(5, self.meta_batch_size)):
