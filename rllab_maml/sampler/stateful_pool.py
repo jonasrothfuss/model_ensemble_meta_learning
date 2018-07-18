@@ -77,6 +77,7 @@ class StatefulPool(object):
                 _worker_run_each, [(runner, args) for args in args_list]
             )
             for i in range(self.n_parallel):
+                print(i, "*"*100)
                 self.worker_queue.get()
             for i in range(self.n_parallel):
                 self.queue.put(None)
