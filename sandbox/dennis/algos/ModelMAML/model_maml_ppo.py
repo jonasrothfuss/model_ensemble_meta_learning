@@ -175,7 +175,7 @@ class ModelMAMLPPO(ModelBatchMAMLPolopt):
 
         if log: logger.log("Updating KL loss coefficients")
         sess = tf.get_default_session()
-        kls = self.optimizer.inner_kl(input_list, extra_inputs=kl_coeff) # sess.run(self.kl_list, dict(list(zip(self.optimizer._input_vars, input_list + self.kl_coeff))))
+        kls = self.optimizer.inner_kl(input_list, extra_inputs=kl_coeff)
         for i, kl in enumerate(kls):
             if kl < self.target_inner_step / 1.5:
                 self.kl_coeff[i] /= 2

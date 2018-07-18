@@ -32,14 +32,9 @@ def _get_scoped_G(G, scope):
 
 
 def _worker_populate_task(G, env, policy, scope=None):
-    print("getting scope")
     G = _get_scoped_G(G, scope)
-    print("loading env")
     G.env = pickle.loads(env)
-    print("loaded env, loading policy")
-    G.policy = policy
-    print("loaded policy")
-
+    G.policy = pickle.loads(policy)
 
 def _worker_terminate_task(G, scope=None):
     G = _get_scoped_G(G, scope)

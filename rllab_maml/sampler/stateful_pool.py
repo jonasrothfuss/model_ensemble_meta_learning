@@ -1,5 +1,3 @@
-
-
 from joblib.pool import MemmapingPool
 import multiprocessing as mp
 from rllab_maml.misc import logger
@@ -77,7 +75,6 @@ class StatefulPool(object):
                 _worker_run_each, [(runner, args) for args in args_list]
             )
             for i in range(self.n_parallel):
-                print(i, "*"*100)
                 self.worker_queue.get()
             for i in range(self.n_parallel):
                 self.queue.put(None)
@@ -217,6 +214,7 @@ def _worker_run_collect(all_args):
                 if counter.value >= threshold:
                     return collected
     except Exception:
+        print("".join(traceback.format_exception(*sys.exc_info())))
         raise Exception("".join(traceback.format_exception(*sys.exc_info())))
 
 

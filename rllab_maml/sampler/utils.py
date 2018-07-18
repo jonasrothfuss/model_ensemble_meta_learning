@@ -10,16 +10,14 @@ def rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1, save_
     agent_infos = []
     env_infos = []
     images = []
-
     ''' get wrapped env '''
     wrapped_env = env
     while hasattr(wrapped_env, '_wrapped_env'):
         wrapped_env = wrapped_env._wrapped_env
-
     frame_skip = wrapped_env.frame_skip if hasattr(wrapped_env, 'frame_skip') else 1
-    assert hasattr(wrapped_env, 'dt'), 'environment must have dt attribute that specifies the timestep'
-    timestep = wrapped_env.dt
-
+    if animated:
+        assert hasattr(wrapped_env, 'dt'), 'environment must have dt attribute that specifies the timestep'
+        timestep = wrapped_env.dt
     o = env.reset(reset_args=reset_arg)
     agent.reset()
     path_length = 0

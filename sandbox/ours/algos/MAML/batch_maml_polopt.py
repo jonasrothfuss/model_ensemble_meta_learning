@@ -102,7 +102,7 @@ class BatchMAMLPolopt(RLAlgorithm):
 
         if sampler_cls is None:
             import multiprocessing
-            singleton_pool.initialize(n_parallel=1) # Use vectorized sampler since batch sampler is buggy # multiprocessing.cpu_count()
+            singleton_pool.initialize(n_parallel=multiprocessing.cpu_count()) # Use vectorized sampler since batch sampler is buggy
             if singleton_pool.n_parallel > 1:
                 sampler_cls = BatchSampler
                 sampler_args = dict(n_envs=self.meta_batch_size)
