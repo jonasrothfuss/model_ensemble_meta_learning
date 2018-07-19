@@ -1,6 +1,8 @@
 from collections import OrderedDict
 import numpy as np
-from gym.spaces import Box, Dict
+from gym.spaces import Dict
+from rllab.spaces import Box
+from rllab.misc import logger
 
 from sandbox.ours.envs.sawyer.env_util import get_stat_in_paths, \
     create_stats_ordered_dict, get_asset_full_path
@@ -65,7 +67,7 @@ class SawyerPushAndReachXYZEnv(MultitaskEnv, SawyerXYZEnv):
             np.hstack((self.hand_high, puck_high)),
         )
         self.hand_space = Box(self.hand_low, self.hand_high)
-        self.observation_space = Dict([
+        self._observation_space_dict = Dict([
             ('observation', self.hand_and_puck_space),
             ('desired_goal', self.hand_and_puck_space),
             ('achieved_goal', self.hand_and_puck_space),
@@ -77,6 +79,9 @@ class SawyerPushAndReachXYZEnv(MultitaskEnv, SawyerXYZEnv):
             ('proprio_achieved_goal', self.hand_space),
         ])
         self.init_puck_z = self.get_puck_pos()[2]
+        self.observation_space = Box(np.concatenate([self.hand_and_puck_space.low, self.hand_and_puck_space.low]),
+                                     np.concatenate([self.hand_and_puck_space.high, self.hand_and_puck_space.high]))
+
 
     @property
     def model_name(self):
@@ -98,13 +103,14 @@ class SawyerPushAndReachXYZEnv(MultitaskEnv, SawyerXYZEnv):
         self.do_simulation(np.array([1]))
         # The marker seems to get reset every time you do a simulation
         self._set_goal_marker(self._state_goal)
-        ob = self._get_obs()
-        reward = self.compute_reward(action, ob)
+        obs_dict = self._get_obs_dict()
+        obs = self._convert_obs_dict_to_obs(obs_dict)
+        reward = self.compute_reward(action, obs_dict)
         info = self._get_info()
         done = False
-        return ob, reward, done, info
+        return obs, reward, done, info
 
-    def _get_obs(self):
+    def _get_obs_dict(self):
         e = self.get_endeff_pos()
         b = self.get_puck_pos()[:2]
         flat_obs = np.concatenate((e, b))
@@ -120,6 +126,12 @@ class SawyerPushAndReachXYZEnv(MultitaskEnv, SawyerXYZEnv):
             proprio_desired_goal=self._state_goal[:3],
             proprio_achieved_goal=flat_obs[:3],
         )
+
+    def _convert_obs_dict_to_obs(self, obs_dict):
+        return np.concatenate([obs_dict['observation'], obs_dict['desired_goal']])
+
+    def _get_obs(self):
+        return self._convert_obs_dict_to_obs(self._get_obs_dict())
 
     def _get_info(self):
         hand_goal = self._state_goal[:3]
@@ -301,6 +313,20 @@ class SawyerPushAndReachXYZEnv(MultitaskEnv, SawyerXYZEnv):
         super().set_env_state(base_state)
         self._state_goal = goal
         self._set_goal_marker(goal)
+
+    def log_diagnostics(self, paths):
+        diagnostics = self.get_diagnostics(paths)
+
+        logger.record_tabular('HandDistanceMean', diagnostics['hand_distance Mean'])
+        logger.record_tabular('PuckDistanceMean', diagnostics['puck_distance Mean'])
+        logger.record_tabular('TouchDistanceMean', diagnostics['touch_distance Mean'])
+
+        logger.record_tabular('FinalHandDistanceMean', diagnostics['Final hand_distance Mean'])
+        logger.record_tabular('FinalObjectDistanceMean', diagnostics['Final puck_distance Mean'])
+
+        logger.record_tabular('FinalHandSuccessMean', diagnostics['Final hand_success Mean'])
+        logger.record_tabular('FinalPuckSuccessMean', diagnostics['Final puck_success Mean'])
+        logger.record_tabular('FinalHandAndPuckSuccessMean', diagnostics['Final hand_and_puck_success Mean'])
 
 
 class SawyerPushAndReachXYEnv(SawyerPushAndReachXYZEnv):

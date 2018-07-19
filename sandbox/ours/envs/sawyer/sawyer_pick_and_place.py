@@ -21,7 +21,7 @@ class SawyerPickAndPlaceEnv(MultitaskEnv, SawyerXYZEnv):
 
             obj_init_pos=(0, 0.6, 0.02),
 
-            fix_goal=True,
+            fix_goal=False,
             fixed_goal=(0.15, 0.6, 0.055, -0.15, 0.6, 0.02),
             goal_low=None,
             goal_high=None,
