@@ -1,6 +1,8 @@
 from collections import OrderedDict
 import numpy as np
-from gym.spaces import Box, Dict
+from gym.spaces import Dict
+from rllab.spaces import Box
+from rllab.misc import logger
 
 from sandbox.ours.envs.sawyer.env_util import get_stat_in_paths, \
     create_stats_ordered_dict, get_asset_full_path
@@ -46,7 +48,7 @@ class SawyerReachXYZEnv(SawyerXYZEnv, MultitaskEnv):
 
         self.action_space = Box(np.array([-1, -1, -1]), np.array([1, 1, 1]))
         self.hand_space = Box(self.hand_low, self.hand_high)
-        self.observation_space = Dict([
+        self._observation_space_dict = Dict([
             ('observation', self.hand_space),
             ('desired_goal', self.hand_space),
             ('achieved_goal', self.hand_space),
@@ -57,6 +59,7 @@ class SawyerReachXYZEnv(SawyerXYZEnv, MultitaskEnv):
             ('proprio_desired_goal', self.hand_space),
             ('proprio_achieved_goal', self.hand_space),
         ])
+        self.observation_space = Box(np.concatenate([self.hand_low, self.hand_low]), np.concatenate([self.hand_high, self.hand_high]))
 
     def step(self, action):
         self.set_xyz_action(action)
@@ -64,13 +67,14 @@ class SawyerReachXYZEnv(SawyerXYZEnv, MultitaskEnv):
         self.do_simulation(np.array([1]))
         # The marker seems to get reset every time you do a simulation
         self._set_goal_marker(self._state_goal)
-        ob = self._get_obs()
-        reward = self.compute_reward(action, ob)
+        obs_dict = self._get_obs_dict()
+        reward = self.compute_reward(action, obs_dict)
         info = self._get_info()
+        obs = self._convert_obs_dict_to_obs(obs_dict)
         done = False
-        return ob, reward, done, info
+        return obs, reward, done, info
 
-    def _get_obs(self):
+    def _get_obs_dict(self):
         flat_obs = self.get_endeff_pos()
         return dict(
             observation=flat_obs,
@@ -124,7 +128,7 @@ class SawyerReachXYZEnv(SawyerXYZEnv, MultitaskEnv):
         self._state_goal = goal['state_desired_goal']
         self._set_goal_marker(self._state_goal)
         self.sim.forward()
-        return self._get_obs()
+        return self._convert_obs_dict_to_obs(self._get_obs_dict())
 
     def _reset_hand(self):
         for _ in range(10):
@@ -212,6 +216,14 @@ class SawyerReachXYZEnv(SawyerXYZEnv, MultitaskEnv):
         self._state_goal = goal
         self._set_goal_marker(goal)
 
+    def _convert_obs_dict_to_obs(self, obs_dict):
+        return np.concatenate([obs_dict['observation'], obs_dict['desired_goal']])
+
+    def log_diagnostics(self, paths):
+        diagnostics = self.get_diagnostics(paths)
+        logger.record_tabular('HandDistanceMean', diagnostics['hand_distance Mean'])
+        logger.record_tabular('FinalHandDistanceMean', diagnostics['Final hand_distance Mean'])
+        logger.record_tabular('FinalHandSuccessMean', diagnostics['Final hand_success Mean'])
 
 class SawyerReachXYEnv(SawyerReachXYZEnv):
     def __init__(self, *args,
@@ -252,7 +264,8 @@ if __name__ == "__main__":
     import time
     env = SawyerReachXYZEnv()
     env.reset()
-    for _ in range(1000):
+    for _ in range(100):
         env.render()
-        env.step(env.action_space.sample())  # take a random action
+        obs, rew, done, info = env.step(env.action_space.sample())  # take a random action
+        print(obs)
         time.sleep(env.dt)
