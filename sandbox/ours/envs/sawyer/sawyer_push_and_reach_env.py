@@ -324,7 +324,7 @@ class SawyerPushAndReachXYZEnv(MultitaskEnv, SawyerXYZEnv):
         logger.record_tabular('TouchDistanceMean', diagnostics['touch_distance Mean'])
 
         logger.record_tabular('FinalHandDistanceMean', diagnostics['Final hand_distance Mean'])
-        logger.record_tabular('FinalObjectDistanceMean', diagnostics['Final puck_distance Mean'])
+        logger.record_tabular('FinalPuckDistanceMean', diagnostics['Final puck_distance Mean'])
 
         logger.record_tabular('FinalHandSuccessMean', diagnostics['Final hand_success Mean'])
         logger.record_tabular('FinalPuckSuccessMean', diagnostics['Final puck_success Mean'])

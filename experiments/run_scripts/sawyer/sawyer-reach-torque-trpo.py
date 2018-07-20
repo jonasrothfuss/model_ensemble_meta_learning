@@ -65,9 +65,9 @@ def run_experiment(argv):
     vg = VariantGenerator()
     vg.add('env', ['SawyerReachTorqueEnv'])
     vg.add('fix_goal', [True, False])
-    vg.add('ctrl_cost_coef', [0.0, 1e-3, 1e-2])
+    vg.add('ctrl_cost_coef', [0.0, 1e-3, 1e-2, 1e-1])
 
-    vg.add('n_itr', [1000])
+    vg.add('n_itr', [5000])
     vg.add('step_size', [0.01])
     vg.add('seed', [1, 11])
     vg.add('discount', [0.99])
@@ -75,7 +75,7 @@ def run_experiment(argv):
     vg.add('batch_size', [50000])
     vg.add('hidden_nonlinearity', ['tanh'])
     vg.add('hidden_sizes', [(32, 32)])
-    vg.add('adaptive_policy_std', [True, False])
+    vg.add('adaptive_policy_std', [False])
 
     variants = vg.variants()
 

@@ -73,7 +73,7 @@ def run_experiment(argv):
     vg.add('batch_size', [50000])
     vg.add('hidden_nonlinearity', ['tanh'])
     vg.add('hidden_sizes', [(32, 32)])
-    vg.add('adaptive_policy_std', [True, False])
+    vg.add('adaptive_policy_std', [False])
 
     variants = vg.variants()
 
