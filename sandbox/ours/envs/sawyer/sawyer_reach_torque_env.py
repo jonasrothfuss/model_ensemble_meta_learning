@@ -17,7 +17,7 @@ class SawyerReachTorqueEnv(MujocoEnv, Serializable, MultitaskEnv):
     def __init__(self,
                  frame_skip=10,
                  action_scale=10,
-                 xyz_obs=False, #TODO: maybe delete this observation since xyz_obs only doesn't work
+                 xyz_obs=False,
                  keep_vel_in_obs=True,
                  use_safety_box=False,
                  fix_goal=False,
@@ -142,7 +142,7 @@ class SawyerReachTorqueEnv(MujocoEnv, Serializable, MultitaskEnv):
             hand_pos = obs_next[:, 0:3]
             goals = obs_next[:, -3:]
             distance = np.linalg.norm(hand_pos - goals, axis=1)
-            ctrl_cost = self.ctrl_cost_coef * np.sum(np.abs(action), axis=1)
+            ctrl_cost = self.ctrl_cost_coef * np.sum(action**2, axis=1)
             if self.reward_type == 'hand_distance':
                 r = -distance
             elif self.reward_type == 'hand_success':
@@ -349,10 +349,9 @@ if __name__ == "__main__":
     while True:
         obs = env.reset()
         for i in range(H):
-            #action = env.action_space.sample() / 100
-            a = np.sin(i/2)
-            action = np.asarray([-20, 1, 1, 1, 1, 1, -1])
-            print(action)
+            action_rand = env.action_space.sample() / 100
+            a = np.sin(i/10)
+            action = np.asarray([a*10, a*10, 0, 0, 0, 0, 0]) #+ action_rand
             obs, reward, _, info = env.step(action)
             env.render()
         break
