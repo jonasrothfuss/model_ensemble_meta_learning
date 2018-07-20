@@ -64,8 +64,8 @@ def run_experiment(argv):
 
     vg = VariantGenerator()
     vg.add('env', ['SawyerPickAndPlaceEnv'])
-    vg.add('fix_goal', [True, False])
-    vg.add('reward_type', ['hand_and_obj_distance_obj_success', 'hand_and_obj_success', 'hand_and_obj_distance'])
+    vg.add('fix_goal', [True])
+    vg.add('reward_type', ['hand_and_obj_distance_obj_success', 'hand_and_obj_distance'])
 
     vg.add('n_itr', [2000])
     vg.add('step_size', [0.01])
