@@ -29,11 +29,11 @@ class MAMLVectorizedSampler(MAMLBaseSampler):
         if getattr(self.algo.env, 'vectorized', False):
             self.vec_env = self.algo.env.vec_env_executor(n_envs=n_envs, max_path_length=self.algo.max_path_length)
         elif self.parallel:
-            self.vec_env = MAMLParallelVecEnvExecutor(self.algo.env, self.n_tasks, max_path_length=self.algo.max_path_length)
+            self.vec_env = MAMLParallelVecEnvExecutor(self.algo.env, self.n_tasks, self.n_envs, max_path_length=self.algo.max_path_length)
         else:
-            envs = [pickle.loads(pickle.dumps(self.algo.env)) for _ in range(n_envs)]
+            envs = [pickle.loads(pickle.dumps(self.algo.env)) for _ in range(self.env)]
             self.vec_env = MAMLVecEnvExecutor(
-                env=envs,
+                envs=envs,
                 #env=pickle.loads(pickle.dumps(self.algo.env)),
                 #n = n_envs,
                 max_path_length=self.algo.max_path_length
@@ -132,7 +132,6 @@ class MAMLVectorizedSampler(MAMLBaseSampler):
             process_time += time.time() - t
             pbar.inc(len(obses))
             obses = next_obses
-
         pbar.stop()
 
         logger.record_tabular(log_prefix+"PolicyExecTime", policy_time)
@@ -143,5 +142,4 @@ class MAMLVectorizedSampler(MAMLBaseSampler):
             flatten_list = lambda l: [item for sublist in l for item in sublist]
             paths = flatten_list(paths.values())
             #path_keys = flatten_list([[key]*len(paths[key]) for key in paths.keys()])
-
         return paths

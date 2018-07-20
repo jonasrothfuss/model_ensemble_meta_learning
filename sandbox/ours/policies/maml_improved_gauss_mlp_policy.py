@@ -1,5 +1,4 @@
 import numpy as np
-import os
 from collections import OrderedDict
 
 from rllab_maml.misc import ext
@@ -85,36 +84,11 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         self.output_nonlinearity = output_nonlinearity
         self.input_shape = (None, obs_dim,)
         self.stop_grad = stop_grad
+        self.name = name
         self.param_noise_std = param_noise_std
         self.all_param_ph = None
         self.compiled = False
 
-        super(MAMLImprovedGaussianMLPPolicy, self).__init__(env_spec)
-
-    def init_graph(
-            self,
-            name,
-            env_spec,
-            hidden_sizes=(32, 32),
-            learn_std=True,
-            init_std=1.0,
-            adaptive_std=False,
-            bias_transform=False,
-            std_share_network=False,
-            std_hidden_sizes=(32, 32),
-            min_std=1e-6,
-            std_hidden_nonlinearity=tf.nn.tanh,
-            hidden_nonlinearity=tf.nn.tanh,
-            output_nonlinearity=tf.identity,
-            mean_network=None,
-            std_network=None,
-            std_parametrization='exp',
-            grad_step_size=0.1,
-            trainable_step_size=True,
-            stop_grad=False,
-            param_noise_std=0.00
-    ):
-        self.name = name
         with tf.variable_scope(self.name):
             self.param_noise_std_ph = tf.placeholder_with_default(0.0, ())  # default parameter noise std is 0 -> no noise
 
@@ -177,6 +151,8 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
                 self._dist = DiagonalGaussian(self.action_dim)
 
                 self._cached_params = {}
+
+                super(MAMLImprovedGaussianMLPPolicy, self).__init__(env_spec)
 
                 dist_info_sym = self.dist_info_sym(self.input_tensor, dict(), is_training=False)
                 mean_var = dist_info_sym["mean"]
@@ -382,6 +358,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         # idx: index corresponding to the task/updated policy.
         if param_noise_std is None:
             param_noise_std = self.param_noise_std
+
         flat_obs = self.observation_space.flatten(observation)
         f_dist = self._cur_f_dist
         mean, log_std = [x[0] for x in f_dist([flat_obs], param_noise_std)]
@@ -670,9 +647,6 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         Serializable.__setstate__(self, d)
         global load_params
         if load_params:
-            new_name = d["__args"][0] + "_" + str(os.getpid())
-            new_args = (new_name,) + d['__args'][1:] # Replace name for scoping
-            self.init_graph(*new_args, **d["__kwargs"])
             tf.get_default_session().run(tf.variables_initializer(self.get_params(all_params=True)))
             self.set_param_values(d["params"], all_params=True)
 
