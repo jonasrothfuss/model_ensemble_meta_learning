@@ -2,12 +2,12 @@ from rllab_maml.envs.mujoco.half_cheetah_env import HalfCheetahEnv
 from rllab_maml.envs.mujoco.half_cheetah_env_rand_direc import HalfCheetahEnvRandDirec
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
-from sandbox.jonas.algos.MAML.maml_trpo import MAMLTRPO
+from sandbox.ours.algos.MAML.maml_trpo import MAMLTRPO
 from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
-from sandbox.jonas.envs.normalized_env import normalize
-from sandbox.jonas.envs.base import TfEnv
+from sandbox.ours.envs.normalized_env import normalize
+from sandbox.ours.envs.base import TfEnv
 from rllab.misc.instrument import run_experiment_lite
-from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
+from sandbox.ours.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
 from experiments.helpers.ec2_helpers import cheapest_subnets
 
 import tensorflow as tf

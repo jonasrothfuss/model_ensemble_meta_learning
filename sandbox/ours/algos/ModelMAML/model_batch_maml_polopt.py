@@ -74,7 +74,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         :param max_path_length_dyn: Maximum path length of a single (imaginary) rollout with the dynamics model
         :param num_grad_updates: Number of fast gradient updates
         :param discount: Discount.
-        :param entropy_bonus: Entropy bonus
+        :param entropy_bonus_coef: Entropy bonus
         :param gae_lambda: Lambda used for generalized advantage estimation.
         :param dynamic_model_max_epochs: (int) maximum number of epochs for training the dynamics model
         :param num_maml_steps_per_iter: number of policy gradients steps before retraining dynamics model

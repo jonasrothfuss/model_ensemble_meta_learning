@@ -13,17 +13,24 @@ P_GAIN_RANGE = [10, 10000]
 D_GAIN_RANGE = [1, 100]
 MODEL_TIMESTEP = 0.001
 
+DEFAULT_P_GAIN = 200
+DEFAULT_D_GAIN = 20
+
 NUM_QPOS = 34
 NUM_QVEL = 32
 
 CTRL_COST_COEF = 0.001
 STABILISTY_COST_COEF = 0.01
 
+
+
 class CassieEnv(Env, Serializable):
 
     # TODO: add randomization of initial state
 
-    def __init__(self, render=False, fix_pelvis=False, frame_skip=20):
+    def __init__(self, render=False, fix_pelvis=False, frame_skip=20, fixed_gains=True,
+                 stability_cost_coef=0.01, ctrl_cost_coef=0.001, alive_bonus=1):
+
         self.sim = CassieSim()
         if render:
             self.vis = CassieVis()
@@ -33,9 +40,10 @@ class CassieEnv(Env, Serializable):
         self.fix_pelvis = fix_pelvis
         self.model_timestep = 0.001
         self.frame_skip = frame_skip
+        self.fixed_gains = fixed_gains
 
         # action and observation space specs
-        self.act_limits_array = _build_act_limits_array()
+        self.act_limits_array = self._build_act_limits_array()
         self.act_dim = self.act_limits_array.shape[0]
 
         self.num_qpos = NUM_QPOS
@@ -43,9 +51,9 @@ class CassieEnv(Env, Serializable):
         self.obs_dim = self.num_qpos + self.num_qvel
 
         # reward function coeffs
-        self.ctrl_cost_coef = CTRL_COST_COEF
-        self.stability_cost_coef = STABILISTY_COST_COEF
-        self.alive_bonus = 1
+        self.stability_cost_coef = stability_cost_coef
+        self.ctrl_cost_coef = ctrl_cost_coef
+        self.alive_bonus = alive_bonus
 
         if fix_pelvis: self.sim.hold()
 
@@ -69,7 +77,7 @@ class CassieEnv(Env, Serializable):
 
     def step(self, action):
         assert action.ndim == 1 and action.shape == (self.act_dim,)
-        u = _action_to_pd_u(action)
+        u = self._action_to_pd_u(action)
         state, internal_state = self.do_simulation(u, self.frame_skip)
         obs = self._cassie_state_to_obs(state)
 
@@ -137,6 +145,62 @@ class CassieEnv(Env, Serializable):
     def setup_cassie_vis(self):
         self.vis = CassieVis()
 
+    def _action_to_pd_u(self, action):
+        u = pd_in_t()
+
+        # motors:
+        # 0: hip abduction
+        # 1: hip twist
+        # 2: hip pitch -> lift leg up
+        # 3: knee
+        # 4: foot pitch
+
+        # Typical pGain ~ 200 [100, 10000]
+        # Typical dGain ~ 20
+        # Typical feedforward torque > 0
+
+        i = 0
+        for leg_name in ['leftLeg', 'rightLeg']:
+            leg = getattr(u, leg_name)
+            for motor_id in range(5):
+                for pd_param in ['torque', 'pTarget', 'dTarget', 'pGain', 'dGain']:
+                    if self.fixed_gains and pd_param == 'pGain':
+                        getattr(leg.motorPd, pd_param)[motor_id] = DEFAULT_P_GAIN
+                    elif self.fixed_gains and pd_param == 'dGain':
+                        getattr(leg.motorPd, pd_param)[motor_id] = DEFAULT_D_GAIN
+                    else:
+                        getattr(leg.motorPd, pd_param)[motor_id] = action[i]
+                        i += 1
+        return u
+
+    def _build_act_limits_array(self):
+        limits = []
+
+        if self.fixed_gains:
+            pd_params_to_set = ['torque', 'pTarget', 'dTarget']
+        else:
+            pd_params_to_set = ['torque', 'pTarget', 'dTarget', 'pGain', 'dGain']
+
+        for leg_name in ['leftLeg', 'rightLeg']:
+            for motor_id in range(5):
+                for pd_param in pd_params_to_set:
+                    if pd_param == 'torque':
+                        low, high = (-CASSIE_TORQUE_LIMITS[motor_id], CASSIE_TORQUE_LIMITS[motor_id])
+                    elif pd_param == 'pTarget':
+                        low, high = (-2 * np.pi, 2 * np.pi)
+                    elif pd_param == 'dTarget':
+                        low, high = (-CASSIE_MOTOR_VEL_LIMIT[motor_id], CASSIE_MOTOR_VEL_LIMIT[motor_id])
+                    elif pd_param == 'pGain':
+                        low, high = P_GAIN_RANGE
+                    elif pd_param == 'dGain':
+                        low, high = D_GAIN_RANGE
+                    else:
+                        raise AssertionError('Unknown pd_param %s' % pd_param)
+                    limits.append(np.array([low, high]))
+        limits_array = np.stack(limits, axis=0)
+        assert limits_array.ndim == 2 and limits_array.shape[1] == 2
+        return limits_array
+
     # #TODO: sth. is wrong with the pelvis_pos -> should be absolute from world coord. e.g. (0,0,1) in the beginning but that is not the case
     # def _cassie_state_to_obs(self, state):
     #     # pelvis
@@ -161,50 +225,6 @@ class CassieEnv(Env, Serializable):
     #     return obs
 
 
-def _action_to_pd_u(action):
-    u = pd_in_t()
-
-    # motors:
-    # 0: hip abduction
-    # 1: hip twist
-    # 2: hip pitch -> lift leg up
-    # 3: knee
-    # 4: foot pitch
-
-    # Typical pGain ~ 200 [100, 10000]
-    # Typical dGain ~ 20
-    # Typical feedforward torque > 0
-
-    i = 0
-    for leg_name in ['leftLeg', 'rightLeg']:
-        leg = getattr(u, leg_name)
-        for motor_id in range(5):
-            for pd_param in ['torque', 'pTarget', 'dTarget', 'pGain', 'dGain']:
-                getattr(leg.motorPd, pd_param)[motor_id] = action[i]
-                i += 1
-    return u
-
-def _build_act_limits_array():
-    limits = []
-    for leg_name in ['leftLeg', 'rightLeg']:
-        for motor_id in range(5):
-            for pd_param in ['torque', 'pTarget', 'dTarget', 'pGain', 'dGain']:
-                if pd_param == 'torque':
-                    low, high = (-CASSIE_TORQUE_LIMITS[motor_id], CASSIE_TORQUE_LIMITS[motor_id])
-                elif pd_param == 'pTarget':
-                    low, high = (-2*np.pi, 2*np.pi)
-                elif pd_param == 'dTarget':
-                    low, high = (-CASSIE_MOTOR_VEL_LIMIT[motor_id], CASSIE_MOTOR_VEL_LIMIT[motor_id])
-                elif pd_param == 'pGain':
-                    low, high = P_GAIN_RANGE
-                elif pd_param == 'dGain':
-                    low, high = D_GAIN_RANGE
-                else:
-                    raise AssertionError('Unknown pd_param %s'%pd_param)
-                limits.append(np.array([low, high]))
-    limits_array = np.stack(limits, axis=0)
-    assert limits_array.ndim == 2 and limits_array.shape[1] == 2
-    return limits_array
 
 def pelvis_hight_from_obs(obs):
     if obs.ndim == 1:
@@ -220,13 +240,14 @@ def _to_np(o, dtype=np.float32):
 
 if __name__ == '__main__':
     render = True
-    env = CassieEnv(render=render, fix_pelvis=False)
+    env = CassieEnv(render=render, fix_pelvis=False, fixed_gains=False)
 
     for j in range(5):
         obs = env.reset()
         for j in range(500):
             cum_forward_vel = 0
             act = env.action_space.sample()
+            print(act.shape)
             obs, reward, done, info = env.step(act)
             if render: env.render()
             if done: break

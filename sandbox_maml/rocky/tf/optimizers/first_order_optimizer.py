@@ -1,12 +1,9 @@
-
-
-
 from rllab_maml.misc import ext
 from rllab_maml.misc import logger
 from rllab_maml.core.serializable import Serializable
 from sandbox_maml.rocky.tf.misc import tensor_utils
 # from rllab_maml.algo.first_order_method import parse_update_method
-from rllab_maml.optimizers.minibatch_dataset import BatchDataset, MAMLBatchDataset
+from rllab_maml.optimizers.minibatch_dataset import BatchDataset #, MAMLBatchDataset
 from collections import OrderedDict
 import tensorflow as tf
 import time
@@ -166,6 +163,7 @@ class FirstOrderOptimizer(Serializable):
 
 
 class MAMLPPOOptimizer(FirstOrderOptimizer):
+    ## Right now it's just implemented one gradient step with all the data
     
     def update_opt(self, loss, target, inputs, inner_kl, extra_inputs=None, meta_batch_size=1, num_grad_updates=1, **kwargs):
         """

@@ -14,7 +14,7 @@ import sys
 import argparse
 import random
 
-EXP_PREFIX = 'cassie-trpo'
+EXP_PREFIX = 'cassie-trpo-env-params'
 
 ec2_instance = 'c4.2xlarge'
 subnets = cheapest_subnets(ec2_instance, num_subnets=3)
@@ -22,7 +22,12 @@ subnets = cheapest_subnets(ec2_instance, num_subnets=3)
 
 def run_train_task(vv):
 
-    env = TfEnv(normalize(CassieEnv()))
+    env = TfEnv(normalize(CassieEnv(
+        fixed_gains=vv['fixed_gains'],
+        stability_cost_coef=vv['stability_cost_coef'],
+        ctrl_cost_coef=vv['ctrl_cost_coef'],
+        alive_bonus=vv['alive_bonus']
+    )))
 
     policy = GaussianMLPPolicy(
         name="policy",
@@ -59,14 +64,18 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('n_itr', [2000])
-    vg.add('step_size', [0.01, 0.02])
-    vg.add('seed', [1, 11, 21])
+    vg.add('n_itr', [5000])
+    vg.add('fixed_gains', [True, False])
+    vg.add('stability_cost_coef', [0.0, 0.01])
+    vg.add('ctrl_cost_coef', [0, 0.0005, 0.001, 0.005])
+    vg.add('alive_bonus', [0, 1])
+    vg.add('step_size', [0.02])
+    vg.add('seed', [1, 11])
     vg.add('discount', [0.99])
-    vg.add('path_length', [500])
+    vg.add('path_length', [200])
     vg.add('batch_size', [50000])
     vg.add('hidden_nonlinearity', ['tanh'])
-    vg.add('hidden_sizes', [(32, 32), (64, 64)])
+    vg.add('hidden_sizes', [(64, 64)])
 
     variants = vg.variants()
 
