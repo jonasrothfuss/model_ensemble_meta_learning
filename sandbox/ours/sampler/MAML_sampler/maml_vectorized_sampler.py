@@ -3,6 +3,7 @@ import pickle
 import tensorflow as tf
 from sandbox.ours.sampler.base import MAMLBaseSampler
 from sandbox_maml.rocky.tf.envs.parallel_vec_env_executor import ParallelVecEnvExecutor
+from sandbox.dennis.sampler.maml_parallel_env_executor import MAMLParallelVecEnvExecutor
 from sandbox.ours.sampler.MAML_sampler.maml_vec_env_executor import MAMLVecEnvExecutor
 from rllab_maml.misc import tensor_utils
 import numpy as np
@@ -13,10 +14,11 @@ import itertools
 
 class MAMLVectorizedSampler(MAMLBaseSampler):
 
-    def __init__(self, algo, n_tasks, n_envs=None):
+    def __init__(self, algo, n_tasks, n_envs=None, parallel=True):
         super(MAMLVectorizedSampler, self).__init__(algo)
         self.n_envs = n_envs
         self.n_tasks = n_tasks
+        self.parallel = parallel
 
     def start_worker(self):
         n_envs = self.n_envs
@@ -26,10 +28,12 @@ class MAMLVectorizedSampler(MAMLBaseSampler):
 
         if getattr(self.algo.env, 'vectorized', False):
             self.vec_env = self.algo.env.vec_env_executor(n_envs=n_envs, max_path_length=self.algo.max_path_length)
+        elif self.parallel:
+            self.vec_env = MAMLParallelVecEnvExecutor(self.algo.env, self.n_tasks, max_path_length=self.algo.max_path_length)
         else:
             envs = [pickle.loads(pickle.dumps(self.algo.env)) for _ in range(n_envs)]
             self.vec_env = MAMLVecEnvExecutor(
-                envs=envs,
+                env=envs,
                 #env=pickle.loads(pickle.dumps(self.algo.env)),
                 #n = n_envs,
                 max_path_length=self.algo.max_path_length
@@ -62,7 +66,7 @@ class MAMLVectorizedSampler(MAMLBaseSampler):
             # duplicate reset_args as n_envs_per_task times for each task
             assert len(reset_args) == self.n_tasks
             reset_args = [reset_arg for reset_arg in reset_args for _ in range(n_envs_per_task)]
-            assert len(reset_args) == self.n_envs
+            assert len(reset_args) == self.vec_env.num_envs
         else:
             raise AssertionError("reset args must not be none")
 
@@ -78,7 +82,6 @@ class MAMLVectorizedSampler(MAMLBaseSampler):
 
         policy = self.algo.policy
         import time
-
 
         while n_samples < self.algo.batch_size:
             t = time.time()

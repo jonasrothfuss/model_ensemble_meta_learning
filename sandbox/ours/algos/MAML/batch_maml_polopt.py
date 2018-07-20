@@ -102,13 +102,13 @@ class BatchMAMLPolopt(RLAlgorithm):
 
         if sampler_cls is None:
             import multiprocessing
-            singleton_pool.initialize(n_parallel=multiprocessing.cpu_count()) # Use vectorized sampler since batch sampler is buggy
+            singleton_pool.initialize(n_parallel=multiprocessing.cpu_count()) # Use vectorized sampler since batch sampler is buggy 
             if singleton_pool.n_parallel > 1:
                 sampler_cls = BatchSampler
                 sampler_args = dict(n_envs=self.meta_batch_size)
             else:
                 sampler_cls = MAMLVectorizedSampler
-                sampler_args = dict(n_tasks=self.meta_batch_size, n_envs=self.meta_batch_size * batch_size)
+                sampler_args = dict(n_tasks=self.meta_batch_size, n_envs=self.meta_batch_size * batch_size, parallel=True)
         self.sampler = sampler_cls(self, **sampler_args)
 
     def start_worker(self):
@@ -168,16 +168,19 @@ class BatchMAMLPolopt(RLAlgorithm):
 
 
                     self.policy.switch_to_init_dist()  # Switch to pre-update policy
-
+                    times_sample_processing, times_env_sampling = [], []
                     all_samples_data, all_paths = [], []
                     for step in range(self.num_grad_updates+1):
                         #if step > 0:
                         #    import pdb; pdb.set_trace() # test param_vals functions.
                         logger.log('** Step ' + str(step) + ' **')
                         logger.log("Obtaining samples...")
+                        time_env_sampling_start = time.time()
                         paths = self.obtain_samples(itr, reset_args=learner_env_params, log_prefix=str(step))
+                        times_env_sampling.append(time.time() - time_env_sampling_start)
                         all_paths.append(paths)
                         logger.log("Processing samples...")
+                        time_sample_processing_start = time.time()
                         samples_data = {}
                         for key in paths.keys():  # the keys are the tasks
                             # don't log because this will spam the consol with every task.
@@ -185,16 +188,22 @@ class BatchMAMLPolopt(RLAlgorithm):
                         all_samples_data.append(samples_data)
                         # for logging purposes
                         self.process_samples(itr, flatten_list(paths.values()), prefix=str(step), log=True)
+                        times_sample_processing.append(time.time() - time_sample_processing_start)
                         logger.log("Logging diagnostics...")
                         self.log_diagnostics(flatten_list(paths.values()), prefix=str(step))
                         if step < self.num_grad_updates:
                             logger.log("Computing policy updates...")
                             self.policy.compute_updated_dists(samples_data)
 
+                    logger.record_tabular('Time-EnvSampling', np.mean(times_env_sampling))
+                    logger.record_tabular('Time-SampleProc', np.mean(times_sample_processing))
+
+                    time_maml_opt_start = time.time()
 
                     logger.log("Optimizing policy...")
                     # This needs to take all samples_data so that it can construct graph for meta-optimization.
                     self.optimize_policy(itr, all_samples_data)
+
                     logger.log("Saving snapshot...")
                     params = self.get_itr_snapshot(itr, all_samples_data[-1])  # , **kwargs)
                     if self.store_paths:
@@ -203,6 +212,7 @@ class BatchMAMLPolopt(RLAlgorithm):
                     logger.log("Saved")
                     logger.record_tabular('Time', time.time() - start_time)
                     logger.record_tabular('ItrTime', time.time() - itr_start_time)
+                    logger.record_tabular('Time-MAMLSteps', time.time() - time_maml_opt_start)
 
                     logger.dump_tabular(with_prefix=False)
 
