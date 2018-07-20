@@ -262,6 +262,9 @@ class SawyerPickAndPlaceEnv(MultitaskEnv, SawyerXYZEnv):
             r = -obj_distances
         elif self.reward_type == 'obj_success':
             r = -(obj_distances < self.indicator_threshold).astype(float)
+
+        elif self.reward_type == 'hand_and_obj_distance_weighted':
+            r = -hand_distances - 10 * obj_distances
         elif self.reward_type == 'hand_and_obj_distance':
             r = -hand_and_obj_distances
         elif self.reward_type == 'hand_and_obj_distance_obj_success':
@@ -274,6 +277,24 @@ class SawyerPickAndPlaceEnv(MultitaskEnv, SawyerXYZEnv):
             r = -touch_distances
         elif self.reward_type == 'touch_success':
             r = -(touch_distances < self.indicator_threshold).astype(float)
+
+        elif self.reward_type == 'sophisticated1':
+            r = touch_distances - 10 * obj_distances
+
+        elif self.reward_type == 'sophisticated2':
+            a = touch_distances + 10 * obj_distances
+            obj_success = (obj_distances < self.indicator_threshold).astype(float)
+            r = - (1-obj_success) * a - obj_success * hand_distances
+
+        elif self.reward_type == 'sophisticated3':
+            obj_success = (obj_distances < self.indicator_threshold).astype(float)
+            touch_success = (touch_distances < self.indicator_threshold).astype(float)
+
+            r = - (1-touch_success)*(1-obj_success)*touch_distances \
+                - (touch_success)*(1-obj_success)*obj_distances \
+                - obj_success * hand_distances
+
+
         else:
             raise NotImplementedError("Invalid/no reward type.")
         return r
