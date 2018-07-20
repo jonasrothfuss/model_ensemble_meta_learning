@@ -1,6 +1,6 @@
 from rllab_maml.envs.base import Step
 from rllab_maml.misc.overrides import overrides
-from .mujoco_env import MujocoEnv
+from rllab.envs.mujoco.mujoco_env import MujocoEnv
 import numpy as np
 from rllab_maml.core.serializable import Serializable
 from rllab_maml.misc import logger
@@ -29,12 +29,16 @@ class SwimmerRandGoalEnv(MujocoEnv, Serializable):
             self.get_body_com("torso").flat,
         ]).reshape(-1)
 
+    def sample_goals(self, num_goals):
+        # for fwd/bwd env, goal direc is backwards if < 1.5, forwards if > 1.5
+        return np.random.uniform(0.1, 0.2, (num_goals, ))
+
     @overrides
     def reset(self, init_state=None, reset_args=None, **kwargs):
         goal_vel = reset_args
         if goal_vel is not None:
             self._goal_vel = goal_vel
-        elif self._goal is None:
+        elif self._goal_vel is None:
             self._goal_vel = np.random.uniform(0.1, 0.2)
         self.reset_mujoco(init_state)
         self.model.forward()
