@@ -21,10 +21,11 @@ class MAMLPPO(BatchMAMLPolopt):
             target_inner_step=0.01,
             init_kl_penalty=1,
             adaptive_kl_penalty=True,
+            num_batches=10,
             **kwargs):
         if optimizer is None:
             if optimizer_args is None:
-                optimizer_args = dict(max_epochs=1, verbose=True)
+                optimizer_args = dict(max_epochs=1, batch_size=num_batches, verbose=True)
             optimizer = MAMLPPOOptimizer(**optimizer_args)
         self.optimizer = optimizer
         self.use_maml = use_maml

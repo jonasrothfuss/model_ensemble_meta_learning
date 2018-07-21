@@ -3,7 +3,7 @@ from rllab_maml.misc import logger
 from rllab_maml.core.serializable import Serializable
 from sandbox_maml.rocky.tf.misc import tensor_utils
 # from rllab_maml.algo.first_order_method import parse_update_method
-from rllab_maml.optimizers.minibatch_dataset import BatchDataset #, MAMLBatchDataset
+from rllab_maml.optimizers.minibatch_dataset import BatchDataset, MAMLBatchDataset
 from collections import OrderedDict
 import tensorflow as tf
 import time
@@ -199,34 +199,28 @@ class MAMLPPOOptimizer(FirstOrderOptimizer):
         last_loss = f_loss(*(tuple(inputs) + extra_inputs))
 
         start_time = time.time()
-
-        # dataset = MAMLBatchDataset(inputs, self._batch_size, extra_inputs=extra_inputs, meta_batch_size=self.meta_batch_size, num_grad_updates=self.num_grad_updates)
+        # Overload self._batch size
+        dataset = MAMLBatchDataset(inputs, num_batches=self._batch_size, extra_inputs=extra_inputs, meta_batch_size=self.meta_batch_size, num_grad_updates=self.num_grad_updates)
 
         sess = tf.get_default_session()
         for epoch in range(self._max_epochs):
-            if self._init_train_op is not None:
-                sess.run(self._init_train_op, dict(list(zip(self._input_vars, inputs + list(extra_inputs)))))
-            else:
-                sess.run(self._train_op, dict(list(zip(self._input_vars, inputs + list(extra_inputs)))))
+            if self._verbose:
+                logger.log("Epoch %d" % (epoch))
+                progbar = pyprind.ProgBar(len(inputs[0]))
 
-        # for epoch in range(self._max_epochs):
-        #     if self._verbose:
-        #         logger.log("Epoch %d" % (epoch))
-        #         progbar = pyprind.ProgBar(len(inputs[0]))
+            for batch in dataset.iterate(update=True):
+                if self._init_train_op is not None:
+                    sess.run(self._init_train_op, dict(list(zip(self._input_vars, batch))))
+                    self._init_train_op = None  # only use it once
+                else:
+                    sess.run(self._train_op, dict(list(zip(self._input_vars, batch))))
 
-        #     for batch in dataset.iterate(update=True):
-        #         if self._init_train_op is not None:
-        #             sess.run(self._init_train_op, dict(list(zip(self._input_vars, batch))))
-        #             self._init_train_op = None  # only use it once
-        #         else:
-        #             sess.run(self._train_op, dict(list(zip(self._input_vars, batch))))
+                if self._verbose:
+                    progbar.update(len(batch[0]))
 
-        #         if self._verbose:
-        #             progbar.update(len(batch[0]))
-
-        #     if self._verbose:
-        #         if progbar.active:
-        #             progbar.stop()
+            if self._verbose:
+                if progbar.active:
+                    progbar.stop()
 
             new_loss = f_loss(*(tuple(inputs) + extra_inputs))
 
