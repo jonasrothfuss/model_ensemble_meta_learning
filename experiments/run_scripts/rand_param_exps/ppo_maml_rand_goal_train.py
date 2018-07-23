@@ -7,7 +7,7 @@ from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
 from sandbox.ours.envs.normalized_env import normalize
 from sandbox.ours.envs.base import TfEnv
 from rllab.misc.instrument import run_experiment_lite
-from sandbox.ours.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
+from sandbox.ours.policies.maml_improved_gauss_mlp_policy import PPOMAMLImprovedGaussianMLPPolicy
 from experiments.helpers.ec2_helpers import cheapest_subnets
 
 import tensorflow as tf
@@ -24,7 +24,17 @@ ec2_instance = 'c4.xlarge'
 def run_train_task(vv):
     env = TfEnv(normalize(vv['env']()))
 
-    policy = MAMLImprovedGaussianMLPPolicy(
+    policy = PPOMAMLImprovedGaussianMLPPolicy(
+        name="policy",
+        env_spec=env.spec,
+        hidden_sizes=vv['hidden_sizes'],
+        grad_step_size=vv['fast_lr'],
+        hidden_nonlinearity=vv['hidden_nonlinearity'],
+        trainable_step_size=vv['trainable_step_size'],
+        bias_transform=vv['bias_transform']
+    )
+
+    policy.init_graph(
         name="policy",
         env_spec=env.spec,
         hidden_sizes=vv['hidden_sizes'],

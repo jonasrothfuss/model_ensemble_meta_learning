@@ -102,13 +102,13 @@ class BatchMAMLPolopt(RLAlgorithm):
 
         if sampler_cls is None:
             import multiprocessing
-            singleton_pool.initialize(n_parallel=1) # Use vectorized sampler since batch sampler is buggy # multiprocessing.cpu_count()
-            if singleton_pool.n_parallel > 1:
+            singleton_pool.initialize(n_parallel=multiprocessing.cpu_count()) 
+            if singleton_pool.n_parallel > 1 and False: # Use vectorized sampler since it is faster
                 sampler_cls = BatchSampler
                 sampler_args = dict(n_envs=self.meta_batch_size)
             else:
                 sampler_cls = MAMLVectorizedSampler
-                sampler_args = dict(n_tasks=self.meta_batch_size, n_envs=self.meta_batch_size * batch_size)
+                sampler_args = dict(n_tasks=self.meta_batch_size, n_envs=self.meta_batch_size * batch_size, parallel=True)
         self.sampler = sampler_cls(self, **sampler_args)
 
     def start_worker(self):
@@ -167,7 +167,6 @@ class BatchMAMLPolopt(RLAlgorithm):
                         learner_env_params = env.sample_env_params(self.meta_batch_size)
 
                     self.policy.switch_to_init_dist()  # Switch to pre-update policy
-
                     all_samples_data, all_paths = [], []
                     list_sampling_time, list_inner_step_time, list_outer_step_time, list_proc_samples_time = [], [], [], []
                     start_total_inner_time = time.time()
@@ -209,6 +208,8 @@ class BatchMAMLPolopt(RLAlgorithm):
                         list_inner_step_time.append(time.time() - time_inner_step_start)
                     total_inner_time = time.time() - start_total_inner_time
 
+
+                    time_maml_opt_start = time.time()
                     """ ------------------ Outer Policy Update ---------------------"""
 
                     logger.log("Optimizing policy...")
@@ -223,7 +224,6 @@ class BatchMAMLPolopt(RLAlgorithm):
                     logger.record_tabular('Time-InnerStep', np.sum(list_inner_step_time))
                     logger.record_tabular('Time-SampleProc', np.sum(list_proc_samples_time))
                     logger.record_tabular('Time-Sampling', np.sum(list_sampling_time))
-
                     logger.log("Saving snapshot...")
                     params = self.get_itr_snapshot(itr, all_samples_data[-1])  # , **kwargs)
                     if self.store_paths:
@@ -232,6 +232,7 @@ class BatchMAMLPolopt(RLAlgorithm):
                     logger.log("Saved")
                     logger.record_tabular('Time', time.time() - start_time)
                     logger.record_tabular('ItrTime', time.time() - itr_start_time)
+                    logger.record_tabular('Time-MAMLSteps', time.time() - time_maml_opt_start)
 
                     logger.dump_tabular(with_prefix=False)
 

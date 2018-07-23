@@ -20,15 +20,18 @@ class ModelMAMLPPO(ModelBatchMAMLPolopt):
             clip_eps=0.2, 
             target_inner_step=0.01,
             init_kl_penalty=1,
+            adaptive_kl_penalty=True,
+            num_batches=10,
             **kwargs):
         if optimizer is None:
             if optimizer_args is None:
-                optimizer_args = dict(max_epochs=1)
+                optimizer_args = dict(max_epochs=1, batch_size=num_batches, verbose=True)
             optimizer = MAMLPPOOptimizer(**optimizer_args)
         self.optimizer = optimizer
         self.use_maml = use_maml
         self.clip_eps = clip_eps
         self.target_inner_step = target_inner_step
+        self.adaptive_kl_penalty = adaptive_kl_penalty
         super(ModelMAMLPPO, self).__init__(**kwargs)
         self.kl_coeff = [init_kl_penalty] * self.meta_batch_size
 
@@ -173,14 +176,14 @@ class ModelMAMLPPO(ModelBatchMAMLPolopt):
         if log: logger.log("Computing loss after")
         loss_after = self.optimizer.loss(input_list, extra_inputs=kl_coeff)
 
-        if log: logger.log("Updating KL loss coefficients")
-        sess = tf.get_default_session()
-        kls = self.optimizer.inner_kl(input_list, extra_inputs=kl_coeff) # sess.run(self.kl_list, dict(list(zip(self.optimizer._input_vars, input_list + self.kl_coeff))))
-        for i, kl in enumerate(kls):
-            if kl < self.target_inner_step / 1.5:
-                self.kl_coeff[i] /= 2
-            if kl > self.target_inner_step * 1.5:
-                self.kl_coeff[i] *= 2
+        kls = self.optimizer.inner_kl(input_list, extra_inputs=kl_coeff)
+        if self.adaptive_kl_penalty:
+            if log: logger.log("Updating KL loss coefficients")
+            for i, kl in enumerate(kls):
+                if kl < self.target_inner_step / 1.5:
+                    self.kl_coeff[i] /= 2
+                if kl > self.target_inner_step * 1.5:
+                    self.kl_coeff[i] *= 2
 
         if self.use_maml:
             if log: logger.record_tabular('LossBefore', loss_before)

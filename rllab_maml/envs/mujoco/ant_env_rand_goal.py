@@ -1,4 +1,4 @@
-from .mujoco_env import MujocoEnv
+from rllab.envs.mujoco.mujoco_env import MujocoEnv
 from rllab_maml.core.serializable import Serializable
 import numpy as np
 

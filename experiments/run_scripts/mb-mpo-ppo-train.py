@@ -5,7 +5,7 @@ from rllab_maml.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
 from sandbox.ours.envs.normalized_env import normalize
 from sandbox.ours.envs.base import TfEnv
 from rllab.misc.instrument import stub, run_experiment_lite
-from sandbox.ours.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
+from sandbox.ours.policies.maml_improved_gauss_mlp_policy import PPOMAMLImprovedGaussianMLPPolicy
 from sandbox.ours.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
 # from sandbox.jonas.algos.ModelMAML.model_maml_trpo import ModelMAMLTRPO
 from sandbox.dennis.algos.ModelMAML.model_maml_ppo import ModelMAMLPPO
@@ -47,7 +47,7 @@ def run_train_task(vv):
         rolling_average_persitency=vv['rolling_average_persitency']
     )
 
-    policy = MAMLImprovedGaussianMLPPolicy(
+    policy = PPOMAMLImprovedGaussianMLPPolicy(
         name="policy",
         env_spec=env.spec,
         hidden_sizes=vv['hidden_sizes_policy'],
@@ -60,7 +60,11 @@ def run_train_task(vv):
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
 
-    optimizer_args = None
+    optimizer_args = dict(
+        max_epochs=vv['max_epochs'],
+        num_batches=vv['num_batches'],
+        outer_lr=vv['outer_lr'],
+    )
 
     algo = ModelMAMLPPO(
         env=env,
@@ -68,7 +72,7 @@ def run_train_task(vv):
         dynamics_model=dynamics_model,
         baseline=baseline,
         n_itr=vv['n_itr'],
-        n_iter=vv['n_itr'],
+        n_iter=vv['n_itr'], # ?
         batch_size_env_samples=vv['batch_size_env_samples'],
         batch_size_dynamics_samples=vv['batch_size_dynamics_samples'],
         meta_batch_size=vv['meta_batch_size'],
@@ -91,6 +95,7 @@ def run_train_task(vv):
         clip_eps=vv['clip_eps'], 
         target_inner_step=vv['target_inner_step'],
         init_kl_penalty=vv['init_kl_penalty'],
+        adaptive_kl_penalty=vv['adaptive_kl_penalty'],
         optimizer_args=optimizer_args,
     )
     algo.train()
@@ -123,6 +128,7 @@ def run_experiment(argv):
     # Model-based MAML algo spec
     vg.add('n_itr', [500])
     vg.add('fast_lr', [0.001])
+    vg.add('outer_lr', [1e-3])
     vg.add('meta_step_size', [0.01])
     vg.add('meta_batch_size', [20]) # must be a multiple of num_models
     vg.add('discount', [0.99])
@@ -130,6 +136,9 @@ def run_experiment(argv):
     vg.add('clip_eps', [0.2])
     vg.add('target_inner_step', [0.01])
     vg.add('init_kl_penalty', [1])
+    vg.add('adaptive_kl_penalty', [True])
+    vg.add('max_epochs', [10])
+    vg.add('num_batches', [1])
 
     vg.add('batch_size_env_samples', [1])
     vg.add('batch_size_dynamics_samples', [50])
