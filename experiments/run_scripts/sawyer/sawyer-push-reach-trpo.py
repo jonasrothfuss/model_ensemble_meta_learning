@@ -16,7 +16,7 @@ import random
 
 EXP_PREFIX = 'sawyer-trpo'
 
-ec2_instance = 'c4.2xlarge'
+ec2_instance = 'c4.4xlarge'
 subnets = cheapest_subnets(ec2_instance, num_subnets=3)
 
 
@@ -65,9 +65,8 @@ def run_experiment(argv):
     vg = VariantGenerator()
     vg.add('env', ['SawyerPushAndReachXYZEnv'])
     vg.add('fix_goal', [True, False])
-    vg.add('reward_type', ['hand_and_puck_distance_puck_success', 'hand_and_puck_success', 'hand_and_puck_distance'])
-
-    vg.add('n_itr', [2000])
+    vg.add('reward_type', ['puck_distance', 'puck_distance_hand_distance_after_success'])
+    vg.add('n_itr', [5000])
     vg.add('step_size', [0.01])
     vg.add('seed', [1, 11])
     vg.add('discount', [0.99])
@@ -75,7 +74,7 @@ def run_experiment(argv):
     vg.add('batch_size', [50000])
     vg.add('hidden_nonlinearity', ['tanh'])
     vg.add('hidden_sizes', [(32, 32)])
-    vg.add('adaptive_policy_std', [True, False])
+    vg.add('adaptive_policy_std', [False])
 
     variants = vg.variants()
 

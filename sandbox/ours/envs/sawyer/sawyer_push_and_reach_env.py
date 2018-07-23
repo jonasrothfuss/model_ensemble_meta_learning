@@ -256,6 +256,7 @@ class SawyerPushAndReachXYZEnv(MultitaskEnv, SawyerXYZEnv):
             hand_pos - np.hstack((puck_pos, puck_zs)),
             axis=1,
         )
+        puck_success = (puck_distances < self.indicator_threshold).astype(float)
 
         if self.reward_type == 'hand_distance':
             r = -hand_distances
@@ -275,6 +276,8 @@ class SawyerPushAndReachXYZEnv(MultitaskEnv, SawyerXYZEnv):
             r = -touch_distances
         elif self.reward_type == 'touch_success':
             r = -(touch_distances < self.indicator_threshold).astype(float)
+        elif self.reward_type == 'puck_distance_hand_distance_after_success':
+            r = - puck_distances - puck_success * (2 - hand_distances)
         else:
             raise NotImplementedError("Invalid/no reward type.")
         return r
@@ -362,9 +365,9 @@ class SawyerPushAndReachXYEnv(SawyerPushAndReachXYZEnv):
 
 if __name__ == "__main__":
     import time
-    env = SawyerPushAndReachXYZEnv()
+    env = SawyerPushAndReachXYZEnv(fix_goal=False)
     env.reset()
     for _ in range(1000):
         env.render()
-        env.step(env.action_space.sample())  # take a random action
+        obs, rew, done, info = env.step(env.action_space.sample())  # take a random action
         time.sleep(env.dt)
