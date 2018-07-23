@@ -68,6 +68,7 @@ KUBE_DEFAULT_NODE_SELECTOR = {
 
 MUJOCO_KEY_PATH = osp.expanduser("~/.mujoco")
 # MUJOCO_KEY_PATH = osp.join(osp.dirname(__file__), "../vendor/mujoco")
+MUJOCO_MODEL_PATH = osp.join(osp.dirname(__file__), "../vendor/mujoco_models")
 
 ENV = {}
 
