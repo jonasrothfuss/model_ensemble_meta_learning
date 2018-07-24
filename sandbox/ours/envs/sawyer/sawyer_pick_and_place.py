@@ -294,6 +294,14 @@ class SawyerPickAndPlaceEnv(MultitaskEnv, SawyerXYZEnv):
                 - (touch_success)*(1-obj_success)*obj_distances \
                 - obj_success * hand_distances
 
+        elif self.reward_type == 'sophisticated2':
+            a = touch_distances + 10 * obj_distances
+            obj_success = (obj_distances < self.indicator_threshold).astype(float)
+            r = - (1 - obj_success) * a - obj_success * hand_distances
+
+        elif self.reward_type == 'lift_up':
+            obj_height = obj_pos[-1]
+            r = touch_distances + 100 * obj_height
 
         else:
             raise NotImplementedError("Invalid/no reward type.")
@@ -355,11 +363,33 @@ if __name__ == "__main__":
     import time
     env = SawyerPickAndPlaceEnv()
     env.reset()
-    for i in range(1000):
-        env.render()
+    diff = np.array([0,0,0])
+    qpos_arr = []
+    for i in range(200):
+        #env.render()
         #action = env.action_space.sample()
         a=np.sin(i/10)
-        action = np.array([0,0,0,a])
-        print(action)
-        env.step(action)  # take a random action
+        action = np.array([diff[0], diff[1], diff[2], a])
+        obs, reward, done, info = env.step(action)  # take a random action
+
+        ee_pos = obs[:3]
+        obj_pos =obs[3:6]
+        hand_goals = obs[6:9]
+        obj_goals = obs[9:12]
+
+        qpos_arr.append(env.sim.get_state().qpos)
+        print(env.get_gripper_state())
+
+        #diff = obj_pos - ee_pos
+        diff = [0,0,0]
+
         time.sleep(env.dt)
+
+    qpos = np.vstack(qpos_arr)
+    from pprint import pprint
+
+    std = qpos.std(axis=0)
+    min = qpos.min(axis=0)
+    max = qpos.max(axis=0)
+    for i in range(std.shape[0]):
+        print(i, std[i], min[i], max[i])

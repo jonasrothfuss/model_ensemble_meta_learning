@@ -65,7 +65,7 @@ def run_experiment(argv):
     vg = VariantGenerator()
     vg.add('env', ['SawyerPushAndReachXYZEnv'])
     vg.add('fix_goal', [True, False])
-    vg.add('reward_type', ['puck_distance', 'puck_distance_hand_distance_after_success'])
+    vg.add('reward_type', ['puck_distance_hand_distance_after_success'])
     vg.add('n_itr', [5000])
     vg.add('step_size', [0.01])
     vg.add('seed', [1, 11])

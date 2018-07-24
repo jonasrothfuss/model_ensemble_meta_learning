@@ -65,7 +65,7 @@ def run_experiment(argv):
     vg = VariantGenerator()
     vg.add('env', ['SawyerReachTorqueEnv'])
     vg.add('fix_goal', [True, False])
-    vg.add('ctrl_cost_coef', [0.0, 1e-3, 1e-2, 1e-1])
+    vg.add('ctrl_cost_coef', [1e-3])
 
     vg.add('n_itr', [5000])
     vg.add('step_size', [0.01])

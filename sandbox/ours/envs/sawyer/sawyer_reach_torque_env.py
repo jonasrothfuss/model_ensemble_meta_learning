@@ -137,6 +137,12 @@ class SawyerReachTorqueEnv(MujocoEnv, Serializable, MultitaskEnv):
         done = False
         return obs, reward, done, info
 
+    def done(self, obs):
+        if obs.ndim == 2:
+            return np.zeros(obs.shape[0], dtype=np.bool)
+        else:
+            return False
+
     def reward(self, obs, action, obs_next):
         if obs_next.ndim == 2 and action.ndim == 2:
             hand_pos = obs_next[:, 0:3]
@@ -214,7 +220,7 @@ class SawyerReachTorqueEnv(MujocoEnv, Serializable, MultitaskEnv):
     def get_endeff_vel(self):
         return self.data.body_xvelp[self.endeff_id].copy()
 
-    def reset(self):
+    def reset(self, reset_args=None):
         angles = self.data.qpos.copy()
         velocities = self.data.qvel.copy()
         angles[:] = self.init_angles
