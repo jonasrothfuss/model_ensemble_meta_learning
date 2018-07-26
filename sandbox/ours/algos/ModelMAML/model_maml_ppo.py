@@ -1,13 +1,13 @@
 from rllab_maml.misc import ext
 from rllab_maml.misc.overrides import overrides
 import rllab.misc.logger as logger
-from sandbox.ours.algos.MAML.batch_maml_polopt import BatchMAMLPolopt
+from sandbox.ours.algos.ModelMAML.model_batch_maml_polopt import ModelBatchMAMLPolopt
 from sandbox.ours.optimizers.maml_ppo_optimizer import MAMLPPOOptimizer
 from sandbox_maml.rocky.tf.misc import tensor_utils
 import tensorflow as tf
 import numpy as np
 
-class MAMLPPO(BatchMAMLPolopt):
+class ModelMAMLPPO(ModelBatchMAMLPolopt):
     """
     Natural Policy Optimization.
     """
@@ -32,7 +32,7 @@ class MAMLPPO(BatchMAMLPolopt):
         self.clip_eps = clip_eps
         self.target_inner_step = target_inner_step
         self.adaptive_kl_penalty = adaptive_kl_penalty
-        super(MAMLPPO, self).__init__(**kwargs)
+        super(ModelMAMLPPO, self).__init__(**kwargs)
         self.kl_coeff = [init_kl_penalty] * self.meta_batch_size * self.num_grad_updates
         self._optimization_keys = ['observations', 'actions', 'advantages', 'agent_infos']
 
@@ -213,6 +213,7 @@ class MAMLPPO(BatchMAMLPolopt):
         return dict(
             itr=itr,
             policy=self.policy,
+            dynamics_model=self.dynamics_model,
             baseline=self.baseline,
             env=self.env,
         )

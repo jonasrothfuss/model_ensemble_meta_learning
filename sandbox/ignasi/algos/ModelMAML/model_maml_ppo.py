@@ -2,7 +2,7 @@ from rllab_maml.misc import ext
 from rllab_maml.misc.overrides import overrides
 import rllab.misc.logger as logger
 from sandbox.ours.algos.ModelMAML.model_batch_maml_polopt import ModelBatchMAMLPolopt
-from sandbox_maml.rocky.tf.optimizers.first_order_optimizer import FirstOrderOptimizer, MAMLPPOOptimizer
+from sandbox.ours.optimizers.maml_ppo_optimizer import MAMLPPOOptimizer
 from sandbox_maml.rocky.tf.misc import tensor_utils
 import tensorflow as tf
 import numpy as np
