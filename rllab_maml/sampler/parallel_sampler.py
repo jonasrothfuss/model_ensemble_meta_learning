@@ -36,7 +36,6 @@ def _worker_populate_task(G, env, policy, scope=None):
     G.env = pickle.loads(env)
     G.policy = pickle.loads(policy)
 
-
 def _worker_terminate_task(G, scope=None):
     G = _get_scoped_G(G, scope)
     if getattr(G, "env", None):

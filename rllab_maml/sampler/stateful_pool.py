@@ -1,5 +1,3 @@
-
-
 from joblib.pool import MemmapingPool
 import multiprocessing as mp
 from rllab_maml.misc import logger
@@ -216,6 +214,7 @@ def _worker_run_collect(all_args):
                 if counter.value >= threshold:
                     return collected
     except Exception:
+        print("".join(traceback.format_exception(*sys.exc_info())))
         raise Exception("".join(traceback.format_exception(*sys.exc_info())))
 
 

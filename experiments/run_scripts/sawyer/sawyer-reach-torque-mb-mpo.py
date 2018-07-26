@@ -1,20 +1,16 @@
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
 from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
-from rllab_maml.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
 from sandbox.ours.envs.normalized_env import normalize
 from sandbox.ours.envs.base import TfEnv
 from rllab.misc.instrument import stub, run_experiment_lite
-from sandbox.ours.policies.maml_improved_gauss_mlp_policy import PPOMAMLImprovedGaussianMLPPolicy
+from sandbox.ours.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
 from sandbox.ours.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
-# from sandbox.jonas.algos.ModelMAML.model_maml_trpo import ModelMAMLTRPO
-from sandbox.dennis.algos.ModelMAML.model_maml_ppo import ModelMAMLPPO
+from sandbox.ours.algos.ModelMAML.model_maml_trpo import ModelMAMLTRPO
 from experiments.helpers.ec2_helpers import cheapest_subnets
 from experiments.helpers.run_multi_gpu import run_multi_gpu
 
-from sandbox.ours.envs.own_envs import PointEnvMAML
-from sandbox.ours.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams, WalkerEnvRandomParams
-from sandbox.ours.envs.mujoco import Reacher5DofEnvRandParams
+from sandbox.ours.envs.sawyer import SawyerReachXYZEnv, SawyerPickAndPlaceEnv, SawyerReachTorqueEnv, SawyerPushAndReachXYZEnv
 
 
 import tensorflow as tf
@@ -23,7 +19,7 @@ import argparse
 import random
 import os
 
-EXP_PREFIX = 'model-ensemble-maml-ppo'
+EXP_PREFIX = 'sayer-mb-mpo'
 
 ec2_instance = 'c4.2xlarge'
 NUM_EC2_SUBNETS = 3
@@ -31,9 +27,9 @@ NUM_EC2_SUBNETS = 3
 
 def run_train_task(vv):
 
-    env = TfEnv(normalize(vv['env'](
-        log_scale_limit=vv['log_scale_limit'],
-        target_velocity=vv['target_velocity'],
+    env = TfEnv(normalize(vv['env_class'](
+        fix_goal=vv['fix_goal'],
+        ctrl_cost_coef=vv['ctrl_cost_coef']
     )))
 
     dynamics_model = MLPDynamicsEnsemble(
@@ -47,7 +43,7 @@ def run_train_task(vv):
         rolling_average_persitency=vv['rolling_average_persitency']
     )
 
-    policy = PPOMAMLImprovedGaussianMLPPolicy(
+    policy = MAMLImprovedGaussianMLPPolicy(
         name="policy",
         env_spec=env.spec,
         hidden_sizes=vv['hidden_sizes_policy'],
@@ -60,19 +56,13 @@ def run_train_task(vv):
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
 
-    optimizer_args = dict(
-        max_epochs=vv['max_epochs'],
-        num_batches=vv['num_batches'],
-        outer_lr=vv['outer_lr'],
-    )
-
-    algo = ModelMAMLPPO(
+    algo = ModelMAMLTRPO(
         env=env,
         policy=policy,
         dynamics_model=dynamics_model,
         baseline=baseline,
         n_itr=vv['n_itr'],
-        n_iter=vv['n_itr'], # ?
+        n_iter=vv['n_itr'],
         batch_size_env_samples=vv['batch_size_env_samples'],
         batch_size_dynamics_samples=vv['batch_size_dynamics_samples'],
         meta_batch_size=vv['meta_batch_size'],
@@ -91,12 +81,7 @@ def run_train_task(vv):
         frac_gpu=vv.get('frac_gpu', 0.85),
         log_real_performance=True,
         clip_obs=vv.get('clip_obs', True),
-        beta=vv['entropy_bonus'],
-        clip_eps=vv['clip_eps'], 
-        target_inner_step=vv['target_inner_step'],
-        init_kl_penalty=vv['init_kl_penalty'],
-        adaptive_kl_penalty=vv['adaptive_kl_penalty'],
-        optimizer_args=optimizer_args,
+        entropy_bonus=vv['entropy_bonus'],
     )
     algo.train()
 
@@ -117,31 +102,25 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
     vg = VariantGenerator()
 
-    vg.add('seed', [22])
+    vg.add('seed', [23, 54])
 
     # env spec
-    vg.add('env', ['HalfCheetahEnvRandParams'])
-    vg.add('log_scale_limit', [0.0])
-    vg.add('target_velocity', [None])
+    vg.add('env', ['SawyerReachTorqueEnv'])
+    vg.add('fix_goal', [True, False])
+    vg.add('ctrl_cost_coef', [1e-3])
+
     vg.add('path_length_env', [200])
 
     # Model-based MAML algo spec
-    vg.add('n_itr', [500])
+    vg.add('n_itr', [200])
     vg.add('fast_lr', [0.001])
-    vg.add('outer_lr', [1e-3])
     vg.add('meta_step_size', [0.01])
-    vg.add('meta_batch_size', [20]) # must be a multiple of num_models
+    vg.add('meta_batch_size', [10]) # must be a multiple of num_models
     vg.add('discount', [0.99])
     vg.add('entropy_bonus', [0])
-    vg.add('clip_eps', [0.2])
-    vg.add('target_inner_step', [0.01])
-    vg.add('init_kl_penalty', [1])
-    vg.add('adaptive_kl_penalty', [True])
-    vg.add('max_epochs', [10])
-    vg.add('num_batches', [1])
 
     vg.add('batch_size_env_samples', [1])
-    vg.add('batch_size_dynamics_samples', [50])
+    vg.add('batch_size_dynamics_samples', [50, 200])
     vg.add('initial_random_samples', [5000])
     vg.add('num_maml_steps_per_iter', [30])
     vg.add('retrain_model_when_reward_decreases', [False])
@@ -153,7 +132,7 @@ def run_experiment(argv):
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(32, 32)])
-    vg.add('hidden_sizes_model', [(512, 512)])
+    vg.add('hidden_sizes_model', [(256, 256), (512, 512)])
     vg.add('weight_normalization_model', [True])
     vg.add('reset_policy_std', [False])
     vg.add('reinit_model_cycle', [0])
@@ -213,7 +192,7 @@ def run_experiment(argv):
         # ----------------------- TRAINING ---------------------------------------
         exp_ids = random.sample(range(1, 1000), len(variants))
         for v, exp_id in zip(variants, exp_ids):
-            exp_name = "model_ensemble_maml_train_env_%s_%i_%i_%i_%i_id_%i" % (v['env'], v['path_length_env'], v['num_models'],
+            exp_name = "mb-mpo_%s_%i_%i_%i_%i_id_%i" % (v['env'], v['path_length_env'], v['num_models'],
                                                            v['batch_size_env_samples'], v['seed'], exp_id)
             v = instantiate_class_stings(v)
 
@@ -235,8 +214,8 @@ def run_experiment(argv):
                 exp_name=exp_name,
                 # Number of parallel workers for sampling
                 n_parallel=n_parallel,
-                snapshot_mode="gap",
-                snapshot_gap=5,
+                snapshot_mode="last",
+                #snapshot_gap=5,
                 periodic_sync=True,
                 sync_s3_pkl=True,
                 sync_s3_log=True,
@@ -254,7 +233,7 @@ def run_experiment(argv):
 
 
 def instantiate_class_stings(v):
-    v['env'] = globals()[v['env']]
+    v['env_class'] = globals()[v['env']]
 
     # optimizer
     if v['optimizer_model'] == 'sgd':

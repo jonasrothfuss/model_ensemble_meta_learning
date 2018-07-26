@@ -16,7 +16,7 @@ class SawyerMocapBase(MujocoEnv, Serializable, metaclass=abc.ABCMeta):
     mocap_low = np.array([-0.2, 0.5, 0.06])
     mocap_high = np.array([0.2, 0.7, 0.6])
 
-    def __init__(self, model_name, frame_skip=50):
+    def __init__(self, model_name, frame_skip=10):
         MujocoEnv.__init__(self, model_name, frame_skip=frame_skip)
         # Resets the mocap welds that we use for actuation.
         sim = self.sim
@@ -41,6 +41,10 @@ class SawyerMocapBase(MujocoEnv, Serializable, metaclass=abc.ABCMeta):
 
     def get_endeff_pos(self):
         return self.data.get_body_xpos('hand').copy()
+
+    def get_gripper_state(self):
+        joint_id = self.model.joint_names.index('rc_close')
+        return self.sim.get_state().qpos[joint_id]
 
     def get_env_state(self):
         joint_state = self.sim.get_state()

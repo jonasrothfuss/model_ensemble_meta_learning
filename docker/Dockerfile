@@ -43,17 +43,32 @@ RUN apt install -y libopenmpi-dev
 
 # ========== OpenAI Gym ==========
 RUN apt-get -y install libgtk2.0-0
-RUN pip install gym
 #RUN apt-get -y install ffmpeg
 RUN apt-get -y install libav-tools
 CMD alias ffmpeg="avconv"
+
+# ========== Setup mujoco ========
+CMD mkdir /root/.mujoco
+RUN wget https://www.roboti.us/download/mjpro150_linux.zip
+RUN unzip mjpro150_linux.zip -d /root/.mujoco
+ADD mjkey.txt /root/.mujoco/mjkey.txt
+RUN apt-get install -y libgl1-mesa-dev libgl1-mesa-glx libglew-dev libosmesa6-dev
+
+# ========= Cassie Environment ===========
+RUN apt-get install -y llvm-5.0
+RUN apt-get install -y libglfw3-dev
+RUN apt-get install -y clang-5.0
 
 # ========== Add codebase stub ==========
 CMD mkdir /root/code
 ADD environment.yml /root/code/environment.yml
 RUN conda env create -f /root/code/environment.yml
 
+#RUN conda uninstall -y tensorflow
+#RUN pip install tensorflow
+
 ENV PYTHONPATH /root/code/rllab:$PYTHONPATH
+ENV LD_LIBRARY_PATH /root/.mujoco/mjpro150/bin:$LD_LIBRARY_PATH
 ENV PATH /opt/conda/envs/rllab3/bin:$PATH
 RUN echo "source activate rllab3" >> /root/.bashrc
 ENV BASH_ENV /root/.bashrc
@@ -61,8 +76,3 @@ WORKDIR /root/code
 
 # gpu theanno
 ENV THEANO_FLAGS mode=FAST_RUN,device=gpu,floatX=float32
-
-# ========= Cassie Environment ===========
-RUN apt-get install -y llvm-5.0
-RUN apt-get install -y libglfw3-dev
-RUN apt-get install -y clang-5.0

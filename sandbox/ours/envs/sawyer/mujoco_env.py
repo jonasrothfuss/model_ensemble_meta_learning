@@ -153,3 +153,9 @@ class MujocoEnv(gym.Env):
         viewer = mujoco_py.MjRenderContextOffscreen(sim, device_id=-1)
         init_fctn(viewer.cam)
         sim.add_render_context(viewer)
+
+    def get_param_values(self):
+        return None
+
+    def set_param_values(self, params):
+        pass
