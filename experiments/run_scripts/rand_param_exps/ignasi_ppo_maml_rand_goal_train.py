@@ -8,7 +8,7 @@ from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
 from sandbox.ours.envs.normalized_env import normalize
 from sandbox.ours.envs.base import TfEnv
 from rllab.misc.instrument import run_experiment_lite
-from sandbox.ours.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy as DennisPolicy
+from sandbox.ours.policies.maml_improved_gauss_mlp_policy import PPOMAMLImprovedGaussianMLPPolicy as DennisPolicy
 from sandbox.ignasi.policies.new_policy.maml_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy as IgnasiPolicy
 from experiments.helpers.ec2_helpers import cheapest_subnets
 
@@ -18,7 +18,7 @@ import argparse
 import random
 
 
-EXP_PREFIX = 'ppo-maml-multi-step'
+EXP_PREFIX = 'ppo-maml-code-comparison'
 
 ec2_instance = 'm4.2xlarge'
 
@@ -29,8 +29,8 @@ def run_train_task(vv):
     policy = vv['policy'](
         name="policy",
         env_spec=env.spec,
-        hidden_sizes=vv['hidden_sizes'],
         num_tasks=vv['meta_batch_size'],
+        hidden_sizes=vv['hidden_sizes'],
         grad_step_size=vv['fast_lr'],
         hidden_nonlinearity=vv['hidden_nonlinearity'],
         trainable_step_size=vv['trainable_step_size'],
@@ -76,9 +76,9 @@ def run_experiment(argv):
     vg = VariantGenerator()
     vg.add('env', ['HalfCheetahEnvRandDirec'])
     vg.add('n_itr', [300])
-    vg.add('fast_lr', [0.1, 0.01])
+    vg.add('fast_lr', [0.1, 0.05, 1])
     vg.add('meta_batch_size', [40])
-    vg.add('num_grad_updates', [1, 3])
+    vg.add('num_grad_updates', [2])
     vg.add('fast_batch_size', [20])
     vg.add('seed', [1, 10])
     vg.add('discount', [0.99])
@@ -89,8 +89,8 @@ def run_experiment(argv):
     vg.add('bias_transform', [False])
     # vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
     vg.add('entropy_bonus', [0])
-    vg.add('clip_eps', [0.2, 0.4])
-    vg.add('target_inner_step', [1e-2, 1e-1])
+    vg.add('clip_eps', [0.2])
+    vg.add('target_inner_step', [1e-2])
     vg.add('init_kl_penalty', [1])
     vg.add('max_epochs', [10]) # 1, 5
     vg.add('code_base', ['ignasi'])
@@ -147,8 +147,8 @@ def run_experiment(argv):
             sync_s3_log=True,
             # Specifies the seed for the experiment. If this is not provided, a random seed
             # will be used
-            pre_commands=["yes | pip install tensorflow=='1.4.1'",
-                          "yes | pip install cloudpickle=='0.5.3'"],
+            pre_commands=["yes | pip install tensorflow=='1.6.0'",
+                          "yes | pip install --upgrade cloudpickle"],
             seed=v["seed"],
             python_command="python3",
             mode=args.mode,

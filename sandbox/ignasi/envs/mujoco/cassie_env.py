@@ -7,20 +7,20 @@ from rllab.core.serializable import Serializable
 from rllab.misc.overrides import overrides
 from rllab.misc import logger
 
-CASSIE_TORQUE_LIMITS = np.array([4.5*25, 4.5*25, 12.2*16, 12.2*16, 0.9*50]) # ctrl_limit * gear_ratio
-CASSIE_MOTOR_VEL_LIMIT = np.array([2900, 2900, 1300, 1300, 5500]) / 60 / (2*np.pi) # max_rpm / 60 / 2*pi
-P_GAIN_RANGE = [10, 10000]
-D_GAIN_RANGE = [1, 100]
-MODEL_TIMESTEP = 0.001
-
-DEFAULT_P_GAIN = 200
-DEFAULT_D_GAIN = 20
-
-NUM_QPOS = 34
-NUM_QVEL = 32
-
-CTRL_COST_COEF = 0.001
-STABILISTY_COST_COEF = 0.01
+# CASSIE_TORQUE_LIMITS = np.array([4.5*25, 4.5*25, 12.2*16, 12.2*16, 0.9*50]) # ctrl_limit * gear_ratio
+# CASSIE_MOTOR_VEL_LIMIT = np.array([2900, 2900, 1300, 1300, 5500]) / 60 / (2*np.pi) # max_rpm / 60 / 2*pi
+# P_GAIN_RANGE = [10, 10000]
+# D_GAIN_RANGE = [1, 100]
+# MODEL_TIMESTEP = 0.001
+#
+# DEFAULT_P_GAIN = 200
+# DEFAULT_D_GAIN = 20
+#
+# NUM_QPOS = 34
+# NUM_QVEL = 32
+#
+# CTRL_COST_COEF = 0.001
+# STABILISTY_COST_COEF = 0.01
 
 
 
@@ -29,7 +29,8 @@ class CassieEnv(Env, Serializable):
     # TODO: add randomization of initial state
 
     def __init__(self, render=False, fix_pelvis=False, frame_skip=20, fixed_gains=True,
-                 stability_cost_coef=1e-2, ctrl_cost_coef=1e-3, alive_bonus=0.2, impact_cost_coef=1e-5):
+                 stability_cost_coef=1e-2, ctrl_cost_coef=1e-3, alive_bonus=0.2, impact_cost_coef=1e-5,
+                 task='running', ctrl_type='TPV'):
 
         self.sim = CassieSim()
         if render:
@@ -37,17 +38,27 @@ class CassieEnv(Env, Serializable):
         else:
             self.vis = None
 
+        assert ctrl_type in ['T', 'P', 'V', 'TP', 'TV', 'PV', 'TPV']
+        # T: Torque ctrl        # TP: Torque + Position ctrl    # None or all: Torque + Position + Velocity
+        # P: Positon ctrl       # TV: Torque + Velocity ctrl
+        # V: Velocity ctrl      # PV: Position + Velocity ctr
+
+        self.parameters = {}
+        self.set_default_parameters()
         self.fix_pelvis = fix_pelvis
         self.model_timestep = 0.001
         self.frame_skip = frame_skip
         self.fixed_gains = fixed_gains
+        self.task = task
+        self.ctrl_type = ctrl_type
+        self._pd_params_to_set = []
 
         # action and observation space specs
         self.act_limits_array = self._build_act_limits_array()
         self.act_dim = self.act_limits_array.shape[0]
 
-        self.num_qpos = NUM_QPOS
-        self.num_qvel = NUM_QVEL
+        self.num_qpos = self.parameters['num_qpos']
+        self.num_qvel = self.parameters['num_qvel']
         self.obs_dim = self.num_qpos + self.num_qvel
 
         # reward function coeffs
@@ -71,7 +82,7 @@ class CassieEnv(Env, Serializable):
 
     @property
     def torque_limits(self):
-        return np.concatenate([CASSIE_TORQUE_LIMITS]*2)
+        return np.concatenate([self.parameters['cassie_torque_limits']]*2)
 
     def get_foot_forces(self, internal_state):
         left_toe = _to_np(internal_state.leftFoot.toeForce)
@@ -104,7 +115,11 @@ class CassieEnv(Env, Serializable):
         stability_cost = self.stability_cost_coef * 0.5 * np.mean(np.square(pelvis_vel[1:])) # quadratic velocity of pelvis in y and z direction ->
                                                                                 # enforces to hold the pelvis in same position while walking
         impact_cost = self.impact_cost_coef * 0.5 * np.sum(np.square(np.clip(foot_forces, -1, 1)))
-        reward = forward_vel - ctrl_cost - stability_cost - impact_cost + self.alive_bonus
+        if self.task == 'balancing':
+            vel_cost = self.stability_cost_coef * forward_vel ** 2
+            reward = - vel_cost - ctrl_cost - stability_cost - impact_cost + self.alive_bonus
+        else:
+            reward = forward_vel - ctrl_cost - stability_cost - impact_cost + self.alive_bonus
 
         done = self.done(obs)
         info = {'forward_vel': forward_vel, 'ctrl_cost': ctrl_cost, 'stability_cost': stability_cost}
@@ -179,10 +194,10 @@ class CassieEnv(Env, Serializable):
             leg = getattr(u, leg_name)
             for motor_id in range(5):
                 for pd_param in ['torque', 'pTarget', 'dTarget', 'pGain', 'dGain']:
-                    if self.fixed_gains and pd_param == 'pGain':
-                        getattr(leg.motorPd, pd_param)[motor_id] = DEFAULT_P_GAIN
-                    elif self.fixed_gains and pd_param == 'dGain':
-                        getattr(leg.motorPd, pd_param)[motor_id] = DEFAULT_D_GAIN
+                    if self.fixed_gains and pd_param in ['pGain', 'dGain']:
+                        getattr(leg.motorPd, pd_param)[motor_id] = self.parameters[pd_param]
+                    elif pd_param not in self._pd_params_to_set:
+                        getattr(leg.motorPd, pd_param)[motor_id] = 0
                     else:
                         getattr(leg.motorPd, pd_param)[motor_id] = action[i]
                         i += 1
@@ -190,31 +205,60 @@ class CassieEnv(Env, Serializable):
 
     def _build_act_limits_array(self):
         limits = []
+        p_gain, d_gain = 0, 0
 
-        if self.fixed_gains:
-            pd_params_to_set = ['torque', 'pTarget', 'dTarget']
-        else:
-            pd_params_to_set = ['torque', 'pTarget', 'dTarget', 'pGain', 'dGain']
+        if 'T' in self.ctrl_type:
+            self._pd_params_to_set.append('torque')
+        if 'P' in self.ctrl_type:
+            self._pd_params_to_set.append('pTarget')
+            p_gain = self.parameters['pGain']
+        if 'V' in self.ctrl_type:
+            self._pd_params_to_set.append('dTarget')
+            d_gain = self.parameters['dGain']
+        if not self.fixed_gains:
+            assert 'P' in self.ctrl_type or 'V' in self.ctrl_type
+            if 'P' in self.ctrl_type:
+                self._pd_params_to_set.append('pGain')
+            if 'V' in self.ctrl_type:
+                self._pd_params_to_set.append('pGain')
+
+        self.parameters['pGain'], self.parameters['dGain'] = p_gain, d_gain
+
 
         for leg_name in ['leftLeg', 'rightLeg']:
             for motor_id in range(5):
-                for pd_param in pd_params_to_set:
+                for pd_param in self._pd_params_to_set:
                     if pd_param == 'torque':
-                        low, high = (-CASSIE_TORQUE_LIMITS[motor_id], CASSIE_TORQUE_LIMITS[motor_id])
+                        low, high = (-self.parameters['cassie_torque_limits'][motor_id],
+                                     self.parameters['cassie_torque_limits'][motor_id])
                     elif pd_param == 'pTarget':
                         low, high = (-2 * np.pi, 2 * np.pi)
                     elif pd_param == 'dTarget':
-                        low, high = (-CASSIE_MOTOR_VEL_LIMIT[motor_id], CASSIE_MOTOR_VEL_LIMIT[motor_id])
+                        low, high = (-self.parameters['cassie_motor_vel_limits'][motor_id],
+                                     self.parameters['cassie_motor_vel_limits'][motor_id])
                     elif pd_param == 'pGain':
-                        low, high = P_GAIN_RANGE
+                        low, high = self.parameters['p_gain_range']
                     elif pd_param == 'dGain':
-                        low, high = D_GAIN_RANGE
+                        low, high = self.parameters['d_gain_range']
                     else:
                         raise AssertionError('Unknown pd_param %s' % pd_param)
                     limits.append(np.array([low, high]))
         limits_array = np.stack(limits, axis=0)
         assert limits_array.ndim == 2 and limits_array.shape[1] == 2
         return limits_array
+
+    def set_default_parameters(self):
+        self.parameters = dict(cassie_torque_limits=np.array([4.5*25, 4.5*25, 12.2*16, 12.2*16, 0.9*50]), # ctrl_limit * gear_ratio
+                               cassie_motor_vel_limits=np.array([2900, 2900, 1300, 1300, 5500]) / 60 / (2 * np.pi), # max_rpm / 60 / 2*pi
+                               p_gain_range=[10, 10000],
+                               d_gain_range=[1, 100],
+                               model_timestep=0.001,
+                               pGain=200,
+                               dGain=20,
+                               num_qpos=34,
+                               num_qvel=32,
+                               ctrl_cost_coef=0.001,
+                               stability_cost_coef=0.01,)
 
     # #TODO: sth. is wrong with the pelvis_pos -> should be absolute from world coord. e.g. (0,0,1) in the beginning but that is not the case
     # def _cassie_state_to_obs(self, state):
@@ -262,7 +306,6 @@ if __name__ == '__main__':
         for j in range(500):
             cum_forward_vel = 0
             act = env.action_space.sample()
-            print(act.shape)
             obs, reward, done, info = env.step(act)
             if render: env.render()
             if done: break

@@ -4,7 +4,7 @@ from sandbox.rocky.tf.envs.base import TfEnv
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from sandbox.rocky.tf.algos.trpo import TRPO
 from rllab.misc.instrument import run_experiment_lite
-from sandbox.ours.envs.mujoco import CassieEnv
+from sandbox.ignasi.envs.mujoco import CassieEnv
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
 from experiments.helpers.ec2_helpers import cheapest_subnets
@@ -14,10 +14,10 @@ import sys
 import argparse
 import random
 
-EXP_PREFIX = 'cassie-trpo'
+EXP_PREFIX = 'cassie-ctrl-type-running'
 
 ec2_instance = 'm4.2xlarge'
-subnets = ['us-west-1b', 'us-west-1c'] #cheapest_subnets(ec2_instance, num_subnets=3)
+subnets = ['us-west-1b', 'us-west-1c'] # cheapest_subnets(ec2_instance, num_subnets=3)
 
 
 def run_train_task(vv):
@@ -26,7 +26,10 @@ def run_train_task(vv):
         fixed_gains=vv['fixed_gains'],
         stability_cost_coef=vv['stability_cost_coef'],
         ctrl_cost_coef=vv['ctrl_cost_coef'],
-        alive_bonus=vv['alive_bonus']
+        alive_bonus=vv['alive_bonus'],
+        impact_cost_coef=vv['impact_cost_coef'],
+        task=vv['task'],
+        ctrl_type=vv['ctrl_type']
     )))
 
     policy = GaussianMLPPolicy(
@@ -65,17 +68,20 @@ def run_experiment(argv):
 
     vg = VariantGenerator()
     vg.add('n_itr', [5000])
-    vg.add('fixed_gains', [False])
-    vg.add('stability_cost_coef', [1e-2])
-    vg.add('ctrl_cost_coef', [1e-3])
+    vg.add('fixed_gains', [True])
+    vg.add('stability_cost_coef', [1])
+    vg.add('ctrl_cost_coef', [1e-2])
     vg.add('alive_bonus', [0.2])
+    vg.add('impact_cost_coef', [1e-4])
     vg.add('step_size', [0.025])
     vg.add('seed', [1, 11])
     vg.add('discount', [0.99])
-    vg.add('path_length', [100])
-    vg.add('batch_size', [50000, 100000])
+    vg.add('path_length', [200])
+    vg.add('batch_size', [50000])
     vg.add('hidden_nonlinearity', ['tanh'])
-    vg.add('hidden_sizes', [(64, 64), (128, 64)])
+    vg.add('hidden_sizes', [(64, 64)])
+    vg.add('task', ['running'])
+    vg.add('ctrl_type', ['T', 'TP', 'P', 'V', 'TV', 'TPV'])
 
     variants = vg.variants()
 
@@ -129,7 +135,7 @@ def run_experiment(argv):
             seed=v["seed"],
             #sync_all_data_node_to_s3=True,
             python_command="python3",
-            pre_commands=["yes | pip install tensorflow=='1.6.0'",
+            pre_commands=["yes | pip install tensorflow=='1.4.1'",
                           "yes | pip install --upgrade cloudpickle"],
             mode=args.mode,
             use_cloudpickle=True,

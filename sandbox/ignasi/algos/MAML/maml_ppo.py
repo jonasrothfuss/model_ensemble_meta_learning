@@ -63,6 +63,7 @@ class MAMLPPO(BatchMAMLPolopt):
         kl_list = []
         entropy_list = []
         new_params = None
+
         # MAML inner loop
         for j in range(self.num_grad_updates):
             obs_vars, action_vars, adv_vars = self.make_vars(str(j))
@@ -74,6 +75,7 @@ class MAMLPPO(BatchMAMLPolopt):
                     })
                 old_dist_info_vars_list += [old_dist_info_vars[i][k] for k in dist.dist_info_keys]
             surr_objs = []
+            _surr_objs_ph = []
 
             cur_params = new_params
             new_params = []  # if there are several grad_updates the new_params are overwritten
@@ -96,12 +98,19 @@ class MAMLPPO(BatchMAMLPolopt):
                 entropies.append(entropy)
                 # formulate as a minimization problem
                 # The gradient of the surrogate objective is the policy gradient
-                surr_objs.append(- tf.reduce_mean(lr * adv_vars[i]))
+
+                surr_objs.append(-tf.reduce_mean(lr * adv_vars[i]))
+                if j == 0:
+                    _dist_info_vars, _ = self.policy.dist_info_sym(obs_vars[i], state_info_vars,
+                                                                       all_params=self.policy.all_params_ph[i])
+                    _lr_ph = dist.likelihood_ratio_sym(action_vars[i], old_dist_info_vars[i], _dist_info_vars)
+                    _surr_objs_ph.append(-tf.reduce_mean(_lr_ph * adv_vars[i]))
 
             input_list += obs_vars + action_vars + adv_vars + old_dist_info_vars_list
             if j == 0:
                 # For computing the fast update for sampling
-                self.policy.set_init_surr_obj(input_list, surr_objs)
+                self.policy.set_init_surr_obj(input_list, _surr_objs_ph)
+                self.policy._update_input_keys = ['observations', 'actions', 'advantages', 'agent_infos']
                 init_input_list = input_list
 
             all_surr_objs.append(surr_objs)
@@ -125,9 +134,9 @@ class MAMLPPO(BatchMAMLPolopt):
             dist_info_vars, _ = self.policy.updated_dist_info_sym(i, all_surr_objs[-1][i], obs_vars[i], params_dict=new_params[i])
             lr = dist.likelihood_ratio_sym(action_vars[i], old_dist_info_vars[i], dist_info_vars)
             kl_penalty = sum(list(kl_list[j][i] * kl_coeff_vars_list[j][i] for j in range(self.num_grad_updates)))
+            entropy_bonus = sum(list(entropy_list[j][i] for j in range(self.num_grad_updates)))
             clipped_obj = tf.minimum(lr * adv_vars[i], tf.clip_by_value(lr, 1-self.clip_eps, 1+self.clip_eps) * adv_vars[i])
-            surr_objs.append(- tf.reduce_mean(clipped_obj) + kl_penalty
-                             - sum(list(entropy_list[j][i] for j in range(self.num_grad_updates))))
+            surr_objs.append(- tf.reduce_mean(clipped_obj) + kl_penalty - entropy_bonus)
 
         if self.use_maml:
             surr_obj = tf.reduce_mean(tf.stack(surr_objs, 0))  # mean over meta_batch_size (the diff tasks)
@@ -164,13 +173,12 @@ class MAMLPPO(BatchMAMLPolopt):
 
                 inputs = ext.extract(
                     all_samples_data[step][i],
-                    "observations", "actions", "advantages"
+                    "observations", "actions", "advantages", "agent_infos"
                 )
                 obs_list.append(inputs[0])
                 action_list.append(inputs[1])
                 adv_list.append(inputs[2])
-                agent_infos = all_samples_data[step][i]['agent_infos']
-                dist_info_list.extend([agent_infos[k] for k in self.policy.distribution.dist_info_keys])
+                dist_info_list.extend([inputs[3][k] for k in self.policy.distribution.dist_info_keys])
 
             input_list += obs_list + action_list + adv_list + dist_info_list  # [ [obs_0], [act_0], [adv_0], [dist_0], [obs_1], ... ]
         kl_coeff = tuple(self.kl_coeff)
@@ -180,21 +188,21 @@ class MAMLPPO(BatchMAMLPolopt):
         self.optimizer.optimize(input_list, extra_inputs=kl_coeff)
         if log: logger.log("Computing loss after")
         loss_after = self.optimizer.loss(input_list, extra_inputs=kl_coeff)
-
         if log: logger.log("Updating KL loss coefficients")
-        sess = tf.get_default_session()
         kls = self.optimizer.inner_kl(input_list, extra_inputs=kl_coeff) # sess.run(self.kl_list, dict(list(zip(self.optimizer._input_vars, input_list + self.kl_coeff))))
+
+        # TODO: Try w/o adaptive step size
         for i, kl in enumerate(kls):
             if kl < self.target_inner_step / 1.5:
                 self.kl_coeff[i] /= 2
             if kl > self.target_inner_step * 1.5:
                 self.kl_coeff[i] *= 2
 
-        if self.use_maml:
-            if log: logger.record_tabular('LossBefore', loss_before)
-            if log: logger.record_tabular('LossAfter', loss_after)
-            if log: logger.record_tabular('dLoss', loss_before - loss_after)
-            if log: logger.record_tabular('klDiff', np.mean(kls))
+        if self.use_maml and log:
+            logger.record_tabular('LossBefore', loss_before)
+            logger.record_tabular('LossAfter', loss_after)
+            logger.record_tabular('dLoss', loss_before - loss_after)
+            logger.record_tabular('klDiff', np.mean(kls))
         return dict()
 
     @overrides
