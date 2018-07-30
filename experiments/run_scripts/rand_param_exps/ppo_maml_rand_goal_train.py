@@ -60,6 +60,7 @@ def run_train_task(vv):
         target_inner_step=vv['target_inner_step'],
         init_kl_penalty=vv['init_kl_penalty'],
         adaptive_kl_penalty=vv['adaptive_kl_penalty'],
+        parallel_sampler=vv['parallel_sampler'],
         optimizer_args=optimizer_args,
     )
     algo.train()
@@ -98,6 +99,8 @@ def run_experiment(argv):
     vg.add('adaptive_kl_penalty', [False])
     vg.add('max_epochs', [10])
     vg.add('num_batches', [1])
+    vg.add('parallel_sampler', [True])
+
 
     variants = vg.variants()
 

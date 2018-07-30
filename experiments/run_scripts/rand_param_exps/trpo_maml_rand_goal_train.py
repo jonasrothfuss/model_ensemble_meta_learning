@@ -51,6 +51,7 @@ def run_train_task(vv):
         n_itr=vv['n_itr'],
         discount=vv['discount'],
         step_size=vv["meta_step_size"],
+        parallel_sampler=vv['parallel_sampler'],
     )
     algo.train()
 
@@ -82,6 +83,7 @@ def run_experiment(argv):
     vg.add('trainable_step_size', [False])
     vg.add('bias_transform', [False])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
+    vg.add('parallel_sampler', [True])
 
     variants = vg.variants()
 

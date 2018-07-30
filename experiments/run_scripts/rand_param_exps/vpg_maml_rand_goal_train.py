@@ -19,9 +19,9 @@ import sys
 import argparse
 import random
 
-EXP_PREFIX = 'vpg-maml-hyperparam-tune'
+EXP_PREFIX = 'vpg-maml-test-lro'
 
-ec2_instance = 'm4.xlarge'
+ec2_instance = 'm4.4xlarge'
 
 
 def run_train_task(vv):
@@ -55,6 +55,7 @@ def run_train_task(vv):
         n_itr=vv['n_itr'],
         discount=vv['discount'],
         entropy_bonus=vv['entropy_bonus'],
+        parallel_sampler=vv['parallel_sampler'],
         optimizer_args=optimizer_args,
     )
     algo.train()
@@ -74,12 +75,12 @@ def run_experiment(argv):
     vg = VariantGenerator()
     vg.add('env', ['HalfCheetahEnvRandDirec'])
     vg.add('n_itr', [301])
-    vg.add('fast_lr', [0.05, 0.1])
-    vg.add('outer_lr', [3e-4, 1e-3, 3e-3])
+    vg.add('fast_lr', [0.1])
+    vg.add('outer_lr', [1e-5])
     vg.add('meta_batch_size', [40])
     vg.add('num_grad_updates', [1])
-    vg.add('fast_batch_size', [20])
-    vg.add('seed', [1, 10, 100])
+    vg.add('fast_batch_size', [100])
+    vg.add('seed', [1])
     vg.add('discount', [0.99])
     vg.add('path_length', [100])
     vg.add('hidden_nonlinearity', ['tanh'])
@@ -88,6 +89,7 @@ def run_experiment(argv):
     vg.add('bias_transform', [False])
     vg.add('entropy_bonus', [0])
     vg.add('num_batches', [1])
+    vg.add('parallel_sampler', [True])
 
     variants = vg.variants()
 

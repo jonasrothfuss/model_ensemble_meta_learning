@@ -288,7 +288,7 @@ class MAMLVPG(BatchMAMLPolopt):
                 entropy = self.entropy_bonus * tf.reduce_mean(dist.entropy_sym(dist_info_vars))
             else:
                 entropy = 0
-            surr_objs.append(- tf.reduce_mean(logli * adv_vars[i]) - entropy)
+            surr_objs.append(- tf.reduce_mean(lr * adv_vars[i]) - entropy)
 
         if self.use_maml:
             surr_obj = tf.reduce_mean(tf.stack(surr_objs, 0))  # mean over meta_batch_size (the diff tasks)
