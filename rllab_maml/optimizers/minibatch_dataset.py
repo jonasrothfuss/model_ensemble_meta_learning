@@ -47,10 +47,10 @@ class MAMLBatchDataset(object):
         self._extra_inputs = extra_inputs
         num_sets = num_grad_updates + 1 # How many sets of trajectories collected
         set_size = len(inputs) // num_sets # Number of entries (obs, actions, rewards, means, stds) per set
+        self.number_batches = num_batches
         if num_batches > 1:
             self._ids = [[np.arange(self._inputs[i + j * set_size].shape[0]) for i in range(meta_batch_size)] for j in range(num_sets)]
             self.update()
-            self.number_batches = num_batches
             self._batch_size = min([min([i.shape[0] for i in j]) for j in self._ids]) // num_batches
 
     def iterate(self, update=True):

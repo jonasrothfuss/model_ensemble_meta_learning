@@ -18,6 +18,8 @@ class MAMLPPO(BatchMAMLPolopt):
             optimizer_args=None,
             use_maml=True,
             clip_eps=0.2, 
+            clip_outer=True,
+            target_outer_step=0.001,
             target_inner_step=0.01,
             init_kl_penalty=1,
             adaptive_kl_penalty=True,
@@ -30,10 +32,13 @@ class MAMLPPO(BatchMAMLPolopt):
         self.optimizer = optimizer
         self.use_maml = use_maml
         self.clip_eps = clip_eps
+        self.clip_outer = clip_outer
+        self.target_outer_step = target_outer_step
         self.target_inner_step = target_inner_step
         self.adaptive_kl_penalty = adaptive_kl_penalty
         super(MAMLPPO, self).__init__(**kwargs)
         self.kl_coeff = [init_kl_penalty] * self.meta_batch_size
+        self.outer_kl_coeff = [init_kl_penalty] * self.meta_batch_size
 
     def make_vars(self, stepnum='0'):
         # lists over the meta_batch_size
@@ -115,6 +120,10 @@ class MAMLPPO(BatchMAMLPolopt):
         surr_objs = []
         kl_coeff_vars_list = list(tf.placeholder(tf.float32, shape=[], name='kl_%s' % i) for i in range(self.meta_batch_size))
 
+        outer_kl_list = []
+        if not self.clip_outer:
+            outer_kl_coeff_vars = list(tf.placeholder(tf.float32, shape=[], name='kl_outer_%s' % i) for i in range(self.meta_batch_size))
+            kl_coeff_vars_list += outer_kl_coeff_vars
         # MAML outer loop
         for i in range(self.meta_batch_size):
             dist_info_vars, _ = self.policy.updated_dist_info_sym(i, all_surr_objs[-1][i], obs_vars[i], params_dict=new_params[i])
@@ -124,8 +133,14 @@ class MAMLPPO(BatchMAMLPolopt):
             else:
                 entropy = 0
             kl_penalty = kl_list[i] * kl_coeff_vars_list[i]
-            clipped_obj = tf.minimum(lr * adv_vars[i], tf.clip_by_value(lr, 1-self.clip_eps, 1+self.clip_eps) * adv_vars[i])
-            surr_objs.append(- tf.reduce_mean(clipped_obj) - entropy + kl_penalty)
+            if self.clip_outer:
+                clipped_obj = tf.minimum(lr * adv_vars[i], tf.clip_by_value(lr, 1-self.clip_eps, 1+self.clip_eps) * adv_vars[i])
+                surr_objs.append(- tf.reduce_mean(clipped_obj) - entropy + kl_penalty)
+            else:
+                outer_kl = tf.reduce_mean(dist.kl_sym(old_dist_info_vars[i], dist_info_vars))
+                outer_kl_penalty = outer_kl_coeff_vars[i] * outer_kl
+                surr_objs.append(- tf.reduce_mean(lr * adv_vars[i]) - entropy + kl_penalty + outer_kl_penalty)
+                outer_kl_list.append(outer_kl)
 
         if self.use_maml:
             surr_obj = tf.reduce_mean(tf.stack(surr_objs, 0))  # mean over meta_batch_size (the diff tasks)
@@ -138,6 +153,7 @@ class MAMLPPO(BatchMAMLPolopt):
             target=self.policy,
             inputs=input_list,
             inner_kl=kl_list,
+            outer_kl=outer_kl_list,
             extra_inputs=kl_coeff_vars_list,
             meta_batch_size=self.meta_batch_size,
             num_grad_updates=self.num_grad_updates,
@@ -169,6 +185,9 @@ class MAMLPPO(BatchMAMLPolopt):
 
             input_list += obs_list + action_list + adv_list + dist_info_list  # [ [obs_0], [act_0], [adv_0], [dist_0], [obs_1], ... ]
         kl_coeff = tuple(self.kl_coeff)
+        if not self.clip_outer:
+            kl_coeff += tuple(self.outer_kl_coeff)
+
         if log: logger.log("Computing loss before")
         loss_before = self.optimizer.loss(input_list, extra_inputs=kl_coeff)
         if log: logger.log("Optimizing")    

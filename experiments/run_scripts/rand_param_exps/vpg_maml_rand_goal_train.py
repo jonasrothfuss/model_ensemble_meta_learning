@@ -6,12 +6,12 @@ from rllab_maml.envs.mujoco.ant_env_rand_goal import AntEnvRandGoal
 from rllab_maml.envs.mujoco.swimmer_randgoal_env import SwimmerRandGoalEnv
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
-from sandbox.ours.algos.MAML.maml_trpo import MAMLTRPO
+from sandbox.dennis.algos.MAML.maml_vpg import MAMLVPG
 from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
 from sandbox.ours.envs.normalized_env import normalize
 from sandbox.ours.envs.base import TfEnv
 from rllab.misc.instrument import run_experiment_lite
-from sandbox.ours.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
+from sandbox.ours.policies.maml_improved_gauss_mlp_policy import PPOMAMLImprovedGaussianMLPPolicy
 from experiments.helpers.ec2_helpers import cheapest_subnets
 
 import tensorflow as tf
@@ -19,8 +19,7 @@ import sys
 import argparse
 import random
 
-
-EXP_PREFIX = 'trpo-maml-timing'
+EXP_PREFIX = 'vpg-maml-hyperparam-tune'
 
 ec2_instance = 'm4.xlarge'
 
@@ -28,7 +27,7 @@ ec2_instance = 'm4.xlarge'
 def run_train_task(vv):
     env = TfEnv(normalize(vv['env']()))
 
-    policy = MAMLImprovedGaussianMLPPolicy(
+    policy = PPOMAMLImprovedGaussianMLPPolicy(
         name="policy",
         env_spec=env.spec,
         hidden_sizes=vv['hidden_sizes'],
@@ -40,7 +39,12 @@ def run_train_task(vv):
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
 
-    algo = MAMLTRPO(
+    optimizer_args = dict(
+        batch_size=vv['num_batches'],
+        tf_optimizer_args=dict(learning_rate=vv['outer_lr']),
+    )
+
+    algo = MAMLVPG(
         env=env,
         policy=policy,
         baseline=baseline,
@@ -50,7 +54,8 @@ def run_train_task(vv):
         num_grad_updates=vv['num_grad_updates'],
         n_itr=vv['n_itr'],
         discount=vv['discount'],
-        step_size=vv["meta_step_size"],
+        entropy_bonus=vv['entropy_bonus'],
+        optimizer_args=optimizer_args,
     )
     algo.train()
 
@@ -68,20 +73,21 @@ def run_experiment(argv):
 
     vg = VariantGenerator()
     vg.add('env', ['HalfCheetahEnvRandDirec'])
-    vg.add('n_itr', [300])
-    vg.add('fast_lr', [0.1])
+    vg.add('n_itr', [301])
+    vg.add('fast_lr', [0.05, 0.1])
+    vg.add('outer_lr', [3e-4, 1e-3, 3e-3])
     vg.add('meta_batch_size', [40])
     vg.add('num_grad_updates', [1])
-    vg.add('meta_step_size', [0.01])
     vg.add('fast_batch_size', [20])
-    vg.add('seed', [1, 11, 21])
+    vg.add('seed', [1, 10, 100])
     vg.add('discount', [0.99])
     vg.add('path_length', [100])
     vg.add('hidden_nonlinearity', ['tanh'])
     vg.add('hidden_sizes', [(64, 64)])
     vg.add('trainable_step_size', [False])
     vg.add('bias_transform', [False])
-    vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
+    vg.add('entropy_bonus', [0])
+    vg.add('num_batches', [1])
 
     variants = vg.variants()
 
@@ -92,7 +98,7 @@ def run_experiment(argv):
         config.AWS_INSTANCE_TYPE = ec2_instance
         config.AWS_SPOT_PRICE = str(info["price"])
 
-        print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format('TRPO', len(variants)))
+        print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format(EXP_PREFIX, len(variants)))
         print('Running on type {}, with price {}, on the subnets: '.format(config.AWS_INSTANCE_TYPE,
                                                                                        config.AWS_SPOT_PRICE,), str(subnets))
 
@@ -104,12 +110,11 @@ def run_experiment(argv):
     # ----------------------- TRAINING ---------------------------------------
     exp_ids = random.sample(range(1, 1000), len(variants))
     for v, exp_id in zip(variants, exp_ids):
-        exp_name = "trp0_maml_train_rand_goal_env_%s_%i_%.3f_%i_id_%i" %(v['env'], v['hidden_sizes'][0] , v['meta_step_size'], v['seed'], exp_id)
+        exp_name = "vpg_maml_train_rand_goal_env_%s_%i_id_%i" %(v['env'], v['seed'], exp_id)
         v = instantiate_class_stings(v)
 
         if args.mode == 'ec2':
             # configure instance
-
             subnet = random.choice(subnets)
             config.AWS_REGION_NAME = subnet[:-1]
             config.AWS_KEY_NAME = config.ALL_REGION_AWS_KEY_NAMES[
@@ -127,7 +132,8 @@ def run_experiment(argv):
             # Number of parallel workers for sampling
             n_parallel=n_parallel,
             # Only keep the snapshot parameters for the last iteration
-            snapshot_mode="last",
+            snapshot_mode="gap",
+            snapshot_gap=50,
             periodic_sync=True,
             sync_s3_pkl=True,
             sync_s3_log=True,
@@ -140,8 +146,7 @@ def run_experiment(argv):
             mode=args.mode,
             use_cloudpickle=True,
             variant=v,
-        )
-
+        )        
 
 def instantiate_class_stings(v):
     v['env'] = globals()[v['env']]

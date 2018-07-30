@@ -1,5 +1,9 @@
 from rllab_maml.envs.mujoco.half_cheetah_env import HalfCheetahEnv
 from rllab_maml.envs.mujoco.half_cheetah_env_rand_direc import HalfCheetahEnvRandDirec
+from rllab_maml.envs.mujoco.half_cheetah_env_rand import HalfCheetahEnvRand
+from rllab_maml.envs.mujoco.ant_env_rand_direc import AntEnvRandDirec
+from rllab_maml.envs.mujoco.ant_env_rand_goal import AntEnvRandGoal
+from rllab_maml.envs.mujoco.swimmer_randgoal_env import SwimmerRandGoalEnv
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
 from sandbox.dennis.algos.MAML.maml_ppo import MAMLPPO
@@ -15,10 +19,9 @@ import sys
 import argparse
 import random
 
+EXP_PREFIX = 'ppo-maml-timing-parallel'
 
-EXP_PREFIX = 'ppo-maml-rand-goal-env'
-
-ec2_instance = 'c4.xlarge'
+ec2_instance = 'm4.xlarge'
 
 
 def run_train_task(vv):
@@ -34,20 +37,12 @@ def run_train_task(vv):
         bias_transform=vv['bias_transform']
     )
 
-    policy.init_graph(
-        name="policy",
-        env_spec=env.spec,
-        hidden_sizes=vv['hidden_sizes'],
-        grad_step_size=vv['fast_lr'],
-        hidden_nonlinearity=vv['hidden_nonlinearity'],
-        trainable_step_size=vv['trainable_step_size'],
-        bias_transform=vv['bias_transform']
-    )
-
     baseline = LinearFeatureBaseline(env_spec=env.spec)
 
     optimizer_args = dict(
-        max_epochs=vv['max_epochs'],        
+        max_epochs=vv['max_epochs'],
+        batch_size=vv['num_batches'],
+        tf_optimizer_args=dict(learning_rate=vv['outer_lr']),
     )
 
     algo = MAMLPPO(
@@ -64,6 +59,7 @@ def run_train_task(vv):
         clip_eps=vv['clip_eps'], 
         target_inner_step=vv['target_inner_step'],
         init_kl_penalty=vv['init_kl_penalty'],
+        adaptive_kl_penalty=vv['adaptive_kl_penalty'],
         optimizer_args=optimizer_args,
     )
     algo.train()
@@ -82,8 +78,9 @@ def run_experiment(argv):
 
     vg = VariantGenerator()
     vg.add('env', ['HalfCheetahEnvRandDirec'])
-    vg.add('n_itr', [300])
-    vg.add('fast_lr', [0.1])
+    vg.add('n_itr', [301])
+    vg.add('fast_lr', [0.05])
+    vg.add('outer_lr', [1e-3])
     vg.add('meta_batch_size', [40])
     vg.add('num_grad_updates', [1])
     vg.add('fast_batch_size', [20])
@@ -94,12 +91,13 @@ def run_experiment(argv):
     vg.add('hidden_sizes', [(64, 64)])
     vg.add('trainable_step_size', [False])
     vg.add('bias_transform', [False])
-    vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
     vg.add('entropy_bonus', [0])
-    vg.add('clip_eps', [0.1, 0.2, 0.3, 0.4])
-    vg.add('target_inner_step', [5e-3, 1e-2, 1e-1, 5e-1])
-    vg.add('init_kl_penalty', [1])
-    vg.add('max_epochs', [10, 15]) # 1, 5
+    vg.add('clip_eps', [0.5])
+    vg.add('target_inner_step', [1e-2])
+    vg.add('init_kl_penalty', [1e-10])
+    vg.add('adaptive_kl_penalty', [False])
+    vg.add('max_epochs', [10])
+    vg.add('num_batches', [1])
 
     variants = vg.variants()
 
@@ -127,41 +125,15 @@ def run_experiment(argv):
 
         if args.mode == 'ec2':
             # configure instance
-            while True:
-                subnet = random.choice(subnets)
-                config.AWS_REGION_NAME = subnet[:-1]
-                config.AWS_KEY_NAME = config.ALL_REGION_AWS_KEY_NAMES[
+            subnet = random.choice(subnets)
+            config.AWS_REGION_NAME = subnet[:-1]
+            config.AWS_KEY_NAME = config.ALL_REGION_AWS_KEY_NAMES[
+                config.AWS_REGION_NAME]
+            config.AWS_IMAGE_ID = config.ALL_REGION_AWS_IMAGE_IDS[
+                config.AWS_REGION_NAME]
+            config.AWS_SECURITY_GROUP_IDS = \
+                config.ALL_REGION_AWS_SECURITY_GROUP_IDS[
                     config.AWS_REGION_NAME]
-                config.AWS_IMAGE_ID = config.ALL_REGION_AWS_IMAGE_IDS[
-                    config.AWS_REGION_NAME]
-                config.AWS_SECURITY_GROUP_IDS = \
-                    config.ALL_REGION_AWS_SECURITY_GROUP_IDS[
-                        config.AWS_REGION_NAME]
-                try:
-                    run_experiment_lite(
-                        run_train_task,
-                        exp_prefix=EXP_PREFIX,
-                        exp_name=exp_name,
-                        # Number of parallel workers for sampling
-                        n_parallel=n_parallel,
-                        # Only keep the snapshot parameters for the last iteration
-                        snapshot_mode="last",
-                        periodic_sync=True,
-                        sync_s3_pkl=True,
-                        sync_s3_log=True,
-                        # Specifies the seed for the experiment. If this is not provided, a random seed
-                        # will be used
-                        pre_commands=["yes | pip install tensorflow=='1.6.0'",
-                                      "yes | pip install --upgrade cloudpickle"],
-                        seed=v["seed"],
-                        python_command="python3",
-                        mode=args.mode,
-                        use_cloudpickle=True,
-                        variant=v,
-                    )
-                    break
-                except:
-                    continue
 
         run_experiment_lite(
             run_train_task,
@@ -170,7 +142,8 @@ def run_experiment(argv):
             # Number of parallel workers for sampling
             n_parallel=n_parallel,
             # Only keep the snapshot parameters for the last iteration
-            snapshot_mode="last",
+            snapshot_mode="gap",
+            snapshot_gap=50,
             periodic_sync=True,
             sync_s3_pkl=True,
             sync_s3_log=True,
@@ -184,7 +157,7 @@ def run_experiment(argv):
             use_cloudpickle=True,
             variant=v,
         )
-        return
+        
 
 def instantiate_class_stings(v):
     v['env'] = globals()[v['env']]
