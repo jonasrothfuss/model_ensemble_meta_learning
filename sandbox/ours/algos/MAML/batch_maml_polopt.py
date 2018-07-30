@@ -49,6 +49,7 @@ class BatchMAMLPolopt(RLAlgorithm):
             sampler_cls=None,
             sampler_args=None,
             force_batch_sampler=False,
+            sampler_parallel=True,
             use_maml=True,
             load_policy=None,
             **kwargs
@@ -108,7 +109,7 @@ class BatchMAMLPolopt(RLAlgorithm):
                 sampler_args = dict(n_envs=self.meta_batch_size)
             else:
                 sampler_cls = MAMLVectorizedSampler
-                sampler_args = dict(n_tasks=self.meta_batch_size, n_envs=self.meta_batch_size * batch_size, parallel=True)
+                sampler_args = dict(n_tasks=self.meta_batch_size, n_envs=self.meta_batch_size * batch_size, parallel=sampler_parallel)
         self.sampler = sampler_cls(self, **sampler_args)
 
     def start_worker(self):

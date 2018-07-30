@@ -6,7 +6,7 @@ from rllab_maml.envs.mujoco.ant_env_rand_goal import AntEnvRandGoal
 from rllab_maml.envs.mujoco.swimmer_randgoal_env import SwimmerRandGoalEnv
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
-from sandbox.dennis.algos.MAML.maml_ppo import MAMLPPO
+from sandbox.dennis.algos.MAML.maml_vpg import MAMLVPG
 from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
 from sandbox.ours.envs.normalized_env import normalize
 from sandbox.ours.envs.base import TfEnv
@@ -19,9 +19,9 @@ import sys
 import argparse
 import random
 
-EXP_PREFIX = 'ppo-maml-timing-parallel'
+EXP_PREFIX = 'vpg-maml-test-lro'
 
-ec2_instance = 'm4.xlarge'
+ec2_instance = 'm4.4xlarge'
 
 
 def run_train_task(vv):
@@ -40,12 +40,11 @@ def run_train_task(vv):
     baseline = LinearFeatureBaseline(env_spec=env.spec)
 
     optimizer_args = dict(
-        max_epochs=vv['max_epochs'],
         batch_size=vv['num_batches'],
         tf_optimizer_args=dict(learning_rate=vv['outer_lr']),
     )
 
-    algo = MAMLPPO(
+    algo = MAMLVPG(
         env=env,
         policy=policy,
         baseline=baseline,
@@ -56,10 +55,6 @@ def run_train_task(vv):
         n_itr=vv['n_itr'],
         discount=vv['discount'],
         entropy_bonus=vv['entropy_bonus'],
-        clip_eps=vv['clip_eps'], 
-        target_inner_step=vv['target_inner_step'],
-        init_kl_penalty=vv['init_kl_penalty'],
-        adaptive_kl_penalty=vv['adaptive_kl_penalty'],
         parallel_sampler=vv['parallel_sampler'],
         optimizer_args=optimizer_args,
     )
@@ -80,12 +75,12 @@ def run_experiment(argv):
     vg = VariantGenerator()
     vg.add('env', ['HalfCheetahEnvRandDirec'])
     vg.add('n_itr', [301])
-    vg.add('fast_lr', [0.05])
-    vg.add('outer_lr', [1e-3])
+    vg.add('fast_lr', [0.1])
+    vg.add('outer_lr', [1e-5])
     vg.add('meta_batch_size', [40])
     vg.add('num_grad_updates', [1])
-    vg.add('fast_batch_size', [20])
-    vg.add('seed', [1, 10, 100])
+    vg.add('fast_batch_size', [100])
+    vg.add('seed', [1])
     vg.add('discount', [0.99])
     vg.add('path_length', [100])
     vg.add('hidden_nonlinearity', ['tanh'])
@@ -93,14 +88,8 @@ def run_experiment(argv):
     vg.add('trainable_step_size', [False])
     vg.add('bias_transform', [False])
     vg.add('entropy_bonus', [0])
-    vg.add('clip_eps', [0.5])
-    vg.add('target_inner_step', [1e-2])
-    vg.add('init_kl_penalty', [1e-10])
-    vg.add('adaptive_kl_penalty', [False])
-    vg.add('max_epochs', [10])
     vg.add('num_batches', [1])
     vg.add('parallel_sampler', [True])
-
 
     variants = vg.variants()
 
@@ -123,7 +112,7 @@ def run_experiment(argv):
     # ----------------------- TRAINING ---------------------------------------
     exp_ids = random.sample(range(1, 1000), len(variants))
     for v, exp_id in zip(variants, exp_ids):
-        exp_name = "ppo_maml_train_rand_goal_env_%s_%.1f_%.3f_%i_%i_id_%i" %(v['env'], v['clip_eps'], v['target_inner_step'], v['max_epochs'], v['seed'], exp_id)
+        exp_name = "vpg_maml_train_rand_goal_env_%s_%i_id_%i" %(v['env'], v['seed'], exp_id)
         v = instantiate_class_stings(v)
 
         if args.mode == 'ec2':
@@ -159,8 +148,7 @@ def run_experiment(argv):
             mode=args.mode,
             use_cloudpickle=True,
             variant=v,
-        )
-        
+        )        
 
 def instantiate_class_stings(v):
     v['env'] = globals()[v['env']]

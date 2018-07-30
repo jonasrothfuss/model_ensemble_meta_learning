@@ -140,7 +140,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         # env sampler - get samples from environment using the policy
         if sampler_cls is None:
             sampler_cls = MAMLVectorizedSampler
-            sampler_args = dict(n_tasks=self.meta_batch_size, n_envs=self.meta_batch_size * batch_size_env_samples)
+            sampler_args = dict(n_tasks=self.meta_batch_size, n_envs=self.meta_batch_size * batch_size_env_samples, parallel=False)
         self.env_sampler = sampler_cls(self, **sampler_args)
 
         # model sampler - makes (imaginary) rollouts with the estimated dynamics model ensemble

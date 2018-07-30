@@ -1,13 +1,17 @@
 from rllab_maml.envs.mujoco.half_cheetah_env import HalfCheetahEnv
 from rllab_maml.envs.mujoco.half_cheetah_env_rand_direc import HalfCheetahEnvRandDirec
+from rllab_maml.envs.mujoco.half_cheetah_env_rand import HalfCheetahEnvRand
+from rllab_maml.envs.mujoco.ant_env_rand_direc import AntEnvRandDirec
+from rllab_maml.envs.mujoco.ant_env_rand_goal import AntEnvRandGoal
+from rllab_maml.envs.mujoco.swimmer_randgoal_env import SwimmerRandGoalEnv
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
-from sandbox.jonas.algos.MAML.maml_trpo import MAMLTRPO
+from sandbox.ours.algos.MAML.maml_trpo import MAMLTRPO
 from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
-from sandbox.jonas.envs.normalized_env import normalize
-from sandbox.jonas.envs.base import TfEnv
+from sandbox.ours.envs.normalized_env import normalize
+from sandbox.ours.envs.base import TfEnv
 from rllab.misc.instrument import run_experiment_lite
-from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
+from sandbox.ours.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
 from experiments.helpers.ec2_helpers import cheapest_subnets
 
 import tensorflow as tf
@@ -16,9 +20,9 @@ import argparse
 import random
 
 
-EXP_PREFIX = 'trpo-maml-rand-goal-env'
+EXP_PREFIX = 'trpo-maml-timing'
 
-ec2_instance = 'c4.xlarge'
+ec2_instance = 'm4.xlarge'
 
 
 def run_train_task(vv):
@@ -47,6 +51,7 @@ def run_train_task(vv):
         n_itr=vv['n_itr'],
         discount=vv['discount'],
         step_size=vv["meta_step_size"],
+        parallel_sampler=vv['parallel_sampler'],
     )
     algo.train()
 
@@ -64,8 +69,8 @@ def run_experiment(argv):
 
     vg = VariantGenerator()
     vg.add('env', ['HalfCheetahEnvRandDirec'])
-    vg.add('n_itr', [500])
-    vg.add('fast_lr', [0.1, 0.05])
+    vg.add('n_itr', [300])
+    vg.add('fast_lr', [0.1])
     vg.add('meta_batch_size', [40])
     vg.add('num_grad_updates', [1])
     vg.add('meta_step_size', [0.01])
@@ -78,6 +83,7 @@ def run_experiment(argv):
     vg.add('trainable_step_size', [False])
     vg.add('bias_transform', [False])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
+    vg.add('parallel_sampler', [True])
 
     variants = vg.variants()
 
@@ -100,7 +106,7 @@ def run_experiment(argv):
     # ----------------------- TRAINING ---------------------------------------
     exp_ids = random.sample(range(1, 1000), len(variants))
     for v, exp_id in zip(variants, exp_ids):
-        exp_name = "trpo_maml_train_rand_goal_env_%s_%i_%.3f_%i_id_%i" %(v['env'], v['hidden_sizes'][0] , v['meta_step_size'], v['seed'], exp_id)
+        exp_name = "trp0_maml_train_rand_goal_env_%s_%i_%.3f_%i_id_%i" %(v['env'], v['hidden_sizes'][0] , v['meta_step_size'], v['seed'], exp_id)
         v = instantiate_class_stings(v)
 
         if args.mode == 'ec2':

@@ -25,7 +25,7 @@ import os
 
 EXP_PREFIX = 'model-ensemble-maml-ppo'
 
-ec2_instance = 'c4.2xlarge'
+ec2_instance = 'm4.2xlarge'
 NUM_EC2_SUBNETS = 3
 
 
@@ -83,7 +83,6 @@ def run_train_task(vv):
         max_path_length_dyn=vv.get('path_length_dyn', None),
         dynamic_model_max_epochs=vv.get('dynamic_model_max_epochs', (500, 500)),
         discount=vv['discount'],
-        step_size=vv["meta_step_size"],
         num_grad_updates=1,
         retrain_model_when_reward_decreases=vv['retrain_model_when_reward_decreases'],
         reset_policy_std=vv['reset_policy_std'],
@@ -117,10 +116,10 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
     vg = VariantGenerator()
 
-    vg.add('seed', [22])
+    vg.add('seed', [22, 23, 24])
 
     # env spec
-    vg.add('env', ['HalfCheetahEnvRandParams'])
+    vg.add('env', ['WalkerEnvRandomParams'])
     vg.add('log_scale_limit', [0.0])
     vg.add('target_velocity', [None])
     vg.add('path_length_env', [200])
@@ -129,21 +128,20 @@ def run_experiment(argv):
     vg.add('n_itr', [500])
     vg.add('fast_lr', [0.001])
     vg.add('outer_lr', [1e-3])
-    vg.add('meta_step_size', [0.01])
     vg.add('meta_batch_size', [20]) # must be a multiple of num_models
     vg.add('discount', [0.99])
     vg.add('entropy_bonus', [0])
-    vg.add('clip_eps', [0.2])
-    vg.add('target_inner_step', [0.01])
-    vg.add('init_kl_penalty', [1])
+    vg.add('clip_eps', [0.5, 0.7])
+    vg.add('target_inner_step', [3e-3, 1e-2, 3e-2])
+    vg.add('init_kl_penalty', [1e-10])
     vg.add('adaptive_kl_penalty', [True])
-    vg.add('max_epochs', [10])
+    vg.add('max_epochs', [8])
     vg.add('num_batches', [1])
 
     vg.add('batch_size_env_samples', [1])
     vg.add('batch_size_dynamics_samples', [50])
     vg.add('initial_random_samples', [5000])
-    vg.add('num_maml_steps_per_iter', [30])
+    vg.add('num_maml_steps_per_iter', [5, 15, 25])
     vg.add('retrain_model_when_reward_decreases', [False])
     vg.add('reset_from_env_traj', [False])
     vg.add('trainable_step_size', [False])
@@ -153,7 +151,7 @@ def run_experiment(argv):
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(32, 32)])
-    vg.add('hidden_sizes_model', [(512, 512)])
+    vg.add('hidden_sizes_model', [(512, 512, 512)])
     vg.add('weight_normalization_model', [True])
     vg.add('reset_policy_std', [False])
     vg.add('reinit_model_cycle', [0])
@@ -206,7 +204,7 @@ def run_experiment(argv):
             config.AWS_INSTANCE_TYPE = ec2_instance
             config.AWS_SPOT_PRICE = str(info["price"])
             subnets = cheapest_subnets(ec2_instance, num_subnets=NUM_EC2_SUBNETS)
-            print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format('TRPO', len(variants)))
+            print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format('PPO', len(variants)))
             print('Running on type {}, with price {}, on the subnets: '.format(config.AWS_INSTANCE_TYPE,
                                                                                config.AWS_SPOT_PRICE, ), str(subnets))
 
@@ -251,6 +249,7 @@ def run_experiment(argv):
                 use_cloudpickle=True,
                 variant=v,
             )
+
 
 
 def instantiate_class_stings(v):
