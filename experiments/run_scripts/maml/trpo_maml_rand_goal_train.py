@@ -2,7 +2,6 @@ from rllab_maml.envs.mujoco.half_cheetah_env import HalfCheetahEnv
 from rllab_maml.envs.mujoco.half_cheetah_env_rand_direc import HalfCheetahEnvRandDirec
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
-from sandbox.jonas.algos.MAML.maml_vpg import MAMLVPG
 from sandbox.ours.algos.MAML.maml_trpo import MAMLTRPO
 from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
 from sandbox.ours.envs.normalized_env import normalize
@@ -17,7 +16,7 @@ import argparse
 import random
 
 
-EXP_PREFIX = 'vpg-maml-rand-goal-env'
+EXP_PREFIX = 'trpo-maml-rand-goal-env'
 
 ec2_instance = 'c4.4xlarge'
 
@@ -38,7 +37,7 @@ def run_train_task(vv):
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
 
-    algo = MAMLVPG(
+    algo = MAMLTRPO(
         env=env,
         policy=policy,
         baseline=baseline,
@@ -70,7 +69,7 @@ def run_experiment(argv):
     vg.add('fast_lr', [0.1, 0.05])
     vg.add('meta_batch_size', [40])
     vg.add('num_grad_updates', [1])
-    vg.add('meta_step_size', [0.001, 0.005, 0.0005])
+    vg.add('meta_step_size', [0.01])
     vg.add('fast_batch_size', [50])
     vg.add('seed', [1, 11])
     vg.add('discount', [0.99])
@@ -79,7 +78,6 @@ def run_experiment(argv):
     vg.add('hidden_sizes', [(64, 64)])
     vg.add('trainable_step_size', [False])
     vg.add('bias_transform', [False])
-    vg.add('policy', ['MAMLGaussianMLPPolicy'])
 
     variants = vg.variants()
 
@@ -97,7 +95,7 @@ def run_experiment(argv):
     # ----------------------- TRAINING ---------------------------------------
     exp_ids = random.sample(range(1, 1000), len(variants))
     for v, exp_id in zip(variants, exp_ids):
-        exp_name = "vpg_maml_train_%s_%i_%.3f_%i_id_%i" %(v['env'], v['hidden_sizes'][0], v['meta_step_size'], v['seed'], exp_id)
+        exp_name = "trpo_maml_train_%s_%i_%.3f_%i_id_%i" %(v['env'], v['hidden_sizes'][0], v['meta_step_size'], v['seed'], exp_id)
         v = instantiate_class_stings(v)
 
         if args.mode == 'ec2':
@@ -113,30 +111,27 @@ def run_experiment(argv):
                 config.ALL_REGION_AWS_SECURITY_GROUP_IDS[
                     config.AWS_REGION_NAME]
 
-        if False:
-            run_train_task(v)
-        else:
-            run_experiment_lite(
-                run_train_task,
-                exp_prefix=EXP_PREFIX,
-                exp_name=exp_name,
-                # Number of parallel workers for sampling
-                n_parallel=8,
-                # Only keep the snapshot parameters for the last iteration
-                snapshot_mode="last",
-                periodic_sync=True,
-                sync_s3_pkl=True,
-                sync_s3_log=True,
-                # Specifies the seed for the experiment. If this is not provided, a random seed
-                # will be used
-                pre_commands=["yes | pip install tensorflow=='1.6.0'",
-                              "yes | pip install --upgrade cloudpickle"],
-                seed=v["seed"],
-                python_command="python3",
-                mode=args.mode,
-                use_cloudpickle=True,
-                variant=v,
-            )
+        run_experiment_lite(
+            run_train_task,
+            exp_prefix=EXP_PREFIX,
+            exp_name=exp_name,
+            # Number of parallel workers for sampling
+            n_parallel=8,
+            # Only keep the snapshot parameters for the last iteration
+            snapshot_mode="last",
+            periodic_sync=True,
+            sync_s3_pkl=True,
+            sync_s3_log=True,
+            # Specifies the seed for the experiment. If this is not provided, a random seed
+            # will be used
+            pre_commands=["yes | pip install tensorflow=='1.6.0'",
+                          "yes | pip install --upgrade cloudpickle"],
+            seed=v["seed"],
+            python_command="python3",
+            mode=args.mode,
+            use_cloudpickle=True,
+            variant=v,
+        )
 
 
 def instantiate_class_stings(v):
