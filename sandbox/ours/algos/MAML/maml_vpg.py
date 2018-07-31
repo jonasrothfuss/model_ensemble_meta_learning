@@ -110,7 +110,7 @@ class MAMLVPG(BatchMAMLPolopt, Serializable):
             input_list += obs_vars + action_vars + adv_vars + state_info_vars_list
             if j == 0:
                 # For computing the fast update for sampling
-                self.policy.set_init_surr_obj(input_list, surr_objs)
+                self.policy.set_init_surr_obj(input_list, _surr_objs_ph)
                 init_input_list = input_list
 
             all_surr_objs.append(surr_objs)
