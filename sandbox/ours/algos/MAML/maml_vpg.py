@@ -86,6 +86,7 @@ class MAMLVPG(BatchMAMLPolopt, Serializable):
 
             cur_params = new_params
             new_params = []
+            _surr_objs_ph = []
 
             for i in range(self.meta_batch_size):
                 if j == 0:
@@ -99,6 +100,12 @@ class MAMLVPG(BatchMAMLPolopt, Serializable):
                 # formulate as a minimization problem
                 # The gradient of the surrogate objective is the policy gradient
                 surr_objs.append(- tf.reduce_mean(logli * adv_vars[i]))
+
+                if j == 0:
+                    _dist_info_vars, _ = self.policy.dist_info_sym(obs_vars[i], state_info_vars,
+                                                                   all_params=self.policy.all_params_ph[i])
+                    _logli = dist.log_likelihood_sym(action_vars[i], _dist_info_vars)
+                    _surr_objs_ph.append(-tf.reduce_mean(- tf.reduce_mean(_logli * adv_vars[i])))
 
             input_list += obs_vars + action_vars + adv_vars + state_info_vars_list
             if j == 0:

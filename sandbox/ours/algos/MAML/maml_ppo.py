@@ -106,7 +106,7 @@ class MAMLPPO(BatchMAMLPolopt):
                 surr_objs.append(-tf.reduce_mean(lr * adv_vars[i]))
                 if j == 0:
                     _dist_info_vars, _ = self.policy.dist_info_sym(obs_vars[i], state_info_vars,
-                                                                       all_params=self.policy.all_params_ph[i])
+                                                                   all_params=self.policy.all_params_ph[i])
                     _lr_ph = dist.likelihood_ratio_sym(action_vars[i], old_dist_info_vars[i], _dist_info_vars)
                     _surr_objs_ph.append(-tf.reduce_mean(_lr_ph * adv_vars[i]))
 
