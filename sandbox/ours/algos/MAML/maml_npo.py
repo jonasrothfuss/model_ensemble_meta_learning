@@ -191,7 +191,6 @@ class MAMLNPO(BatchMAMLPolopt):
                 action_list.append(inputs[1])
                 adv_list.append(inputs[2])
             input_list += obs_list + action_list + adv_list  # [ [obs_0], [act_0], [adv_0], [obs_1], ... ]
-            #TODO consider normalizing the advantages
 
             if step == 0:  ##CF not used?
                 init_inputs = input_list

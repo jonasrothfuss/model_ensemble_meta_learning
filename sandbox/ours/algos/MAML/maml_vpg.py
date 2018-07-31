@@ -17,11 +17,9 @@ class MAMLVPG(BatchMAMLPolopt, Serializable):
 
     def __init__(
             self,
-            env,
-            policy,
-            baseline,
             optimizer=None,
             optimizer_args=None,
+            step_size=0.01,
             use_maml=True,
             **kwargs):
         Serializable.quick_init(self, locals())
@@ -37,8 +35,9 @@ class MAMLVPG(BatchMAMLPolopt, Serializable):
             optimizer = FirstOrderOptimizer(**optimizer_args)
         self.optimizer = optimizer
         self.opt_info = None
+        self.step_size = step_size
         self.use_maml = use_maml
-        super(MAMLVPG, self).__init__(env=env, policy=policy, baseline=baseline, use_maml=use_maml, **kwargs)
+        super(MAMLVPG, self).__init__(use_maml=use_maml, **kwargs)
 
 
     def make_vars(self, stepnum='0'):
@@ -115,42 +114,23 @@ class MAMLVPG(BatchMAMLPolopt, Serializable):
 
             all_surr_objs.append(surr_objs)
 
-
+        """ VPG objective """
         obs_vars, action_vars, adv_vars = self.make_vars('test')
         surr_objs = []
-        kls = []
         for i in range(self.meta_batch_size):
             dist_info_vars, _ = self.policy.updated_dist_info_sym(i, all_surr_objs[-1][i], obs_vars[i], params_dict=new_params[i])
+
             logli = dist.log_likelihood_sym(action_vars[i], dist_info_vars)
             surr_objs.append(- tf.reduce_mean(logli * adv_vars[i]))
 
-            kls.append(dist.kl_sym(old_dist_info_vars[i], dist_info_vars))
-
+        """ Sum over meta tasks"""
         surr_obj = tf.reduce_mean(tf.stack(surr_objs, 0))
-        mean_kl = tf.reduce_mean(tf.concat(kls, 0))
-        max_kl = tf.reduce_max(tf.concat(kls, 0))
         input_list += obs_vars + action_vars + adv_vars
 
         if self.use_maml:
             self.optimizer.update_opt(loss=surr_obj, target=self.policy, inputs=input_list)
         else:  # baseline method of just training initial policy
             self.optimizer.update_opt(loss=tf.reduce_mean(tf.stack(all_surr_objs[0],0)), target=self.policy, inputs=init_input_list)
-
-        f_kl = tensor_utils.compile_function(
-            inputs=input_list + old_dist_info_vars_list,
-            outputs=[mean_kl, max_kl],
-        )
-        self.opt_info = dict(
-            f_kl=f_kl,
-        )
-
-        #f_kl = tensor_utils.compile_function(
-        #    inputs=input_list + old_dist_info_vars_list,
-        #    outputs=[mean_kl, max_kl],
-        #)
-        #self.opt_info = dict(
-        #    f_kl=f_kl,
-        #)
 
 
     @overrides
@@ -165,7 +145,6 @@ class MAMLVPG(BatchMAMLPolopt, Serializable):
         for step in range(len(all_samples_data)):
             obs_list, action_list, adv_list = [], [], []
             for i in range(self.meta_batch_size):
-
 
                 inputs = ext.extract(
                     all_samples_data[step][i],
@@ -184,15 +163,6 @@ class MAMLVPG(BatchMAMLPolopt, Serializable):
         loss_after = self.optimizer.loss(input_list)
         logger.record_tabular("LossBefore", loss_before)
         logger.record_tabular("LossAfter", loss_after)
-
-        dist_info_list = []
-        for i in range(self.meta_batch_size):
-            agent_infos = all_samples_data[-1][i]['agent_infos']
-            dist_info_list += [agent_infos[k] for k in self.policy.distribution.dist_info_keys]
-        if self.use_maml:
-            mean_kl, max_kl = self.opt_info['f_kl'](*(list(input_list) + dist_info_list))
-            logger.record_tabular('MeanKL', mean_kl)
-            logger.record_tabular('MaxKL', max_kl)
 
     @overrides
     def get_itr_snapshot(self, itr, samples_data):
