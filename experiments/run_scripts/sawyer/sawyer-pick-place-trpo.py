@@ -14,7 +14,7 @@ import sys
 import argparse
 import random
 
-EXP_PREFIX = 'sawyer-trpo'
+EXP_PREFIX = 'sawyer-pick-place-trpo'
 
 ec2_instance = 'c4.2xlarge'
 subnets = cheapest_subnets(ec2_instance, num_subnets=3)
@@ -24,7 +24,6 @@ def run_train_task(vv):
 
     env = TfEnv(normalize(vv['env_class'](
         fix_goal=vv['fix_goal'],
-        reward_type=vv['reward_type']
     )))
 
     policy = GaussianMLPPolicy(
@@ -65,14 +64,12 @@ def run_experiment(argv):
     vg = VariantGenerator()
     vg.add('env', ['SawyerPickAndPlaceEnv'])
     vg.add('fix_goal', [True, False])
-    vg.add('reward_type', ['obj_distance', 'hand_and_obj_distance_weighted', 'sophisticated1',
-                           'sophisticated2', 'sophisticated3'])
 
     vg.add('n_itr', [5000])
     vg.add('step_size', [0.01])
     vg.add('seed', [1, 11])
     vg.add('discount', [0.99])
-    vg.add('path_length', [200])
+    vg.add('path_length', [150])
     vg.add('batch_size', [50000])
     vg.add('hidden_nonlinearity', ['tanh'])
     vg.add('hidden_sizes', [(32, 32)])
