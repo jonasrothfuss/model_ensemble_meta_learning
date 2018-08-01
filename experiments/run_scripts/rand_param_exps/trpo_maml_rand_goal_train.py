@@ -4,6 +4,8 @@ from rllab_maml.envs.mujoco.half_cheetah_env_rand import HalfCheetahEnvRand
 from rllab_maml.envs.mujoco.ant_env_rand_direc import AntEnvRandDirec
 from rllab_maml.envs.mujoco.ant_env_rand_goal import AntEnvRandGoal
 from rllab_maml.envs.mujoco.swimmer_randgoal_env import SwimmerRandGoalEnv
+from sandbox.ours.envs.mujoco.hopper_env_random_param import HopperEnvRandParams
+from sandbox.ours.envs.mujoco.walker_env_random_param import WalkerEnvRandomParams
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
 from sandbox.ours.algos.MAML.maml_trpo import MAMLTRPO
@@ -20,9 +22,9 @@ import argparse
 import random
 
 
-EXP_PREFIX = 'trpo-maml-timing'
+EXP_PREFIX = 'trpo-maml-eval'
 
-ec2_instance = 'm4.xlarge'
+ec2_instance = 'c4.2xlarge'
 
 
 def run_train_task(vv):
@@ -68,9 +70,9 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['HalfCheetahEnvRandDirec'])
-    vg.add('n_itr', [300])
-    vg.add('fast_lr', [0.1])
+    vg.add('env', ['WalkerEnvRandomParams', 'HopperEnvRandParams'])
+    vg.add('n_itr', [301])
+    vg.add('fast_lr', [0.001, 0.01, 0.1])
     vg.add('meta_batch_size', [40])
     vg.add('num_grad_updates', [1])
     vg.add('meta_step_size', [0.01])
@@ -106,7 +108,7 @@ def run_experiment(argv):
     # ----------------------- TRAINING ---------------------------------------
     exp_ids = random.sample(range(1, 1000), len(variants))
     for v, exp_id in zip(variants, exp_ids):
-        exp_name = "trp0_maml_train_rand_goal_env_%s_%i_%.3f_%i_id_%i" %(v['env'], v['hidden_sizes'][0] , v['meta_step_size'], v['seed'], exp_id)
+        exp_name = "%s_%s_%i_%.3f_%i_id_%i" %(EXP_PREFIX, v['env'], v['hidden_sizes'][0] , v['meta_step_size'], v['seed'], exp_id)
         v = instantiate_class_stings(v)
 
         if args.mode == 'ec2':
@@ -129,7 +131,8 @@ def run_experiment(argv):
             # Number of parallel workers for sampling
             n_parallel=n_parallel,
             # Only keep the snapshot parameters for the last iteration
-            snapshot_mode="last",
+            snapshot_mode="last_gap",
+            snapshot_gap=50,
             periodic_sync=True,
             sync_s3_pkl=True,
             sync_s3_log=True,
@@ -154,7 +157,7 @@ def instantiate_class_stings(v):
     elif v['hidden_nonlinearity'] == 'elu':
         v['hidden_nonlinearity'] = tf.nn.elu
     else:
-        raise NotImplementedError('Not able to recognize spicified hidden_nonlinearity: %s' % v['hidden_nonlinearity'])
+        raise NotImplementedError('Not able to recognize specified hidden_nonlinearity: %s' % v['hidden_nonlinearity'])
     return v
 
 
