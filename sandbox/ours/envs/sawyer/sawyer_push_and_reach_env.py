@@ -22,7 +22,7 @@ class SawyerPushAndReachXYZEnv(MultitaskEnv, SawyerXYZEnv):
             fix_goal=False,
             fixed_goal=(0.15, 0.6, 0.055, -0.15, 0.6),
             puck_goal_low=[-0.3, 0.55],
-            puck_goal_high=[-0.1, 0.7],
+            puck_goal_high=[-0.1, 0.75],
 
             hide_goal_markers=False,
 
@@ -196,7 +196,6 @@ class SawyerPushAndReachXYZEnv(MultitaskEnv, SawyerXYZEnv):
     def reset_model(self):
         self._reset_hand()
         goal = self.sample_goal()
-        print(goal)
         self._state_goal = goal['state_desired_goal']
         self._set_goal_marker(self._state_goal)
 
