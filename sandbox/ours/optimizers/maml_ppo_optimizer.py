@@ -11,13 +11,13 @@ import time
 from functools import partial
 import pyprind
 
-
 class MAMLPPOOptimizer(FirstOrderOptimizer):
     ## Right now it's just implemented one gradient step with all the data
     
-    def update_opt(self, loss, target, inputs, inner_kl, extra_inputs=None, meta_batch_size=1, num_grad_updates=1, **kwargs):
+    def update_opt(self, loss, target, inputs, inner_kl, outer_kl, extra_inputs=None, meta_batch_size=1, num_grad_updates=1, **kwargs):
         """
         :param inner_kl: Symbolic expression for inner kl
+        :param outer_kl: Symbolic expression for outer kl
         :param meta_batch_size: number of MAML tasks, for batcher
         """
         super().update_opt(loss, target, inputs, extra_inputs, **kwargs)
@@ -25,7 +25,8 @@ class MAMLPPOOptimizer(FirstOrderOptimizer):
             extra_inputs = list()
         self._opt_fun = ext.lazydict(
             f_loss=lambda: tensor_utils.compile_function(inputs + extra_inputs, loss),
-            f_inner_kl=lambda: tensor_utils.compile_function(inputs + extra_inputs, inner_kl)
+            f_inner_kl=lambda: tensor_utils.compile_function(inputs + extra_inputs, inner_kl),
+            f_outer_kl=lambda: tensor_utils.compile_function(inputs + extra_inputs, outer_kl),
         )
         self.meta_batch_size = meta_batch_size
         self.num_grad_updates = num_grad_updates
@@ -34,6 +35,12 @@ class MAMLPPOOptimizer(FirstOrderOptimizer):
         if extra_inputs is None:
             extra_inputs = tuple()
         return self._opt_fun["f_inner_kl"](*(tuple(inputs) + extra_inputs))
+
+    def outer_kl(self, inputs, extra_inputs=None):
+        if extra_inputs is None:
+            extra_inputs = tuple()
+        return self._opt_fun["f_outer_kl"](*(tuple(inputs) + extra_inputs))
+
 
     def optimize(self, inputs, extra_inputs=None, callback=None):
 
@@ -50,11 +57,7 @@ class MAMLPPOOptimizer(FirstOrderOptimizer):
 
         start_time = time.time()
         # Overload self._batch size
-        dataset = MAMLBatchDataset(inputs,
-                                   num_batches=self._batch_size,
-                                   extra_inputs=extra_inputs,
-                                   meta_batch_size=self.meta_batch_size,
-                                   num_grad_updates=self.num_grad_updates)
+        dataset = MAMLBatchDataset(inputs, num_batches=self._batch_size, extra_inputs=extra_inputs, meta_batch_size=self.meta_batch_size, num_grad_updates=self.num_grad_updates)
 
         sess = tf.get_default_session()
         for epoch in range(self._max_epochs):

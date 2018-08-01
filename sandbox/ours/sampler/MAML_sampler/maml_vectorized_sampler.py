@@ -31,7 +31,7 @@ class MAMLVectorizedSampler(MAMLBaseSampler):
         elif self.parallel:
             self.vec_env = MAMLParallelVecEnvExecutor(self.algo.env, self.n_tasks, self.n_envs, max_path_length=self.algo.max_path_length)
         else:
-            envs = [pickle.loads(pickle.dumps(self.algo.env)) for _ in range(self.env)]
+            envs = [pickle.loads(pickle.dumps(self.algo.env)) for _ in range(self.n_envs)]
             self.vec_env = MAMLVecEnvExecutor(
                 envs=envs,
                 #env=pickle.loads(pickle.dumps(self.algo.env)),

@@ -71,7 +71,7 @@ class WalkerEnvRandomParams(BaseEnvRandParams, Walker2DEnv, Serializable):
     def log_diagnostics(self, paths, prefix=''):
         if len(paths) > 0:
             progs = [
-                path["observations"][3]
+                path["observations"][-1][-3] - path["observations"][0][-3]
                 for path in paths
             ]
             logger.record_tabular(prefix +'AverageForwardProgress', np.mean(progs))
@@ -90,9 +90,9 @@ if __name__ == "__main__":
     env = WalkerEnvRandomParams()
     env.reset()
     import time
-    # print(env.model.body_mass)
     while True:
         env.reset()
+        print(env.model.body_mass)
         qpos = env.model.data.qpos.copy()
         qpos[3, 0] = -20/180 * np.pi
         qpos[-3, 0] = 40 / 180 * np.pi
@@ -107,5 +107,5 @@ if __name__ == "__main__":
                 env.step(np.zeros_like(env.action_space.sample()))  # take a random action
             else:
                 env.step(env.action_space.sample())
-            time.sleep(0.5)
+            # time.sleep(0.5)
 
