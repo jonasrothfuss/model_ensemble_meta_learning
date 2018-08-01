@@ -21,17 +21,17 @@ ec2_instance = 'c4.4xlarge'
 subnets = cheapest_subnets(ec2_instance, num_subnets=3)
 
 PUCK_GOAL_TARGET = np.array([-0.2, 0.65])
-INIT_PUCK_TARGET = np.array([0.05, 0.55])
+INIT_PUCK_TARGET = np.array([0.00, 0.60])
 
 def run_train_task(vv):
 
     env = TfEnv(normalize(vv['env_class'](
         fix_goal=vv['fix_goal'],
         reward_type=vv['reward_type'],
-        init_puck_low=PUCK_GOAL_TARGET - vv['goal_slack'],
-        init_puck_high=PUCK_GOAL_TARGET + vv['goal_slack'],
-        puck_goal_low= INIT_PUCK_TARGET - vv['goal_slack'],
-        puck_goal_high=INIT_PUCK_TARGET + vv['goal_slack'],
+        init_puck_low=INIT_PUCK_TARGET - vv['init_slack'],
+        init_puck_high=INIT_PUCK_TARGET + vv['init_slack'],
+        puck_goal_low= PUCK_GOAL_TARGET - vv['goal_slack'],
+        puck_goal_high=PUCK_GOAL_TARGET + vv['goal_slack'],
     )))
 
     policy = GaussianMLPPolicy(

@@ -371,8 +371,18 @@ class SawyerPushAndReachXYEnv(SawyerPushAndReachXYZEnv):
 
 if __name__ == "__main__":
     import time
+
+    PUCK_GOAL_TARGET = np.array([-0.2, 0.65])
+    INIT_PUCK_TARGET = np.array([0.00, 0.60])
+    goal_slack = 0.001
+    puck_slack = 0.001
+
     env = SawyerPushAndReachXYZEnv(
-        fix_goal=False
+        fix_goal=False,
+        init_puck_low=INIT_PUCK_TARGET - puck_slack,
+        init_puck_high=INIT_PUCK_TARGET + puck_slack,
+        puck_goal_low=PUCK_GOAL_TARGET - goal_slack,
+        puck_goal_high=PUCK_GOAL_TARGET + goal_slack,
     )
     env.reset()
     for _ in range(1000):
