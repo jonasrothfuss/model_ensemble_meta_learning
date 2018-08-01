@@ -17,9 +17,9 @@ class MAMLVPG(BatchMAMLPolopt, Serializable):
 
     def __init__(
             self,
+            step_size=0.01,
             optimizer=None,
             optimizer_args=None,
-            step_size=0.01,
             use_maml=True,
             **kwargs):
         Serializable.quick_init(self, locals())
@@ -27,6 +27,7 @@ class MAMLVPG(BatchMAMLPolopt, Serializable):
             default_args = dict(
                 batch_size=None,
                 max_epochs=1,
+                step_size=step_size
             )
             if optimizer_args is None:
                 optimizer_args = default_args
@@ -123,7 +124,6 @@ class MAMLVPG(BatchMAMLPolopt, Serializable):
             logli = dist.log_likelihood_sym(action_vars[i], dist_info_vars)
             surr_objs.append(- tf.reduce_mean(logli * adv_vars[i]))
 
-        """ Sum over meta tasks"""
         surr_obj = tf.reduce_mean(tf.stack(surr_objs, 0))
         input_list += obs_vars + action_vars + adv_vars
 
@@ -159,10 +159,17 @@ class MAMLVPG(BatchMAMLPolopt, Serializable):
                 init_inputs = input_list
 
         loss_before = self.optimizer.loss(input_list)
+        logger.log("Optimizing")
         self.optimizer.optimize(input_list)
         loss_after = self.optimizer.loss(input_list)
         logger.record_tabular("LossBefore", loss_before)
         logger.record_tabular("LossAfter", loss_after)
+
+        dist_info_list = []
+        for i in range(self.meta_batch_size):
+            agent_infos = all_samples_data[-1][i]['agent_infos']
+            dist_info_list += [agent_infos[k] for k in self.policy.distribution.dist_info_keys]
+
 
     @overrides
     def get_itr_snapshot(self, itr, samples_data):

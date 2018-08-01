@@ -1,24 +1,16 @@
-import numpy as np
-from collections import OrderedDict
-
-from sandbox.ignasi.policies.new_policy.utils import *
+from sandbox.ours.policies.utils import *
 from sandbox_maml.rocky.tf.spaces.box import Box as BoxMAML
 from sandbox.rocky.tf.spaces.box import Box
 
 from rllab_maml.core.serializable import Serializable
 from sandbox_maml.rocky.tf.policies.base import StochasticPolicy
-from sandbox_maml.rocky.tf.distributions.diagonal_gaussian import \
-    DiagonalGaussian  # This is just a util class. No params.
+from sandbox_maml.rocky.tf.distributions.diagonal_gaussian import DiagonalGaussian
 from rllab_maml.misc.overrides import overrides
 from rllab.misc import logger
 from rllab_maml.misc.tensor_utils import flatten_tensors, unflatten_tensors
 from sandbox_maml.rocky.tf.misc import tensor_utils
-from sandbox.ours.core.utils import make_dense_layer_with_bias_transform, forward_dense_bias_transform, \
-    make_dense_layer
-import time
 import tensorflow as tf
-from sandbox_maml.rocky.tf.misc.xavier_init import xavier_initializer
-from sandbox_maml.rocky.tf.core.utils import make_input, make_param_layer, forward_param_layer, forward_dense_layer
+from sandbox_maml.rocky.tf.core.utils import make_param_layer, forward_param_layer
 load_params = True
 
 

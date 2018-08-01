@@ -90,7 +90,8 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         self.compiled = False
 
         with tf.variable_scope(self.name):
-            self.param_noise_std_ph = tf.placeholder_with_default(0.0, ())  # default parameter noise std is 0 -> no noise
+            self.param_noise_std_ph = tf.placeholder_with_default(0.0,
+                                                                  ())  # default parameter noise std is 0 -> no noise
 
             # create network
             if mean_network is None:
@@ -137,7 +138,6 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
                     forward_mean(obs, params, is_train), forward_std(obs, params))
 
                 self.std_parametrization = std_parametrization
-
 
                 if std_parametrization == 'exp':
                     min_std_param = np.log(min_std)
@@ -413,7 +413,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
         else:
             params = self.all_param_vals
             result = self._cur_f_dist(obs_stack, param_noise_std,
-                                  *sum([list(param.values()) for param in params], []),
+                                      *sum([list(param.values()) for param in params], []),
                                       )
 
         if len(result) == 2:
@@ -650,6 +650,7 @@ class MAMLImprovedGaussianMLPPolicy(StochasticPolicy, Serializable):
             tf.get_default_session().run(tf.variables_initializer(self.get_params(all_params=True)))
             self.set_param_values(d["params"], all_params=True)
 
+
 class PPOMAMLImprovedGaussianMLPPolicy(MAMLImprovedGaussianMLPPolicy):
     def compute_updated_dists(self, samples):
         """ Compute fast gradients once per iteration and pull them out of tensorflow for sampling with the post-update policy.
@@ -670,7 +671,7 @@ class PPOMAMLImprovedGaussianMLPPolicy(MAMLImprovedGaussianMLPPolicy):
             action_list.append(inputs[1])
             adv_list.append(inputs[2])
             distr_list.extend(inputs[3][k] for k in self.distribution.dist_info_keys)
-             
+
         inputs = obs_list + action_list + adv_list + distr_list
 
         # To do a second update, replace self.all_params below with the params that were used to collect the policy.

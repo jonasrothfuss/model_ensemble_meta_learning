@@ -12,7 +12,7 @@ import tensorflow as tf
 load_params = True
 
 
-class MAMLImprovedGaussianMLPPolicy(BaseMLPPolicy, Serializable):
+class MAMLGaussianMLPPolicy(BaseMLPPolicy, Serializable):
     def __init__(
             self,
             name,

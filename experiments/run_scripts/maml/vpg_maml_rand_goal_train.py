@@ -1,11 +1,8 @@
 from rllab_maml.envs.mujoco.half_cheetah_env import HalfCheetahEnv
 from rllab_maml.envs.mujoco.half_cheetah_env_rand_direc import HalfCheetahEnvRandDirec
-from rllab_maml.envs.mujoco.half_cheetah_env_rand import HalfCheetahEnvRand
-from rllab_maml.envs.mujoco.ant_env_rand_direc import AntEnvRandDirec
-from rllab_maml.envs.mujoco.ant_env_rand_goal import AntEnvRandGoal
-from rllab_maml.envs.mujoco.swimmer_randgoal_env import SwimmerRandGoalEnv
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
+from sandbox.jonas.algos.MAML.maml_vpg import MAMLVPG
 from sandbox.ours.algos.MAML.maml_trpo import MAMLTRPO
 from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
 from sandbox.ours.envs.normalized_env import normalize
@@ -20,9 +17,9 @@ import argparse
 import random
 
 
-EXP_PREFIX = 'trpo-maml-timing'
+EXP_PREFIX = 'vpg-maml-rand-goal-env'
 
-ec2_instance = 'm4.xlarge'
+ec2_instance = 'c4.4xlarge'
 
 
 def run_train_task(vv):
@@ -31,6 +28,7 @@ def run_train_task(vv):
     policy = MAMLGaussianMLPPolicy(
         name="policy",
         env_spec=env.spec,
+        num_tasks=vv['meta_batch_size'],
         hidden_sizes=vv['hidden_sizes'],
         grad_step_size=vv['fast_lr'],
         hidden_nonlinearity=vv['hidden_nonlinearity'],
@@ -40,7 +38,7 @@ def run_train_task(vv):
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
 
-    algo = MAMLTRPO(
+    algo = MAMLVPG(
         env=env,
         policy=policy,
         baseline=baseline,
@@ -51,7 +49,6 @@ def run_train_task(vv):
         n_itr=vv['n_itr'],
         discount=vv['discount'],
         step_size=vv["meta_step_size"],
-        parallel_sampler=vv['parallel_sampler'],
     )
     algo.train()
 
@@ -70,20 +67,19 @@ def run_experiment(argv):
     vg = VariantGenerator()
     vg.add('env', ['HalfCheetahEnvRandDirec'])
     vg.add('n_itr', [300])
-    vg.add('fast_lr', [0.1])
+    vg.add('fast_lr', [0.1, 0.05])
     vg.add('meta_batch_size', [40])
     vg.add('num_grad_updates', [1])
-    vg.add('meta_step_size', [0.01])
-    vg.add('fast_batch_size', [20])
-    vg.add('seed', [1, 11, 21])
+    vg.add('meta_step_size', [0.001, 0.005, 0.0005])
+    vg.add('fast_batch_size', [50])
+    vg.add('seed', [1, 11])
     vg.add('discount', [0.99])
     vg.add('path_length', [100])
     vg.add('hidden_nonlinearity', ['tanh'])
     vg.add('hidden_sizes', [(64, 64)])
     vg.add('trainable_step_size', [False])
     vg.add('bias_transform', [False])
-    vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
-    vg.add('parallel_sampler', [True])
+    vg.add('policy', ['MAMLGaussianMLPPolicy'])
 
     variants = vg.variants()
 
@@ -98,15 +94,10 @@ def run_experiment(argv):
         print('Running on type {}, with price {}, on the subnets: '.format(config.AWS_INSTANCE_TYPE,
                                                                                        config.AWS_SPOT_PRICE,), str(subnets))
 
-    if args.mode == 'ec2':
-        n_parallel = 1 # for MAML use smaller number of parallel worker since parallelization is also done over the meta batch size
-    else:
-        n_parallel = 1
-
     # ----------------------- TRAINING ---------------------------------------
     exp_ids = random.sample(range(1, 1000), len(variants))
     for v, exp_id in zip(variants, exp_ids):
-        exp_name = "trp0_maml_train_rand_goal_env_%s_%i_%.3f_%i_id_%i" %(v['env'], v['hidden_sizes'][0] , v['meta_step_size'], v['seed'], exp_id)
+        exp_name = "vpg_maml_train_%s_%i_%.3f_%i_id_%i" %(v['env'], v['hidden_sizes'][0], v['meta_step_size'], v['seed'], exp_id)
         v = instantiate_class_stings(v)
 
         if args.mode == 'ec2':
@@ -122,27 +113,30 @@ def run_experiment(argv):
                 config.ALL_REGION_AWS_SECURITY_GROUP_IDS[
                     config.AWS_REGION_NAME]
 
-        run_experiment_lite(
-            run_train_task,
-            exp_prefix=EXP_PREFIX,
-            exp_name=exp_name,
-            # Number of parallel workers for sampling
-            n_parallel=n_parallel,
-            # Only keep the snapshot parameters for the last iteration
-            snapshot_mode="last",
-            periodic_sync=True,
-            sync_s3_pkl=True,
-            sync_s3_log=True,
-            # Specifies the seed for the experiment. If this is not provided, a random seed
-            # will be used
-            pre_commands=["yes | pip install tensorflow=='1.6.0'",
-                          "yes | pip install --upgrade cloudpickle"],
-            seed=v["seed"],
-            python_command="python3",
-            mode=args.mode,
-            use_cloudpickle=True,
-            variant=v,
-        )
+        if False:
+            run_train_task(v)
+        else:
+            run_experiment_lite(
+                run_train_task,
+                exp_prefix=EXP_PREFIX,
+                exp_name=exp_name,
+                # Number of parallel workers for sampling
+                n_parallel=8,
+                # Only keep the snapshot parameters for the last iteration
+                snapshot_mode="last",
+                periodic_sync=True,
+                sync_s3_pkl=True,
+                sync_s3_log=True,
+                # Specifies the seed for the experiment. If this is not provided, a random seed
+                # will be used
+                pre_commands=["yes | pip install tensorflow=='1.6.0'",
+                              "yes | pip install --upgrade cloudpickle"],
+                seed=v["seed"],
+                python_command="python3",
+                mode=args.mode,
+                use_cloudpickle=True,
+                variant=v,
+            )
 
 
 def instantiate_class_stings(v):

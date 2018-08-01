@@ -1,12 +1,8 @@
 from rllab_maml.envs.mujoco.half_cheetah_env import HalfCheetahEnv
 from rllab_maml.envs.mujoco.half_cheetah_env_rand_direc import HalfCheetahEnvRandDirec
-from rllab_maml.envs.mujoco.half_cheetah_env_rand import HalfCheetahEnvRand
-from rllab_maml.envs.mujoco.ant_env_rand_direc import AntEnvRandDirec
-from rllab_maml.envs.mujoco.ant_env_rand_goal import AntEnvRandGoal
-from rllab_maml.envs.mujoco.swimmer_randgoal_env import SwimmerRandGoalEnv
 from rllab.misc.instrument import VariantGenerator
 from rllab import config
-from sandbox.ours.algos.MAML.maml_trpo import MAMLTRPO
+from sandbox.ours.algos.MAML.maml_ppo import MAMLPPO
 from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
 from sandbox.ours.envs.normalized_env import normalize
 from sandbox.ours.envs.base import TfEnv
@@ -20,9 +16,9 @@ import argparse
 import random
 
 
-EXP_PREFIX = 'trpo-maml-timing'
+EXP_PREFIX = 'ppo-maml-rand-goal-env'
 
-ec2_instance = 'm4.xlarge'
+ec2_instance = 'c4.4xlarge'
 
 
 def run_train_task(vv):
@@ -32,6 +28,7 @@ def run_train_task(vv):
         name="policy",
         env_spec=env.spec,
         hidden_sizes=vv['hidden_sizes'],
+        num_tasks=vv['meta_batch_size'],
         grad_step_size=vv['fast_lr'],
         hidden_nonlinearity=vv['hidden_nonlinearity'],
         trainable_step_size=vv['trainable_step_size'],
@@ -40,7 +37,11 @@ def run_train_task(vv):
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
 
-    algo = MAMLTRPO(
+    optimizer_args = dict(
+        max_epochs=vv['max_epochs'],
+    )
+
+    algo = MAMLPPO(
         env=env,
         policy=policy,
         baseline=baseline,
@@ -50,8 +51,11 @@ def run_train_task(vv):
         num_grad_updates=vv['num_grad_updates'],
         n_itr=vv['n_itr'],
         discount=vv['discount'],
-        step_size=vv["meta_step_size"],
-        parallel_sampler=vv['parallel_sampler'],
+        entropy_bonus=vv['entropy_bonus'],
+        clip_eps=vv['clip_eps'],
+        target_inner_step=vv['target_inner_step'],
+        init_kl_penalty=vv['init_kl_penalty'],
+        optimizer_args=optimizer_args,
     )
     algo.train()
 
@@ -73,45 +77,44 @@ def run_experiment(argv):
     vg.add('fast_lr', [0.1])
     vg.add('meta_batch_size', [40])
     vg.add('num_grad_updates', [1])
-    vg.add('meta_step_size', [0.01])
     vg.add('fast_batch_size', [20])
-    vg.add('seed', [1, 11, 21])
+    vg.add('seed', [1, 10])
     vg.add('discount', [0.99])
     vg.add('path_length', [100])
     vg.add('hidden_nonlinearity', ['tanh'])
     vg.add('hidden_sizes', [(64, 64)])
     vg.add('trainable_step_size', [False])
     vg.add('bias_transform', [False])
-    vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
-    vg.add('parallel_sampler', [True])
+    vg.add('entropy_bonus', [0])
+    vg.add('clip_eps', [0.4])
+    vg.add('target_inner_step', [1e-2, 1e-1])
+    vg.add('init_kl_penalty', [1])
+    vg.add('max_epochs', [10]) # 1, 5
 
     variants = vg.variants()
 
     # ----------------------- AWS conficuration ---------------------------------
     if args.mode == 'ec2':
-        subnets = cheapest_subnets(ec2_instance, num_subnets=3)
+        subnets = ['us-west-1b', 'us-west-1c']  # cheapest_subnets(ec2_instance, num_subnets=3)
         info = config.INSTANCE_TYPE_INFO[ec2_instance]
         config.AWS_INSTANCE_TYPE = ec2_instance
         config.AWS_SPOT_PRICE = str(info["price"])
 
-        print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format('TRPO', len(variants)))
+        print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format(EXP_PREFIX, len(variants)))
         print('Running on type {}, with price {}, on the subnets: '.format(config.AWS_INSTANCE_TYPE,
                                                                                        config.AWS_SPOT_PRICE,), str(subnets))
-
-    if args.mode == 'ec2':
-        n_parallel = 1 # for MAML use smaller number of parallel worker since parallelization is also done over the meta batch size
-    else:
-        n_parallel = 1
 
     # ----------------------- TRAINING ---------------------------------------
     exp_ids = random.sample(range(1, 1000), len(variants))
     for v, exp_id in zip(variants, exp_ids):
-        exp_name = "trp0_maml_train_rand_goal_env_%s_%i_%.3f_%i_id_%i" %(v['env'], v['hidden_sizes'][0] , v['meta_step_size'], v['seed'], exp_id)
+        exp_name = "ppo_maml_train_%s_%.1f_%.3f_%i_%i_id_%i" %(v['env'],
+                                                             v['clip_eps'],
+                                                             v['target_inner_step'],
+                                                             v['max_epochs'],
+                                                             v['seed'], exp_id)
         v = instantiate_class_stings(v)
 
         if args.mode == 'ec2':
-            # configure instance
-
             subnet = random.choice(subnets)
             config.AWS_REGION_NAME = subnet[:-1]
             config.AWS_KEY_NAME = config.ALL_REGION_AWS_KEY_NAMES[
@@ -127,7 +130,7 @@ def run_experiment(argv):
             exp_prefix=EXP_PREFIX,
             exp_name=exp_name,
             # Number of parallel workers for sampling
-            n_parallel=n_parallel,
+            n_parallel=1,
             # Only keep the snapshot parameters for the last iteration
             snapshot_mode="last",
             periodic_sync=True,
@@ -156,6 +159,7 @@ def instantiate_class_stings(v):
     else:
         raise NotImplementedError('Not able to recognize spicified hidden_nonlinearity: %s' % v['hidden_nonlinearity'])
     return v
+
 
 
 if __name__ == "__main__":

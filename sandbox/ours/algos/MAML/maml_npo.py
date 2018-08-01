@@ -83,10 +83,12 @@ class MAMLNPO(BatchMAMLPolopt):
             new_params = []  # if there are several grad_updates the new_params are overwritten
             kls = []
             entropies = []
+            _surr_objs_ph = []
 
             for i in range(self.meta_batch_size):
                 if j == 0:
-                    dist_info_vars, params = self.policy.dist_info_sym(obs_vars[i], state_info_vars, all_params=self.policy.all_params)
+                    dist_info_vars, params = self.policy.dist_info_sym(obs_vars[i], state_info_vars,
+                                                                       all_params=self.policy.all_params)
                     if self.kl_constrain_step == 0:
                         kl = dist.kl_sym(old_dist_info_vars[i], dist_info_vars)
                         kls.append(kl)
@@ -104,11 +106,16 @@ class MAMLNPO(BatchMAMLPolopt):
                 # formulate as a minimization problem
                 # The gradient of the surrogate objective is the policy gradient
                 surr_objs.append(- tf.reduce_mean(logli * adv_vars[i]))
+                if j == 0:
+                    _dist_info_vars, _ = self.policy.dist_info_sym(obs_vars[i], state_info_vars,
+                                                                   all_params=self.policy.all_params_ph[i])
+                    _logli = dist.log_likelihood_sym(action_vars[i], _dist_info_vars)
+                    _surr_objs_ph.append(-tf.reduce_mean(- tf.reduce_mean(_logli * adv_vars[i])))
 
             input_list += obs_vars + action_vars + adv_vars + state_info_vars_list
             if j == 0:
                 # For computing the fast update for sampling
-                self.policy.set_init_surr_obj(input_list, surr_objs)
+                self.policy.set_init_surr_obj(input_list, _surr_objs_ph)
                 init_input_list = input_list
 
             all_surr_objs.append(surr_objs)
@@ -184,7 +191,6 @@ class MAMLNPO(BatchMAMLPolopt):
                 action_list.append(inputs[1])
                 adv_list.append(inputs[2])
             input_list += obs_list + action_list + adv_list  # [ [obs_0], [act_0], [adv_0], [obs_1], ... ]
-            #TODO consider normalizing the advantages
 
             if step == 0:  ##CF not used?
                 init_inputs = input_list

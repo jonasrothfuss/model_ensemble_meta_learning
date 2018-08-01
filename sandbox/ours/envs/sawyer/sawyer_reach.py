@@ -50,13 +50,13 @@ class SawyerReachXYZEnv(SawyerXYZEnv, MultitaskEnv):
         self.hand_space = Box(self.hand_low, self.hand_high)
         self._observation_space_dict = Dict([
             ('observation', self.hand_space),
-            ('desired_goal', self.hand_space),
+            ('desired_goal', self.goal_space),
             ('achieved_goal', self.hand_space),
             ('state_observation', self.hand_space),
-            ('state_desired_goal', self.hand_space),
+            ('state_desired_goal', self.goal_space),
             ('state_achieved_goal', self.hand_space),
             ('proprio_observation', self.hand_space),
-            ('proprio_desired_goal', self.hand_space),
+            ('proprio_desired_goal', self.goal_space),
             ('proprio_achieved_goal', self.hand_space),
         ])
         self.observation_space = Box(np.concatenate([self.hand_low, self.hand_low]), np.concatenate([self.hand_high, self.hand_high]))
@@ -162,9 +162,9 @@ class SawyerReachXYZEnv(SawyerXYZEnv, MultitaskEnv):
             )
         else:
             goals = np.random.uniform(
-                self.hand_space.low,
-                self.hand_space.high,
-                size=(batch_size, self.hand_space.low.size),
+                self.goal_space.low,
+                self.goal_space.high,
+                size=(batch_size, self.goal_space.low.size),
             )
         return {
             'desired_goal': goals,

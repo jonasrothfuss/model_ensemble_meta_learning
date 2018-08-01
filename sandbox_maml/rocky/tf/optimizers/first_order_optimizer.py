@@ -20,6 +20,7 @@ class FirstOrderOptimizer(Serializable):
             self,
             tf_optimizer_cls=None,
             tf_optimizer_args=None,
+            step_size=1e-3,
             max_epochs=1000,
             tolerance=1e-6,
             batch_size=32,
@@ -44,7 +45,7 @@ class FirstOrderOptimizer(Serializable):
         if tf_optimizer_cls is None:
             tf_optimizer_cls = tf.train.AdamOptimizer
         if tf_optimizer_args is None:
-            tf_optimizer_args = dict(learning_rate=1e-3)
+            tf_optimizer_args = dict(learning_rate=step_size)
         self.learning_rate = tf_optimizer_args['learning_rate']
         self._tf_optimizer = tf_optimizer_cls(**tf_optimizer_args)
         self._init_tf_optimizer = None
