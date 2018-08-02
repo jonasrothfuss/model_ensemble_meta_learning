@@ -13,7 +13,7 @@ from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
 from sandbox.ours.envs.normalized_env import normalize
 from sandbox.ours.envs.base import TfEnv
 from rllab.misc.instrument import run_experiment_lite
-from sandbox.ours.policies.maml_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
+from sandbox.ours.policies.maml_gauss_mlp_policy import MAMLGaussianMLPPolicy
 from experiments.helpers.ec2_helpers import cheapest_subnets
 
 import tensorflow as tf
@@ -21,7 +21,7 @@ import sys
 import argparse
 import random
 
-EXP_PREFIX = 'vpg-maml-eval'
+EXP_PREFIX = 'vpg-maml-eval-2'
 
 ec2_instance = 'c4.2xlarge'
 
@@ -29,7 +29,7 @@ ec2_instance = 'c4.2xlarge'
 def run_train_task(vv):
     env = TfEnv(normalize(vv['env']()))
 
-    policy = MAMLImprovedGaussianMLPPolicy(
+    policy = MAMLGaussianMLPPolicy(
         name="policy",
         env_spec=env.spec,
         num_tasks=vv['meta_batch_size'],
@@ -92,7 +92,7 @@ def run_experiment(argv):
     vg.add('meta_batch_size', [40])
     vg.add('num_grad_updates', [1])
     vg.add('fast_batch_size', [20])
-    vg.add('seed', [1000, 10000])
+    vg.add('seed', [1, 10, 100, 1000, 10000])
     vg.add('discount', [0.99])
     vg.add('path_length', [100])
     vg.add('hidden_nonlinearity', ['tanh'])
@@ -156,7 +156,7 @@ def run_experiment(argv):
             # Number of parallel workers for sampling
             n_parallel=n_parallel,
             # Only keep the snapshot parameters for the last iteration
-            snapshot_mode="gap",
+            snapshot_mode="last_gap",
             snapshot_gap=50,
             periodic_sync=True,
             sync_s3_pkl=True,

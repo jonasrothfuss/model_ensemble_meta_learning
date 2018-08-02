@@ -49,7 +49,7 @@ class AntEnvRandGoal(MujocoEnv, Serializable):
         self.forward_dynamics(action)
         com = self.get_body_com("torso")
         # ref_x = x + self._init_torso_x
-        goal_reward = -np.sum(np.abs(com[:2] - self._goal_pos)) + 4.0 # make it happy, not suicidal
+        goal_reward = np.exp(-np.sum(np.abs(com[:2] - self._goal_pos))) # make it happy, not suicidal
         lb, ub = self.action_bounds
         scaling = (ub - lb) * 0.5
         ctrl_cost = 0.5 * 1e-2 * np.sum(np.square(action / scaling))
@@ -75,3 +75,10 @@ class AntEnvRandGoal(MujocoEnv, Serializable):
         logger.record_tabular(prefix+'MinForwardProgress', np.min(progs))
         logger.record_tabular(prefix+'StdForwardProgress', np.std(progs))
 
+if __name__ == "__main__":
+    env = AntEnvRandGoal()
+    while True:
+        env.reset()
+        for _ in range(100):
+            env.render()
+            env.step(env.action_space.sample())  # take a random action

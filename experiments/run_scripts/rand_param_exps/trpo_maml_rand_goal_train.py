@@ -84,7 +84,7 @@ def run_experiment(argv):
     vg.add('hidden_sizes', [(64, 64)])
     vg.add('trainable_step_size', [False])
     vg.add('bias_transform', [False])
-    vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
+    vg.add('policy', ['MAMLGaussianMLPPolicy'])
     vg.add('parallel_sampler', [True])
 
     variants = vg.variants()

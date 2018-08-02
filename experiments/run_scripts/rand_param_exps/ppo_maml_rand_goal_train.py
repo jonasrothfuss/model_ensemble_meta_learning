@@ -13,7 +13,7 @@ from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
 from sandbox.ours.envs.normalized_env import normalize
 from sandbox.ours.envs.base import TfEnv
 from rllab.misc.instrument import run_experiment_lite
-from sandbox.ours.policies.maml_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
+from sandbox.ours.policies.maml_gauss_mlp_policy import MAMLGaussianMLPPolicy
 from experiments.helpers.ec2_helpers import cheapest_subnets
 
 import tensorflow as tf
@@ -21,7 +21,7 @@ import sys
 import argparse
 import random
 
-EXP_PREFIX = 'ppo-maml-multi-env-tune'
+EXP_PREFIX = 'ppo-maml-hyperparam-final'
 
 ec2_instance = 'c4.2xlarge'
 
@@ -29,7 +29,7 @@ ec2_instance = 'c4.2xlarge'
 def run_train_task(vv):
     env = TfEnv(normalize(vv['env']()))
 
-    policy = MAMLImprovedGaussianMLPPolicy(
+    policy = MAMLGaussianMLPPolicy(
         name="policy",
         env_spec=env.spec,
         num_tasks=vv['meta_batch_size'],
@@ -85,14 +85,14 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['HopperEnvRandParams', 'WalkerEnvRandomParams']) # AntEnvRandGoal , 
+    vg.add('env', ['HalfCheetahEnvRandDirec']) # AntEnvRandGoal , 
     vg.add('n_itr', [301])
-    vg.add('fast_lr', [0.001, 0.01, 0.1])
+    vg.add('fast_lr', [0.1])
     vg.add('outer_lr', [1e-3])
     vg.add('meta_batch_size', [40])
     vg.add('num_grad_updates', [1])
     vg.add('fast_batch_size', [20])
-    vg.add('seed', [1, 10])
+    vg.add('seed', [1, 10, 100])
     vg.add('discount', [0.99])
     vg.add('path_length', [100])
     vg.add('hidden_nonlinearity', ['tanh'])
@@ -102,13 +102,13 @@ def run_experiment(argv):
     vg.add('entropy_bonus', [0])
     vg.add('clip_eps', [0.3, 0.5, 0.7])
     vg.add('clip_outer', [True])
-    vg.add('target_outer_step', [0]) # 1e-4, 1e-3, 1e-2, 1e-1
+    vg.add('target_outer_step', [0])
     vg.add('init_outer_kl_penalty', [0])
     vg.add('adaptive_outer_kl_penalty', [False])
-    vg.add('target_inner_step', [1e-2])
+    vg.add('target_inner_step', [5e-3, 1e-2, 5e-2])
     vg.add('init_inner_kl_penalty', [1e-3])
     vg.add('adaptive_inner_kl_penalty', [True])
-    vg.add('max_epochs', [6, 10])
+    vg.add('max_epochs', [5, 8, 10])
     vg.add('num_batches', [1])
     vg.add('parallel_sampler', [True])
 
