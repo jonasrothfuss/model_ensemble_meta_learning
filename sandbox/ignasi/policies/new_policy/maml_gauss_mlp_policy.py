@@ -6,7 +6,6 @@ from rllab_maml.misc import ext
 from rllab_maml.core.serializable import Serializable
 from sandbox.ignasi.policies.new_policy.base_mlp_policy import BaseMLPPolicy
 from sandbox_maml.rocky.tf.misc import tensor_utils
-import copy
 import tensorflow as tf
 
 load_params = True
@@ -95,7 +94,7 @@ class MAMLImprovedGaussianMLPPolicy(BaseMLPPolicy, Serializable):
             # Create placeholders for the param weights of the different tasks
             self.all_params_ph = [OrderedDict([(key, tf.placeholder(tf.float32, shape=value.shape))
                                           for key, value in self.all_params.items()])
-                             for _ in range(num_tasks)]
+                                  for _ in range(num_tasks)]
 
             # Create the variables for the inner learning rate
             for key, param in self.all_params.items():
