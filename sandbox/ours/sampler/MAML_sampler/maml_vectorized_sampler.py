@@ -19,6 +19,8 @@ class MAMLVectorizedSampler(MAMLBaseSampler):
         self.n_envs = n_envs
         self.n_tasks = n_tasks
         self.parallel = parallel
+        self.env_spec = self.algo.env.spec
+        self.vec_env = None
 
     def start_worker(self):
         n_envs = self.n_envs
@@ -31,18 +33,16 @@ class MAMLVectorizedSampler(MAMLBaseSampler):
         elif self.parallel:
             self.vec_env = MAMLParallelVecEnvExecutor(self.algo.env, self.n_tasks, self.n_envs, max_path_length=self.algo.max_path_length)
         else:
-            envs = [pickle.loads(pickle.dumps(self.algo.env)) for _ in range(self.env)]
+            envs = [pickle.loads(pickle.dumps(self.algo.env)) for _ in range(self.n_envs)]
             self.vec_env = MAMLVecEnvExecutor(
                 envs=envs,
                 #env=pickle.loads(pickle.dumps(self.algo.env)),
                 #n = n_envs,
                 max_path_length=self.algo.max_path_length
             )
-        self.env_spec = self.algo.env.spec
 
     def shutdown_worker(self):
         self.vec_env.terminate()
-
 
     def obtain_samples(self, itr, reset_args=None, return_dict=False, log_prefix=''):
         # reset_args: arguments to pass to the environments to reset
