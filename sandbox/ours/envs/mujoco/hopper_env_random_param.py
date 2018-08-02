@@ -14,7 +14,7 @@ class HopperEnvRandParams(BaseEnvRandParams, HopperEnv, Serializable):
 
     FILE = 'hopper.xml'
 
-    def __init__(self, *args, log_scale_limit=2.0, fix_params=False, rand_params=BaseEnvRandParams.RAND_PARAMS, random_seed=None, max_path_length=None, **kwargs):
+    def __init__(self, *args, log_scale_limit=3.0, fix_params=False, rand_params=BaseEnvRandParams.RAND_PARAMS, random_seed=None, max_path_length=None, **kwargs):
         """
         Half-Cheetah environment with randomized mujoco parameters
         :param log_scale_limit: lower / upper limit for uniform sampling in logspace of base 2
@@ -82,8 +82,9 @@ class HopperEnvRandParams(BaseEnvRandParams, HopperEnv, Serializable):
 if __name__ == "__main__":
 
     env = HopperEnvRandParams()
-    env.reset()
-    print(env.model.body_mass)
-    for _ in range(1000):
-        env.render()
-        env.step(env.action_space.sample())  # take a random action
+    while True:
+        env.reset()
+        print(env.model.body_mass)
+        for _ in range(100):
+            env.render()
+            env.step(env.action_space.sample())  # take a random action

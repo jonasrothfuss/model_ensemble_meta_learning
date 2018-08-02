@@ -69,6 +69,9 @@ class BaseEnvRandParams(Serializable):
         if self.fix_params and not self.parameters_already_fixed:
             self.sample_and_fix_parameters()
 
+        elif not self.parameters_already_fixed:
+            self.save_parameters()
+
         if self.fix_params and reset_args is not None:
             warnings.warn("Environment parameters are fixed - reset_ars does not have any effect", UserWarning)
 
@@ -105,6 +108,26 @@ class BaseEnvRandParams(Serializable):
         self.fix_parameters(param_dict)
         return self
 
+    def save_parameters(self):
+        assert not self.fix_params
+        self.init_params = {}
+        if 'body_mass' in self.rand_params:
+            self.init_params['body_mass'] = self.model.body_mass
+
+        # body_inertia
+        if 'body_inertia' in self.rand_params:
+            self.init_params['body_inertia'] = self.model.body_inertia
+
+        # damping -> different multiplier for different dofs/joints
+        if 'dof_damping' in self.rand_params:
+            self.init_params['dof_damping'] = self.model.dof_damping
+
+        # friction at the body components
+        if 'geom_friction' in self.rand_params:
+            self.init_params['geom_friction'] = self.model.geom_friction
+
+        self.parameters_already_fixed = True
+
     def sample_env_params(self, num_param_sets, log_scale_limit=None):
         """
         generates randomized parameter sets for the mujoco env
@@ -126,24 +149,23 @@ class BaseEnvRandParams(Serializable):
 
             if 'body_mass' in self.rand_params:
                 body_mass_multiplyers = np.array(1.5)**self.random_state.uniform(-log_scale_limit, log_scale_limit,  size=self.model.body_mass.shape)
-                new_params['body_mass'] = self.model.body_mass * body_mass_multiplyers
-
+                new_params['body_mass'] = self.init_params['body_mass'] * body_mass_multiplyers
 
             # body_inertia
             if 'body_inertia' in self.rand_params:
                 body_inertia_multiplyers = np.array(1.5)**self.random_state.uniform(-log_scale_limit, log_scale_limit,  size=self.model.body_inertia.shape)
-                new_params['body_inertia'] = body_inertia_multiplyers * self.model.body_inertia
+                new_params['body_inertia'] = body_inertia_multiplyers * self.init_params['body_inertia']
 
             # damping -> different multiplier for different dofs/joints
             if 'dof_damping' in self.rand_params:
                 dof_damping_multipliers = np.array(1.3)**self.random_state.uniform(-log_scale_limit, log_scale_limit, size=self.model.dof_damping.shape)
-                new_params['dof_damping'] = np.multiply(self.model.dof_damping, dof_damping_multipliers)
+                new_params['dof_damping'] = np.multiply(self.init_params['dof_damping'], dof_damping_multipliers)
 
             # friction at the body components
             if 'geom_friction' in self.rand_params:
                 dof_damping_multipliers = np.array(1.5) ** self.random_state.uniform(-log_scale_limit, log_scale_limit,
                                                                                      size=self.model.geom_friction.shape)
-                new_params['geom_friction'] = np.multiply(self.model.geom_friction, dof_damping_multipliers)
+                new_params['geom_friction'] = np.multiply(self.init_params['geom_friction'], dof_damping_multipliers)
 
             param_sets.append(new_params)
 

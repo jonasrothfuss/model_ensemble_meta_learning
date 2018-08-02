@@ -13,18 +13,25 @@ import tensorflow as tf
 import sys
 import argparse
 import random
+import numpy as np
 
-EXP_PREFIX = 'sawyer-trpo'
+EXP_PREFIX = 'sawyer-push-trpo'
 
 ec2_instance = 'c4.4xlarge'
 subnets = cheapest_subnets(ec2_instance, num_subnets=3)
 
+PUCK_GOAL_TARGET = np.array([-0.2, 0.65])
+INIT_PUCK_TARGET = np.array([0.00, 0.60])
 
 def run_train_task(vv):
 
     env = TfEnv(normalize(vv['env_class'](
         fix_goal=vv['fix_goal'],
-        reward_type=vv['reward_type']
+        reward_type=vv['reward_type'],
+        init_puck_low=INIT_PUCK_TARGET - vv['init_slack'],
+        init_puck_high=INIT_PUCK_TARGET + vv['init_slack'],
+        puck_goal_low= PUCK_GOAL_TARGET - vv['goal_slack'],
+        puck_goal_high=PUCK_GOAL_TARGET + vv['goal_slack'],
     )))
 
     policy = GaussianMLPPolicy(
@@ -64,7 +71,9 @@ def run_experiment(argv):
 
     vg = VariantGenerator()
     vg.add('env', ['SawyerPushAndReachXYZEnv'])
-    vg.add('fix_goal', [True, False])
+    vg.add('fix_goal', [False])
+    vg.add('goal_slack', [0.0, 0.05, 0.1])
+    vg.add('init_slack', [0.0, 0.05, 0.1])
     vg.add('reward_type', ['puck_distance_hand_distance_after_success'])
     vg.add('n_itr', [5000])
     vg.add('step_size', [0.01])
@@ -118,7 +127,8 @@ def run_experiment(argv):
             # Number of parallel workers for sampling
             n_parallel=n_parallel,
             # Only keep the snapshot parameters for the last iteration
-            snapshot_mode="last",
+            snapshot_mode="gap",
+            snapshot_gap=200,
             periodic_sync=True,
             sync_s3_pkl=True,
             sync_s3_log=True,

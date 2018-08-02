@@ -3,10 +3,11 @@ import pickle as pickle
 from multiprocessing import Process, Pipe
 from sandbox_maml.rocky.tf.misc import tensor_utils
 
-def worker(remote, parent_remote, env_pickle, n_envs, max_path_length):
+def worker(remote, parent_remote, env_pickle, n_envs, max_path_length, seed):
     parent_remote.close()
     envs = [pickle.loads(env_pickle) for _ in range(n_envs)]
     ts = np.zeros(n_envs, dtype='int')
+    np.random.seed(seed)
     while True:
         cmd, data = remote.recv()
         if cmd == 'step':
@@ -42,8 +43,9 @@ class MAMLParallelVecEnvExecutor(object):
         self.remotes, self.work_remotes = zip(*[Pipe() for _ in range(n_tasks)])
         self.n_envs = n_envs
         assert n_envs % n_tasks == 0
-        self.ps = [Process(target=worker, args=(work_remote, remote, pickle.dumps(env), n_envs // n_tasks, max_path_length))
-            for (work_remote, remote) in zip(self.work_remotes, self.remotes)] # Why pass work remotes?
+	seeds = np.random.randint(0, 1e5, n_tasks)
+        self.ps = [Process(target=worker, args=(work_remote, remote, pickle.dumps(env), n_envs // n_tasks, max_path_length, seed))
+            for (work_remote, remote, seed) in zip(self.work_remotes, self.remotes, self.seeds)] # Why pass work remotes?
         for p in self.ps:
             p.daemon = True # if the main process crashes, we should not cause things to hang
             p.start()
