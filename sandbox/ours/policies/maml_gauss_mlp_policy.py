@@ -1,8 +1,6 @@
 import numpy as np
 from collections import OrderedDict
-
 from rllab_maml.misc import ext
-
 from rllab_maml.core.serializable import Serializable
 from sandbox.ignasi.policies.new_policy.base_mlp_policy import BaseMLPPolicy
 from sandbox_maml.rocky.tf.misc import tensor_utils
@@ -155,7 +153,7 @@ class MAMLGaussianMLPPolicy(BaseMLPPolicy, Serializable):
         obs_stack = np.concatenate(observations, axis=0)
         result = self._batch_cur_f_dist(obs_stack,
                                         *sum([list(params_task.values()) for params_task in self.all_param_vals], []),
-                                  )
+                                        )
 
         if len(result) == 2:
             # NOTE - this code assumes that there aren't 2 meta tasks in a batch
