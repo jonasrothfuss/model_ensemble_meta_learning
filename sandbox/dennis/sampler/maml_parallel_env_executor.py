@@ -43,9 +43,9 @@ class MAMLParallelVecEnvExecutor(object):
         self.remotes, self.work_remotes = zip(*[Pipe() for _ in range(n_tasks)])
         self.n_envs = n_envs
         assert n_envs % n_tasks == 0
-	seeds = np.random.randint(0, 1e5, n_tasks)
+        seeds = np.random.choice(int(1e5), n_tasks, replace=False)
         self.ps = [Process(target=worker, args=(work_remote, remote, pickle.dumps(env), n_envs // n_tasks, max_path_length, seed))
-            for (work_remote, remote, seed) in zip(self.work_remotes, self.remotes, self.seeds)] # Why pass work remotes?
+            for (work_remote, remote, seed) in zip(self.work_remotes, self.remotes, seeds)] # Why pass work remotes?
         for p in self.ps:
             p.daemon = True # if the main process crashes, we should not cause things to hang
             p.start()
