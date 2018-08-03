@@ -19,7 +19,7 @@ class Walker2DEnv(MujocoEnv, Serializable):
     def __init__(
             self, *args, target_velocity=None, **kwargs):
         super(Walker2DEnv, self).__init__(*args, **kwargs)
-        self.frame_skip = 4
+        self.frame_skip = 5
         self.target_velocity = target_velocity
         Serializable.quick_init(self, locals())
 

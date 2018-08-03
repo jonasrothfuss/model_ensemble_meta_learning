@@ -15,7 +15,7 @@ from sandbox.ours.envs.helpers import get_all_function_arguments
 
 class WalkerEnvRandomParams(BaseEnvRandParams, Walker2DEnv, Serializable):
 
-    def __init__(self, *args, log_scale_limit=3.0, fix_params=False, rand_params=BaseEnvRandParams.RAND_PARAMS, random_seed=None, max_path_length=None, **kwargs):
+    def __init__(self, *args, log_scale_limit=2.0, fix_params=False, rand_params=BaseEnvRandParams.RAND_PARAMS, random_seed=None, max_path_length=None, **kwargs):
         """
         Half-Cheetah environment with randomized mujoco parameters
         :param log_scale_limit: lower / upper limit for uniform sampling in logspace of base 2
@@ -93,15 +93,15 @@ if __name__ == "__main__":
     while True:
         env.reset()
         print(env.model.body_mass)
-        qpos = env.model.data.qpos.copy()
-        qpos[3, 0] = -20/180 * np.pi
-        qpos[-3, 0] = 40 / 180 * np.pi
+        # qpos = env.model.data.qpos.copy()
+        # qpos[3, 0] = -20/180 * np.pi
+        # qpos[-3, 0] = 40 / 180 * np.pi
 
-        env.model.data.qpos = qpos
-        for i in range(50):
-            qpos = env.model.data.qpos.copy()
-            qpos[2] = 0
-            env.model.data.qpos = qpos
+        # env.model.data.qpos = qpos
+        for i in range(100):
+            # qpos = env.model.data.qpos.copy()
+            # qpos[2] = 0
+            # env.model.data.qpos = qpos
             env.render()
             if i > 5:
                 env.step(np.zeros_like(env.action_space.sample()))  # take a random action
