@@ -11,17 +11,18 @@ def worker(remote, parent_remote, env_pickle, n_envs, max_path_length, seed):
     while True:
         cmd, data = remote.recv()
         if cmd == 'step':
-            all_results = [env.step(a) for (a, env) in zip(data, envs)]
+            actions, reset_args = data
+            all_results = [env.step(a) for (a, env) in zip(actions, envs)]
             obs, rewards, dones, infos = map(list, zip(*all_results))
             ts += 1
             for i in range(n_envs):
                 if dones[i] or (ts[i] >= max_path_length):
                     dones[i] = True
-                    obs[i] = envs[i].reset()
+                    obs[i] = envs[i].reset(reset_args[i])
                     ts[i] = 0
             remote.send((obs, rewards, dones, infos))
         elif cmd == 'reset':
-            obs = [env.reset(data) for env in envs]
+            obs = [env.reset(data_i) for env, data_i in zip(envs, data)]
             ts[:] = 0
             remote.send(obs)
         elif cmd == 'set_params':
@@ -54,11 +55,11 @@ class MAMLParallelVecEnvExecutor(object):
 
     def step(self, actions, reset_args=None):
         if reset_args is None:
-            reset_args = [None]*len(self.remotes)
-        
+            reset_args = [None] * self.n_envs
+        reset_args_split = np.split(np.asarray(reset_args), len(self.remotes))
         actions = np.split(np.asarray(actions), len(self.remotes))
-        for remote, action_list in zip(self.remotes, actions):
-            remote.send(('step', action_list))
+        for remote, action_list, reset_args_list in zip(self.remotes, actions, reset_args_split):
+            remote.send(('step', (action_list, reset_args_list)))
         
         results = [remote.recv() for remote in self.remotes]
         obs, rewards, dones, env_infos = map(lambda x: sum(x, []), zip(*results))
@@ -67,8 +68,11 @@ class MAMLParallelVecEnvExecutor(object):
 
         return obs, rewards, dones, tensor_utils.stack_tensor_dict_list(env_infos)
 
-    def reset(self, reset_args=None): # Might need to change this for different reset args on same task
-        for remote, args in zip(self.remotes, reset_args):
+    def reset(self, reset_args=None):
+        if reset_args is None:
+            reset_args = [None] * self.n_envs
+        reset_args_split = np.split(np.asarray(reset_args), len(self.remotes))
+        for remote, args in zip(self.remotes, reset_args_split):
             remote.send(('reset', args))
         return sum([remote.recv() for remote in self.remotes], [])
 
