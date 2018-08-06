@@ -212,6 +212,12 @@ class MAMLGaussianMLPPolicy(BaseMLPPolicy, Serializable):
         feed_dict = dict(feed_dict_inputs + feed_dict_params)
         self.all_param_vals, gradients = sess.run([self.all_fast_params_tensor, self._all_param_gradients], feed_dict=feed_dict)
 
+    def get_mean_step_size(self):
+        """ returns the mean gradient stepsize """
+        sess = tf.get_default_session()
+        return np.concatenate(
+            [sess.run(step_size_values).flatten() for step_size_values in self.param_step_sizes.values()]).mean()
+
     def _build_all_fast_params_tensor(self):
         update_param_keys = self.all_params.keys()
         with tf.variable_scope(self.name):

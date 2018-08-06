@@ -83,6 +83,7 @@ class MAMLVPG(BatchMAMLPolopt, Serializable):
         for j in range(self.num_grad_updates):
             obs_vars, action_vars, adv_vars = self.make_vars(str(j))
             surr_objs = []
+            _surr_objs_ph = []
 
             cur_params = new_params
             new_params = []
@@ -99,15 +100,19 @@ class MAMLVPG(BatchMAMLPolopt, Serializable):
                 # formulate as a minimization problem
                 # The gradient of the surrogate objective is the policy gradient
                 surr_objs.append(- tf.reduce_mean(logli * adv_vars[i]))
+                if j == 0:
+                    _dist_info_vars, _ = self.policy.dist_info_sym(obs_vars[i], state_info_vars,
+                                                                   all_params=self.policy.all_params_ph[i])
+                    _logli = dist.log_likelihood_sym(action_vars[i], _dist_info_vars)
+                    _surr_objs_ph.append(- tf.reduce_mean(_logli * adv_vars[i]))
 
             input_list += obs_vars + action_vars + adv_vars + state_info_vars_list
             if j == 0:
                 # For computing the fast update for sampling
-                self.policy.set_init_surr_obj(input_list, surr_objs)
+                self.policy.set_init_surr_obj(input_list, _surr_objs_ph)
                 init_input_list = input_list
 
             all_surr_objs.append(surr_objs)
-
 
         obs_vars, action_vars, adv_vars = self.make_vars('test')
         surr_objs = []
@@ -127,7 +132,8 @@ class MAMLVPG(BatchMAMLPolopt, Serializable):
         if self.use_maml:
             self.optimizer.update_opt(loss=surr_obj, target=self.policy, inputs=input_list)
         else:  # baseline method of just training initial policy
-            self.optimizer.update_opt(loss=tf.reduce_mean(tf.stack(all_surr_objs[0],0)), target=self.policy, inputs=init_input_list)
+            self.optimizer.update_opt(loss=tf.reduce_mean(tf.stack(all_surr_objs[0],0)), target=self.policy,
+                                      inputs=init_input_list)
 
         f_kl = tensor_utils.compile_function(
             inputs=input_list + old_dist_info_vars_list,
