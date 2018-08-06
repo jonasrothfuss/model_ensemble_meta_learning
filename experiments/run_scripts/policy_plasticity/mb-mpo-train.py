@@ -2,19 +2,19 @@ from rllab.misc.instrument import VariantGenerator
 from rllab import config
 from rllab_maml.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab_maml.baselines.gaussian_mlp_baseline import GaussianMLPBaseline
-from sandbox.jonas.envs.normalized_env import normalize
-from sandbox.jonas.envs.base import TfEnv
+from sandbox.ours.envs.normalized_env import normalize
+from sandbox.ours.envs.base import TfEnv
 from rllab.misc.instrument import stub, run_experiment_lite
-from sandbox.jonas.policies.maml_improved_gauss_mlp_policy import MAMLImprovedGaussianMLPPolicy
-from sandbox.jonas.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
-from sandbox.jonas.algos.ModelMAML.model_maml_trpo import ModelMAMLTRPO
+from sandbox.ours.policies.maml_gauss_mlp_policy import MAMLGaussianMLPPolicy
+from sandbox.ours.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
+from sandbox.ours.algos.ModelMAML.model_maml_trpo import ModelMAMLTRPO
 # from sandbox.jonas.algos.ModelMAML.model_maml_ppo import ModelMAMLPPO
 from experiments.helpers.ec2_helpers import cheapest_subnets
 from experiments.helpers.run_multi_gpu import run_multi_gpu
 
-from sandbox.jonas.envs.own_envs import PointEnvMAML
-from sandbox.jonas.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams, WalkerEnvRandomParams
-from sandbox.jonas.envs.mujoco import Reacher5DofEnvRandParams
+from sandbox.ours.envs.own_envs import PointEnvMAML
+from sandbox.ours.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams, WalkerEnvRandomParams
+from sandbox.ours.envs.mujoco import Reacher5DofEnvRandParams
 
 
 import tensorflow as tf
@@ -23,7 +23,7 @@ import argparse
 import random
 import os
 
-EXP_PREFIX = 'model-ensemble-maml-new'
+EXP_PREFIX = 'mb-mpo'
 
 ec2_instance = 'c4.2xlarge'
 NUM_EC2_SUBNETS = 3
@@ -47,7 +47,7 @@ def run_train_task(vv):
         rolling_average_persitency=vv['rolling_average_persitency']
     )
 
-    policy = MAMLImprovedGaussianMLPPolicy(
+    policy = MAMLGaussianMLPPolicy(
         name="policy",
         env_spec=env.spec,
         hidden_sizes=vv['hidden_sizes_policy'],
@@ -55,12 +55,10 @@ def run_train_task(vv):
         grad_step_size=vv['fast_lr'],
         trainable_step_size=vv['trainable_step_size'],
         bias_transform=vv['bias_transform'],
-        param_noise_std=vv['param_noise_std']
+        num_tasks=vv['meta_batch_size']
     )
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
-
-    optimizer_args = None
 
     algo = ModelMAMLTRPO(
         env=env,
@@ -87,11 +85,7 @@ def run_train_task(vv):
         frac_gpu=vv.get('frac_gpu', 0.85),
         log_real_performance=True,
         clip_obs=vv.get('clip_obs', True),
-        beta=vv['entropy_bonus'],
-        # clip_eps=vv['clip_eps'], 
-        # target_inner_step=vv['target_inner_step'],
-        # init_kl_penalty=vv['init_kl_penalty'],
-        # optimizer_args=optimizer_args,
+        entropy_bonus=vv['entropy_bonus'],
     )
     algo.train()
 
@@ -112,24 +106,21 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
     vg = VariantGenerator()
 
-    vg.add('seed', [22])
+    vg.add('seed', [23, 54, 62])
 
     # env spec
-    vg.add('env', ['WalkerEnvRandomParams'])
+    vg.add('env', ['HalfCheetahEnvRandParams'])
     vg.add('log_scale_limit', [0.0])
     vg.add('target_velocity', [None])
     vg.add('path_length_env', [200])
 
     # Model-based MAML algo spec
-    vg.add('n_itr', [500])
+    vg.add('n_itr', [100])
     vg.add('fast_lr', [0.001])
     vg.add('meta_step_size', [0.01])
     vg.add('meta_batch_size', [20]) # must be a multiple of num_models
     vg.add('discount', [0.99])
     vg.add('entropy_bonus', [0])
-    vg.add('clip_eps', [0.2])
-    vg.add('target_inner_step', [0.01])
-    vg.add('init_kl_penalty', [1])
 
     vg.add('batch_size_env_samples', [1])
     vg.add('batch_size_dynamics_samples', [50])
@@ -144,14 +135,13 @@ def run_experiment(argv):
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(32, 32)])
-    vg.add('hidden_sizes_model', [(512, 512)])
+    vg.add('hidden_sizes_model', [(512, 512, 512)])
     vg.add('weight_normalization_model', [True])
     vg.add('reset_policy_std', [False])
     vg.add('reinit_model_cycle', [0])
     vg.add('optimizer_model', ['adam'])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
     vg.add('bias_transform', [False])
-    vg.add('param_noise_std', [0.0])
     vg.add('dynamic_model_max_epochs', [(500, 500)])
 
     vg.add('valid_split_ratio', [0.2])
@@ -204,7 +194,7 @@ def run_experiment(argv):
         # ----------------------- TRAINING ---------------------------------------
         exp_ids = random.sample(range(1, 1000), len(variants))
         for v, exp_id in zip(variants, exp_ids):
-            exp_name = "model_ensemble_maml_train_env_%s_%i_%i_%i_%i_id_%i" % (v['env'], v['path_length_env'], v['num_models'],
+            exp_name = "mb-mpo_train_env_%s_%i_%i_%i_%i_id_%i" % (v['env'], v['path_length_env'], v['num_models'],
                                                            v['batch_size_env_samples'], v['seed'], exp_id)
             v = instantiate_class_stings(v)
 
@@ -219,29 +209,31 @@ def run_experiment(argv):
                     config.ALL_REGION_AWS_SECURITY_GROUP_IDS[
                         config.AWS_REGION_NAME]
 
-
-            run_experiment_lite(
-                run_train_task,
-                exp_prefix=EXP_PREFIX,
-                exp_name=exp_name,
-                # Number of parallel workers for sampling
-                n_parallel=n_parallel,
-                snapshot_mode="gap",
-                snapshot_gap=5,
-                periodic_sync=True,
-                sync_s3_pkl=True,
-                sync_s3_log=True,
-                # Specifies the seed for the experiment. If this is not provided, a random seed
-                # will be used
-                seed=v["seed"],
-                python_command="python3",
-                pre_commands=["yes | pip install tensorflow=='1.6.0'",
-                              "pip list",
-                              "yes | pip install --upgrade cloudpickle"],
-                mode=args.mode,
-                use_cloudpickle=True,
-                variant=v,
-            )
+            if True:
+                run_train_task(v)
+            else:
+                run_experiment_lite(
+                    run_train_task,
+                    exp_prefix=EXP_PREFIX,
+                    exp_name=exp_name,
+                    # Number of parallel workers for sampling
+                    n_parallel=n_parallel,
+                    snapshot_mode="last",
+                    #snapshot_gap=5,
+                    periodic_sync=True,
+                    sync_s3_pkl=True,
+                    sync_s3_log=True,
+                    # Specifies the seed for the experiment. If this is not provided, a random seed
+                    # will be used
+                    seed=v["seed"],
+                    python_command=sys.executable, #"python3", #TODO change back
+                    pre_commands=["yes | pip install tensorflow=='1.6.0'",
+                                  "pip list",
+                                  "yes | pip install --upgrade cloudpickle"],
+                    mode=args.mode,
+                    use_cloudpickle=True,
+                    variant=v,
+                )
 
 
 def instantiate_class_stings(v):
