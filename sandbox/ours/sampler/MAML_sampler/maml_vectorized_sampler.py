@@ -36,8 +36,6 @@ class MAMLVectorizedSampler(MAMLBaseSampler):
             envs = [pickle.loads(pickle.dumps(self.algo.env)) for _ in range(self.n_envs)]
             self.vec_env = MAMLVecEnvExecutor(
                 envs=envs,
-                #env=pickle.loads(pickle.dumps(self.algo.env)),
-                #n = n_envs,
                 max_path_length=self.algo.max_path_length
             )
 

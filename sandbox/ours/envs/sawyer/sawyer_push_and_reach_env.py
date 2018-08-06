@@ -14,7 +14,7 @@ class SawyerPushAndReachXYZEnv(MultitaskEnv, SawyerXYZEnv):
     def __init__(
             self,
             init_puck_low=[0.0, 0.6],
-            init_puck_high=[0.1, 0.7],
+            init_puck_high=[0.0, 0.6],
 
             reward_type='hand_and_puck_distance',
             indicator_threshold=0.06,
@@ -193,14 +193,24 @@ class SawyerPushAndReachXYZEnv(MultitaskEnv, SawyerXYZEnv):
         qvel[8:15] = 0
         self.set_state(qpos, qvel)
 
-    def reset_model(self):
+    def reset(self, init_state=None, reset_args=None):
+        return super().reset(init_state=init_state, reset_args=reset_args)
+
+    def reset_model(self, init_state=None, reset_args=None):
         self._reset_hand()
-        goal = self.sample_goal()
+
+        goal = self.sample_goal() if reset_args is None else reset_args
+        self.reset_gaol(goal)
+
+        init_state = self.sample_puck_xy() if init_state is None else init_state
+        self._set_puck_xy(init_state)
+
+        return self._get_obs()
+
+    def reset_gaol(self, goal):
         self._state_goal = goal['state_desired_goal']
         self._set_goal_marker(self._state_goal)
 
-        self._set_puck_xy(self.sample_puck_xy())
-        return self._get_obs()
 
     def _reset_hand(self):
         for _ in range(10):
@@ -241,10 +251,9 @@ class SawyerPushAndReachXYZEnv(MultitaskEnv, SawyerXYZEnv):
                 self.hand_and_puck_goal_space.high,
                 size=(batch_size, self.hand_and_puck_space.low.size),
             )
-        return {
-            'desired_goal': goals,
-            'state_desired_goal': goals,
-        }
+        goal_array = [{'desired_goal': goal.flatten(), 'state_desired_goal': goal.flatten()}
+                      for goal in np.vsplit(goals, batch_size)]
+        return goal_array
 
     def compute_rewards(self, actions, obs):
         achieved_goals = obs['state_achieved_goal']
@@ -325,19 +334,19 @@ class SawyerPushAndReachXYZEnv(MultitaskEnv, SawyerXYZEnv):
         self._state_goal = goal
         self._set_goal_marker(goal)
 
-    def log_diagnostics(self, paths):
+    def log_diagnostics(self, paths, prefix=''):
         diagnostics = self.get_diagnostics(paths)
 
-        logger.record_tabular('HandDistanceMean', diagnostics['hand_distance Mean'])
-        logger.record_tabular('PuckDistanceMean', diagnostics['puck_distance Mean'])
-        logger.record_tabular('TouchDistanceMean', diagnostics['touch_distance Mean'])
+        logger.record_tabular(prefix+'HandDistanceMean', diagnostics['hand_distance Mean'])
+        logger.record_tabular(prefix+'PuckDistanceMean', diagnostics['puck_distance Mean'])
+        logger.record_tabular(prefix+'TouchDistanceMean', diagnostics['touch_distance Mean'])
 
-        logger.record_tabular('FinalHandDistanceMean', diagnostics['Final hand_distance Mean'])
-        logger.record_tabular('FinalPuckDistanceMean', diagnostics['Final puck_distance Mean'])
+        logger.record_tabular(prefix+'FinalHandDistanceMean', diagnostics['Final hand_distance Mean'])
+        logger.record_tabular(prefix+'FinalPuckDistanceMean', diagnostics['Final puck_distance Mean'])
 
-        logger.record_tabular('FinalHandSuccessMean', diagnostics['Final hand_success Mean'])
-        logger.record_tabular('FinalPuckSuccessMean', diagnostics['Final puck_success Mean'])
-        logger.record_tabular('FinalHandAndPuckSuccessMean', diagnostics['Final hand_and_puck_success Mean'])
+        logger.record_tabular(prefix+'FinalHandSuccessMean', diagnostics['Final hand_success Mean'])
+        logger.record_tabular(prefix+'FinalPuckSuccessMean', diagnostics['Final puck_success Mean'])
+        logger.record_tabular(prefix+'FinalHandAndPuckSuccessMean', diagnostics['Final hand_and_puck_success Mean'])
 
 
 class SawyerPushAndReachXYEnv(SawyerPushAndReachXYZEnv):
