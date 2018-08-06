@@ -93,16 +93,17 @@ def run_experiment(argv):
     vg.add('env', ['SawyerPushAndReachXYZEnv'])
     vg.add('fix_goal', [False])
     vg.add('goal_slack', [0.0, 0.05, 0.1])
-    vg.add('init_slack', [0.0, 0.05, 0.1])
+    vg.add('init_slack', [0.0, 0.05])
     vg.add('reward_type', ['puck_distance_hand_distance_after_success'])
 
-    vg.add('n_itr', [301])
+    vg.add('seed', [1, 10])
+    vg.add('n_itr', [1001])
     vg.add('fast_lr', [0.1])
     vg.add('outer_lr', [1e-3])
-    vg.add('meta_batch_size', [20])
+    vg.add('meta_batch_size', [40])
     vg.add('num_grad_updates', [1])
-    vg.add('fast_batch_size', [10])
-    vg.add('seed', [1, 10, 100])
+    vg.add('fast_batch_size', [20])
+
     vg.add('discount', [0.99])
     vg.add('path_length', [200])
     vg.add('hidden_nonlinearity', ['tanh'])
@@ -112,17 +113,17 @@ def run_experiment(argv):
     vg.add('entropy_bonus', [0])
 
     # PPO-MAML params
-    vg.add('clip_eps', [0.3, 0.5, 0.7])
+    vg.add('clip_eps', [0.5])
     vg.add('clip_outer', [True])
     vg.add('target_outer_step', [0])
     vg.add('init_outer_kl_penalty', [0])
     vg.add('adaptive_outer_kl_penalty', [False])
-    vg.add('target_inner_step', [5e-3, 1e-2, 5e-2])
+    vg.add('target_inner_step', [1e-2])
     vg.add('init_inner_kl_penalty', [1e-3])
     vg.add('adaptive_inner_kl_penalty', [True])
     vg.add('max_epochs', [5])
     vg.add('num_batches', [1])
-    vg.add('parallel_sampler', [False])
+    vg.add('parallel_sampler', [True])
 
     variants = vg.variants()
 
@@ -161,32 +162,30 @@ def run_experiment(argv):
             config.ALL_REGION_AWS_SECURITY_GROUP_IDS[
                 config.AWS_REGION_NAME]
 
-        if True:
-            run_train_task(v)
-        else:
-            run_experiment_lite(
-                run_train_task,
-                exp_prefix=EXP_PREFIX,
-                exp_name=exp_name,
-                # Number of parallel workers for sampling
-                n_parallel=n_parallel,
-                # Only keep the snapshot parameters for the last iteration
-                snapshot_mode="gap",
-                snapshot_gap=200,
-                periodic_sync=True,
-                sync_s3_pkl=True,
-                sync_s3_log=True,
-                # Specifies the seed for the experiment. If this is not provided, a random seed
-                # will be used
-                seed=v["seed"],
-                #sync_all_data_node_to_s3=True,
-                python_command="python3",
-                pre_commands=["yes | pip install --upgrade pip",
-                              "yes | pip install --upgrade cloudpickle"],
-                mode=args.mode,
-                use_cloudpickle=True,
-                variant=v,
-            )
+
+        run_experiment_lite(
+            run_train_task,
+            exp_prefix=EXP_PREFIX,
+            exp_name=exp_name,
+            # Number of parallel workers for sampling
+            n_parallel=n_parallel,
+            # Only keep the snapshot parameters for the last iteration
+            snapshot_mode="gap",
+            snapshot_gap=200,
+            periodic_sync=True,
+            sync_s3_pkl=True,
+            sync_s3_log=True,
+            # Specifies the seed for the experiment. If this is not provided, a random seed
+            # will be used
+            seed=v["seed"],
+            #sync_all_data_node_to_s3=True,
+            python_command="python3",
+            pre_commands=["yes | pip install --upgrade pip",
+                          "yes | pip install --upgrade cloudpickle"],
+            mode=args.mode,
+            use_cloudpickle=True,
+            variant=v,
+        )
 
 
 def instantiate_class_stings(v):
