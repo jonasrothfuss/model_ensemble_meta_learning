@@ -228,9 +228,9 @@ class MAMLPPO(BatchMAMLPolopt):
             if log: logger.log("Updating KL loss coefficients")
             for i, kl in enumerate(outer_kls):
                 if kl < self.target_outer_step / 1.5:
-                    self.kl_coeff[i] /= 2
+                    self.outer_kl_coeff[i] /= 2
                 if kl > self.target_outer_step * 1.5:
-                    self.kl_coeff[i] *= 2
+                    self.outer_kl_coeff[i] *= 2
 
         if self.use_maml and log:
             logger.record_tabular('LossBefore', loss_before)
