@@ -52,6 +52,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
             frac_gpu=0.85,
             log_real_performance=True,
             clip_obs=False,
+            tailored_exploration=True,
             **kwargs
     ):
         """
@@ -96,6 +97,7 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         self.scope = scope
         self.n_itr = n_itr
         self.start_itr = start_itr
+        self.tailored_exploration = tailored_exploration
 
         # meta batch size and number of dynamics models
         self.num_models = dynamics_model.num_models
@@ -240,6 +242,11 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                         if self.reset_policy_std:
                             logger.log("Resetting policy std")
                             self.policy.set_std()
+
+                        if not self.tailored_exploration:
+                            logger.log("Disabling tailored exploration. Using pre-update policy to collect samples.")
+                            self.policy.switch_to_init_dist()
+
                         logger.log("Obtaining samples from the environment using the policy...")
                         new_env_paths = self.obtain_env_samples(itr, reset_args=learner_env_params,
                                                                 log_prefix='EnvSampler-')
