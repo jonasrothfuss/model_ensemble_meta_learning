@@ -53,6 +53,10 @@ class PointEnv(object):
     def action_space(self):
         return Box(low=-0.1, high=0.1, shape=(2,))
 
+    @property
+    def dt(self):
+        return 0.1
+
     def render(self):
         print('current_state:', self._state)
 
@@ -74,3 +78,11 @@ class PointEnv(object):
     def terminate(self):
         pass
 
+    def sample_env_params(self, num_param_sets, **kwargs):
+       return [{} for _ in range(num_param_sets)]
+
+    def get_param_values(self):
+        return {}
+
+    def set_param_values(self, params):
+        pass
