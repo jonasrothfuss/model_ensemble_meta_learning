@@ -98,7 +98,7 @@ plot_from_exps(exps_data,
                split_figures_by='env.$class',
                split_plots_by='exp_name',
                y_key='1AverageReturn',
-               subfigure_titles=['AntRandDir', 'AntRandGoal', 'HalfCheetahRandVel', 'HalfCheetahRandDir', 'SwimmerRandGoal'],
+               subfigure_titles=['AntRandDir', 'AntRandGoal', 'HalfCheetahRandVel', 'HalfCheetahRandDir', 'SwimmerRandGoal', 'HopperEnvRandParams', 'WalkerEnvRandParams'],
                x_label='Time steps',
                y_label='Average return',
                )
