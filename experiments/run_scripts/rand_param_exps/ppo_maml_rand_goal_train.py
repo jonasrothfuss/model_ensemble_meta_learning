@@ -21,7 +21,7 @@ import sys
 import argparse
 import random
 
-EXP_PREFIX = 'ppo-maml-hyperparam-final'
+EXP_PREFIX = 'ppo-maml-ant-goal-long'
 
 ec2_instance = 'c4.2xlarge'
 
@@ -42,12 +42,6 @@ def run_train_task(vv):
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
 
-    optimizer_args = dict(
-        max_epochs=vv['max_epochs'],
-        batch_size=vv['num_batches'],
-        tf_optimizer_args=dict(learning_rate=vv['outer_lr']),
-    )
-
     algo = MAMLPPO(
         env=env,
         policy=policy,
@@ -67,8 +61,11 @@ def run_train_task(vv):
         init_inner_kl_penalty=vv['init_inner_kl_penalty'],
         adaptive_outer_kl_penalty=vv['adaptive_outer_kl_penalty'],
         adaptive_inner_kl_penalty=vv['adaptive_inner_kl_penalty'],
+        max_epochs=vv['max_epochs'],
+        num_batches=vv['num_batches'],
+        tf_optimizer_args=dict(learning_rate=vv['outer_lr']),
         parallel_sampler=vv['parallel_sampler'],
-        optimizer_args=optimizer_args,
+        multi_adam=vv['multi_adam'],
     )
     algo.train()
 
@@ -85,33 +82,33 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
 
     vg = VariantGenerator()
-    vg.add('env', ['HalfCheetahEnvRandDirec']) # AntEnvRandGoal , 
-    vg.add('n_itr', [301])
+    vg.add('env', ['AntEnvRandGoal']) # AntEnvRandGoal , 
+    vg.add('n_itr', [901])
     vg.add('fast_lr', [0.1])
     vg.add('outer_lr', [1e-3])
     vg.add('meta_batch_size', [40])
     vg.add('num_grad_updates', [1])
     vg.add('fast_batch_size', [20])
-    vg.add('seed', [1, 10, 100])
+    vg.add('seed', [1, 10, 100, 1000, 10000])
     vg.add('discount', [0.99])
-    vg.add('path_length', [100])
+    vg.add('path_length', [200]) # REMEMBER TO CHANGE THIS
     vg.add('hidden_nonlinearity', ['tanh'])
     vg.add('hidden_sizes', [(64, 64)])
     vg.add('trainable_step_size', [False])
     vg.add('bias_transform', [False])
     vg.add('entropy_bonus', [0])
-    vg.add('clip_eps', [0.3, 0.5, 0.7])
+    vg.add('clip_eps', [0.5])
     vg.add('clip_outer', [True])
     vg.add('target_outer_step', [0])
     vg.add('init_outer_kl_penalty', [0])
     vg.add('adaptive_outer_kl_penalty', [False])
-    vg.add('target_inner_step', [5e-3, 1e-2, 5e-2])
+    vg.add('target_inner_step', [1e-2, 2e-2])
     vg.add('init_inner_kl_penalty', [1e-3])
     vg.add('adaptive_inner_kl_penalty', [True])
-    vg.add('max_epochs', [5, 8, 10])
+    vg.add('max_epochs', [5])
     vg.add('num_batches', [1])
     vg.add('parallel_sampler', [True])
-
+    vg.add('multi_adam', [False])
 
     variants = vg.variants()
 
