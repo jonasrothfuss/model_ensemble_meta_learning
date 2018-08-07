@@ -7,15 +7,17 @@ from sandbox.ours.envs.base import TfEnv
 from rllab.misc.instrument import stub, run_experiment_lite
 from sandbox.ours.policies.maml_gauss_mlp_policy import MAMLGaussianMLPPolicy
 from sandbox.ours.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
-from sandbox.ours.algos.ModelMAML.model_maml_trpo import ModelMAMLTRPO
-# from sandbox.jonas.algos.ModelMAML.model_maml_ppo import ModelMAMLPPO
 from experiments.helpers.ec2_helpers import cheapest_subnets
 from experiments.helpers.run_multi_gpu import run_multi_gpu
+
+from experiments.run_scripts.policy_plasticity.ModelMAML.model_maml_trpo import ModelMAMLTRPO
+from experiments.run_scripts.policy_plasticity.point_env_fake_model_ensemble import PointEnvFakeModelEnsemble
+
 
 from sandbox.ours.envs.own_envs import PointEnvMAML
 from sandbox.ours.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams, WalkerEnvRandomParams
 from sandbox.ours.envs.mujoco import Reacher5DofEnvRandParams
-
+from sandbox.ours.envs.own_envs import PointEnv
 
 import tensorflow as tf
 import sys
@@ -23,7 +25,7 @@ import argparse
 import random
 import os
 
-EXP_PREFIX = 'mb-mpo'
+EXP_PREFIX = 'policy_plasticity'
 
 ec2_instance = 'c4.2xlarge'
 NUM_EC2_SUBNETS = 3
@@ -36,15 +38,9 @@ def run_train_task(vv):
         target_velocity=vv['target_velocity'],
     )))
 
-    dynamics_model = MLPDynamicsEnsemble(
-        name="dyn_model",
+    dynamics_model = PointEnvFakeModelEnsemble(
         env_spec=env.spec,
-        hidden_sizes=vv['hidden_sizes_model'],
-        weight_normalization=vv['weight_normalization_model'],
         num_models=vv['num_models'],
-        optimizer=vv['optimizer_model'],
-        valid_split_ratio=vv['valid_split_ratio'],
-        rolling_average_persitency=vv['rolling_average_persitency']
     )
 
     policy = MAMLGaussianMLPPolicy(
@@ -109,10 +105,10 @@ def run_experiment(argv):
     vg.add('seed', [23, 54, 62])
 
     # env spec
-    vg.add('env', ['HalfCheetahEnvRandParams'])
+    vg.add('env', ['PointEnv'])
     vg.add('log_scale_limit', [0.0])
     vg.add('target_velocity', [None])
-    vg.add('path_length_env', [200])
+    vg.add('path_length_env', [100])
 
     # Model-based MAML algo spec
     vg.add('n_itr', [100])
@@ -134,8 +130,8 @@ def run_experiment(argv):
     # neural network configuration
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
-    vg.add('hidden_sizes_policy', [(32, 32)])
-    vg.add('hidden_sizes_model', [(512, 512, 512)])
+    vg.add('hidden_sizes_policy', [(16, 16)])
+    vg.add('hidden_sizes_model', [(128, 128)])
     vg.add('weight_normalization_model', [True])
     vg.add('reset_policy_std', [False])
     vg.add('reinit_model_cycle', [0])
@@ -226,7 +222,7 @@ def run_experiment(argv):
                     # Specifies the seed for the experiment. If this is not provided, a random seed
                     # will be used
                     seed=v["seed"],
-                    python_command=sys.executable, #"python3", #TODO change back
+                    python_command="python3", #TODO change back
                     pre_commands=["yes | pip install tensorflow=='1.6.0'",
                                   "pip list",
                                   "yes | pip install --upgrade cloudpickle"],
