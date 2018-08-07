@@ -1,6 +1,4 @@
-
-
-from experiments.run_scripts.policy_plasticity.ModelMAML.model_maml_npo import ModelMAMLNPO
+from experiments.run_scripts.policy_plasticity_mujoco_envs.ModelMAML.model_maml_npo import ModelMAMLNPO
 from sandbox_maml.rocky.tf.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer
 
 
