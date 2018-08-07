@@ -23,9 +23,9 @@ import argparse
 import random
 import os
 
-EXP_PREFIX = 'mb-mpo'
+EXP_PREFIX = 'mb-mpo-tailored-exploration-new'
 
-ec2_instance = 'c4.2xlarge'
+ec2_instance = 'c4.4xlarge'
 NUM_EC2_SUBNETS = 3
 
 
@@ -86,6 +86,7 @@ def run_train_task(vv):
         log_real_performance=True,
         clip_obs=vv.get('clip_obs', True),
         entropy_bonus=vv['entropy_bonus'],
+        tailored_exploration=vv['tailored_exploration']
     )
     algo.train()
 
@@ -118,7 +119,7 @@ def run_experiment(argv):
     vg.add('n_itr', [100])
     vg.add('fast_lr', [0.001])
     vg.add('meta_step_size', [0.01])
-    vg.add('meta_batch_size', [20]) # must be a multiple of num_models
+    vg.add('meta_batch_size', [20])  # must be a multiple of num_models
     vg.add('discount', [0.99])
     vg.add('entropy_bonus', [0])
 
@@ -135,7 +136,7 @@ def run_experiment(argv):
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
     vg.add('hidden_sizes_policy', [(32, 32)])
-    vg.add('hidden_sizes_model', [(512, 512, 512)])
+    vg.add('hidden_sizes_model', [(512, 512)])
     vg.add('weight_normalization_model', [True])
     vg.add('reset_policy_std', [False])
     vg.add('reinit_model_cycle', [0])
@@ -146,6 +147,7 @@ def run_experiment(argv):
 
     vg.add('valid_split_ratio', [0.2])
     vg.add('rolling_average_persitency', [0.95])
+    vg.add('tailored_exploration', [False, True])
 
     # other stuff
     vg.add('exp_prefix', [EXP_PREFIX])
@@ -186,7 +188,7 @@ def run_experiment(argv):
 
             config.AWS_INSTANCE_TYPE = ec2_instance
             config.AWS_SPOT_PRICE = str(info["price"])
-            subnets = cheapest_subnets(ec2_instance, num_subnets=NUM_EC2_SUBNETS)
+            subnets = ['us-west-2b', 'us-west-2c'] # cheapest_subnets(ec2_instance, num_subnets=NUM_EC2_SUBNETS)
             print("\n" + "**********" * 10 + "\nexp_prefix: {}\nvariants: {}".format('TRPO', len(variants)))
             print('Running on type {}, with price {}, on the subnets: '.format(config.AWS_INSTANCE_TYPE,
                                                                                config.AWS_SPOT_PRICE, ), str(subnets))
@@ -194,7 +196,7 @@ def run_experiment(argv):
         # ----------------------- TRAINING ---------------------------------------
         exp_ids = random.sample(range(1, 1000), len(variants))
         for v, exp_id in zip(variants, exp_ids):
-            exp_name = "mb-mpo_train_env_%s_%i_%i_%i_%i_id_%i" % (v['env'], v['path_length_env'], v['num_models'],
+            exp_name = "mb_mpo_train_env_%s_%i_%i_%i_%i_id_%i" % (v['env'], v['path_length_env'], v['num_models'],
                                                            v['batch_size_env_samples'], v['seed'], exp_id)
             v = instantiate_class_stings(v)
 
@@ -209,31 +211,27 @@ def run_experiment(argv):
                     config.ALL_REGION_AWS_SECURITY_GROUP_IDS[
                         config.AWS_REGION_NAME]
 
-            if True:
-                run_train_task(v)
-            else:
-                run_experiment_lite(
-                    run_train_task,
-                    exp_prefix=EXP_PREFIX,
-                    exp_name=exp_name,
-                    # Number of parallel workers for sampling
-                    n_parallel=n_parallel,
-                    snapshot_mode="last",
-                    #snapshot_gap=5,
-                    periodic_sync=True,
-                    sync_s3_pkl=True,
-                    sync_s3_log=True,
-                    # Specifies the seed for the experiment. If this is not provided, a random seed
-                    # will be used
-                    seed=v["seed"],
-                    python_command=sys.executable, #"python3", #TODO change back
-                    pre_commands=["yes | pip install tensorflow=='1.6.0'",
-                                  "pip list",
-                                  "yes | pip install --upgrade cloudpickle"],
-                    mode=args.mode,
-                    use_cloudpickle=True,
-                    variant=v,
-                )
+            run_experiment_lite(
+                run_train_task,
+                exp_prefix=EXP_PREFIX,
+                exp_name=exp_name,
+                # Number of parallel workers for sampling
+                n_parallel=n_parallel,
+                snapshot_mode="last",
+                #snapshot_gap=5,
+                periodic_sync=True,
+                sync_s3_pkl=True,
+                sync_s3_log=True,
+                # Specifies the seed for the experiment. If this is not provided, a random seed
+                # will be used
+                seed=v["seed"],
+                pre_commands=["yes | pip install tensorflow=='1.6.0'",
+                      "pip list",
+                      "yes | pip install --upgrade cloudpickle"],
+                mode=args.mode,
+                use_cloudpickle=True,
+                variant=v,
+            )
 
 
 def instantiate_class_stings(v):

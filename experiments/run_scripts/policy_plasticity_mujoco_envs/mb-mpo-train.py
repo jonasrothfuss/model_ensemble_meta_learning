@@ -10,14 +10,11 @@ from sandbox.ours.dynamics.dynamics_ensemble import MLPDynamicsEnsemble
 from experiments.helpers.ec2_helpers import cheapest_subnets
 from experiments.helpers.run_multi_gpu import run_multi_gpu
 
-from experiments.run_scripts.policy_plasticity.ModelMAML.model_maml_trpo import ModelMAMLTRPO
+from experiments.run_scripts.policy_plasticity_mujoco_envs.ModelMAML.model_maml_trpo import ModelMAMLTRPO
 from experiments.run_scripts.policy_plasticity.point_env_fake_model_ensemble import PointEnvFakeModelEnsemble
 
-
-from sandbox.ours.envs.own_envs import PointEnvMAML
 from sandbox.ours.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams, WalkerEnvRandomParams
 from sandbox.ours.envs.mujoco import Reacher5DofEnvRandParams
-from sandbox.ours.envs.own_envs import PointEnv
 
 import tensorflow as tf
 import sys
@@ -25,7 +22,7 @@ import argparse
 import random
 import os
 
-EXP_PREFIX = 'policy_plasticity'
+EXP_PREFIX = 'policy-plasticity-mujoco-envs'
 
 ec2_instance = 'c4.2xlarge'
 NUM_EC2_SUBNETS = 3
@@ -38,9 +35,15 @@ def run_train_task(vv):
         target_velocity=vv['target_velocity'],
     )))
 
-    dynamics_model = PointEnvFakeModelEnsemble(
+    dynamics_model = MLPDynamicsEnsemble(
+        name="dyn_model",
         env_spec=env.spec,
+        hidden_sizes=vv['hidden_sizes_model'],
+        weight_normalization=vv['weight_normalization_model'],
         num_models=vv['num_models'],
+        optimizer=vv['optimizer_model'],
+        valid_split_ratio=vv['valid_split_ratio'],
+        rolling_average_persitency=vv['rolling_average_persitency']
     )
 
     policy = MAMLGaussianMLPPolicy(
@@ -105,7 +108,7 @@ def run_experiment(argv):
     vg.add('seed', [23, 54, 62])
 
     # env spec
-    vg.add('env', ['PointEnv'])
+    vg.add('env', ['HalfCheetahEnvRandParams'])
     vg.add('log_scale_limit', [0.0])
     vg.add('target_velocity', [None])
     vg.add('path_length_env', [100])
@@ -114,7 +117,7 @@ def run_experiment(argv):
     vg.add('n_itr', [100])
     vg.add('fast_lr', [0.001])
     vg.add('meta_step_size', [0.01])
-    vg.add('meta_batch_size', [20]) # must be a multiple of num_models
+    vg.add('meta_batch_size', [20])  # must be a multiple of num_models
     vg.add('discount', [0.99])
     vg.add('entropy_bonus', [0])
 
@@ -205,31 +208,27 @@ def run_experiment(argv):
                     config.ALL_REGION_AWS_SECURITY_GROUP_IDS[
                         config.AWS_REGION_NAME]
 
-            if True:
-                run_train_task(v)
-            else:
-                run_experiment_lite(
-                    run_train_task,
-                    exp_prefix=EXP_PREFIX,
-                    exp_name=exp_name,
-                    # Number of parallel workers for sampling
-                    n_parallel=n_parallel,
-                    snapshot_mode="last",
-                    #snapshot_gap=5,
-                    periodic_sync=True,
-                    sync_s3_pkl=True,
-                    sync_s3_log=True,
-                    # Specifies the seed for the experiment. If this is not provided, a random seed
-                    # will be used
-                    seed=v["seed"],
-                    python_command="python3",
-                    pre_commands=["yes | pip install tensorflow=='1.6.0'",
-                                  "pip list",
-                                  "yes | pip install --upgrade cloudpickle"],
-                    mode=args.mode,
-                    use_cloudpickle=True,
-                    variant=v,
-                )
+            run_experiment_lite(
+                run_train_task,
+                exp_prefix=EXP_PREFIX,
+                exp_name=exp_name,
+                # Number of parallel workers for sampling
+                n_parallel=n_parallel,
+                snapshot_mode="last",
+                #snapshot_gap=5,
+                periodic_sync=True,
+                sync_s3_pkl=True,
+                sync_s3_log=True,
+                # Specifies the seed for the experiment. If this is not provided, a random seed
+                # will be used
+                seed=v["seed"],
+                pre_commands=["yes | pip install tensorflow=='1.6.0'",
+                              "pip list",
+                              "yes | pip install --upgrade cloudpickle"],
+                mode=args.mode,
+                use_cloudpickle=True,
+                variant=v,
+            )
 
 
 def instantiate_class_stings(v):
