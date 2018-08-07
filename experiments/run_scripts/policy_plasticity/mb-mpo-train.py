@@ -118,10 +118,10 @@ def run_experiment(argv):
     vg.add('discount', [0.99])
     vg.add('entropy_bonus', [0])
 
-    vg.add('batch_size_env_samples', [1])
+    vg.add('batch_size_env_samples', [50])
     vg.add('batch_size_dynamics_samples', [50])
     vg.add('initial_random_samples', [5000])
-    vg.add('num_maml_steps_per_iter', [30])
+    vg.add('num_maml_steps_per_iter', [10])
     vg.add('retrain_model_when_reward_decreases', [False])
     vg.add('reset_from_env_traj', [False])
     vg.add('trainable_step_size', [False])
@@ -222,7 +222,7 @@ def run_experiment(argv):
                     # Specifies the seed for the experiment. If this is not provided, a random seed
                     # will be used
                     seed=v["seed"],
-                    python_command="python3", #TODO change back
+                    python_command="python3",
                     pre_commands=["yes | pip install tensorflow=='1.6.0'",
                                   "pip list",
                                   "yes | pip install --upgrade cloudpickle"],

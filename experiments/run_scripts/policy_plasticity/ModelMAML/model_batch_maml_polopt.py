@@ -2,6 +2,7 @@ import rllab.misc.logger as logger
 import tensorflow as tf
 import time
 import numpy as np
+import os
 
 from rllab_maml.algos.base import RLAlgorithm
 from rllab_maml.sampler.stateful_pool import singleton_pool
@@ -205,6 +206,16 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
             start_time = time.time()
             n_env_timesteps = 0
 
+            """ ----- prepare stuff for kl heatplots --------- """
+
+            resolution = 50
+            linspace = np.linspace(-1.8, 1.8, resolution)
+            x_points, y_points =  np.meshgrid(linspace, linspace)
+            obs_grid_points = np.stack([x_points.flatten(), y_points.flatten()], axis=1)
+            assert obs_grid_points.shape == (resolution**2, 2)
+
+            PLOT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'plots')
+
             for itr in range(self.start_itr, self.n_itr):
                 itr_start_time = time.time()
                 with logger.prefix('itr #%d | ' % itr):
@@ -259,18 +270,60 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
 
                     logger.record_tabular('Time-EnvSampling', time.time() - time_env_sampling_start)
 
-                    if self.log_real_performance:
-                        logger.log("Evaluating the performance of the real policy")
-                        self.policy.switch_to_init_dist()
-                        new_env_paths = self.obtain_env_samples(itr, reset_args=learner_env_params,
-                                                                log_prefix='PrePolicy-')
-                        samples_data = {}
-                        for key in new_env_paths.keys():
-                            samples_data[key] = self.process_samples_for_policy(itr, new_env_paths[key], log=False)
-                        _ = self.process_samples_for_policy(itr, flatten_list(new_env_paths.values()), log_prefix='PrePolicy-')
-                        self.policy.compute_updated_dists(samples_data)
-                        new_env_paths = self.obtain_env_samples(itr, reset_args=learner_env_params, log_prefix='PostPolicy-',)
-                        _ = self.process_samples_for_policy(itr,  flatten_list(new_env_paths.values()), log_prefix='PostPolicy-')
+                    epochs = self.dynamic_model_epochs[min(itr, len(self.dynamic_model_epochs) - 1)]
+                    logger.log("Training dynamics model for %i epochs ..." % (epochs))
+                    self.dynamics_model.fit(samples_data_dynamics['observations_dynamics'],
+                                            samples_data_dynamics['actions_dynamics'],
+                                            samples_data_dynamics['next_observations_dynamics'],
+                                            epochs=epochs, verbose=True)
+
+                    ''' ------------- Making Plots ------------------  '''
+
+                    logger.log("Evaluating the performance of the real policy")
+                    self.policy.switch_to_init_dist()
+                    env_paths_pre = self.obtain_env_samples(itr, reset_args=learner_env_params,
+                                                            log_prefix='PrePolicy-')
+                    samples_data = {}
+                    for key in env_paths_pre.keys():
+                        samples_data[key] = self.process_samples_for_policy(itr, env_paths_pre[key], log=False)
+                    _ = self.process_samples_for_policy(itr, flatten_list(env_paths_pre.values()), log_prefix='PrePolicy-')
+
+                    _ , agent_infos_pre = self.policy.get_actions_batch([obs_grid_points for _ in range(self.meta_batch_size)])
+
+                    self.policy.compute_updated_dists(samples_data)
+                    env_paths_post = self.obtain_env_samples(itr, reset_args=learner_env_params, log_prefix='PostPolicy-',)
+                    _ = self.process_samples_for_policy(itr,  flatten_list(env_paths_post.values()), log_prefix='PostPolicy-')
+
+                    _, agent_infos_post = self.policy.get_actions_batch(
+                        [obs_grid_points for _ in range(self.meta_batch_size)])
+
+                    # compute KL divergence between pre and post update policy
+                    pre_var, post_var = np.exp(agent_infos_pre['log_std'])**2, np.exp(agent_infos_post['log_std'])**2
+                    kl_pre_post = np.sum(agent_infos_post['log_std'] - agent_infos_pre['log_std'] + \
+                                        (pre_var + (agent_infos_pre['mean'] - agent_infos_post['mean'])**2) / (2*post_var) - 0.5, axis=1)
+
+                    kl_pre_post_grid = kl_pre_post.reshape((resolution**2, self.meta_batch_size)).mean(axis=1).reshape((resolution,resolution))
+
+                    model_std_grid = self.dynamics_model.predict_std(obs_grid_points, - 0.05 * obs_grid_points).mean(axis=1).reshape((resolution,resolution))
+
+                    import matplotlib.pyplot as plt
+                    img_filename = os.path.join(PLOT_DIR, 'kl_vs_model_std_plot_iter_%i'%itr)
+                    fig, (ax1, ax2) = plt.subplots(1, 2)
+                    ax1.title('KL-divergence between pre- and post-update policy')
+                    ax1.ylabel('y')
+                    ax1.xlabel('x')
+                    ax1.set_xticks(linspace)
+                    ax1.imshow(kl_pre_post_grid)
+
+                    ax2.title('Model prediction standard deviation')
+                    ax2.ylabel('y')
+                    ax2.xlabel('x')
+                    ax2.set_xticks(linspace)
+                    ax2.imshow(model_std_grid)
+
+                    fig.savefig(img_filename)
+
+
 
 
                     ''' --------------- fit dynamics model --------------- '''

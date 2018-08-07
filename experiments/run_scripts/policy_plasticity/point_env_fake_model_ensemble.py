@@ -17,15 +17,19 @@ class PointEnvFakeModelEnsemble(MLPDynamicsModel):
     Class for MLP continous dynamics model
     """
 
-    def __init__(self, env_spec, num_models=5, error_range_around_goal=0.3, bias_range=0.05, **kwargs):
+    def __init__(self, env_spec, num_models=5, error_range_around_goal=0.3, bias_range=0.05, error_std=0.01, **kwargs):
         self.num_models = num_models
         self.env_spec = env_spec
         self.obs_space_dims = 2
         self.action_space_dims = 2
         self.error_range_around_goal = error_range_around_goal
         self.bias_range = bias_range
+        self.error_std = error_std
 
         Serializable.quick_init(self, locals())
+
+        self.model_biases = np.random.uniform(-self.bias_range, self.bias_range,
+                                              size=(self.obs_space_dims, self.num_models))
 
     def fit(self, obs, act, obs_next, epochs=1000, compute_normalization=True, valid_split_ratio=None, rolling_average_persitency=None, verbose=False, log_tabular=False):
         """
@@ -106,8 +110,13 @@ class PointEnvFakeModelEnsemble(MLPDynamicsModel):
 
     def _delta_error(self, obs):
 
+        error_mask = (np.linalg.norm(obs, axis=1) > self.error_range_around_goal).astype(np.float32)
+
+        np.random.normal(loc=self.model_biases, scale=self.error_std, size=obs.shape + (self.num_models,))
+
         delta_error = np.zeros(shape=obs.shape + (self.num_models,))
 
+        assert delta_error.shape == obs.shape + (self.num_models,)
         return delta_error
 
     def predict_std(self, obs, act):
