@@ -12,12 +12,13 @@ from sandbox.ours.dynamics import MLPDynamicsModel
 import time
 
 
-class PointEnvFakeModelEnsemble(MLPDynamicsModel):
+class PointEnvFakeModelEnsemble(Serializable):
     """
     Class for MLP continous dynamics model
     """
 
-    def __init__(self, env_spec, num_models=5, error_range_around_goal=0.3, bias_range=0.05, error_std=0.01, **kwargs):
+    def __init__(self, env_spec, num_models=5, error_range_around_goal=0.5, bias_range=0.05, error_std=0.01, goal=(0,0),
+                 error_at_goal=False, smooth_error=False, **kwargs):
         self.num_models = num_models
         self.env_spec = env_spec
         self.obs_space_dims = 2
@@ -25,6 +26,9 @@ class PointEnvFakeModelEnsemble(MLPDynamicsModel):
         self.error_range_around_goal = error_range_around_goal
         self.bias_range = bias_range
         self.error_std = error_std
+        self.goal = np.asarray(goal)
+        self.error_at_goal = error_at_goal
+        self.smooth_error = smooth_error
 
         Serializable.quick_init(self, locals())
 
@@ -110,11 +114,23 @@ class PointEnvFakeModelEnsemble(MLPDynamicsModel):
 
     def _delta_error(self, obs):
 
-        error_mask = (np.linalg.norm(obs, axis=1) > self.error_range_around_goal).astype(np.float32)
+        if self.smooth_error:
+            distances = np.linalg.norm(obs - self.goal[None, :], axis=1)
+            normalized_distances = distances / np.max(distances)
 
-        np.random.normal(loc=self.model_biases, scale=self.error_std, size=obs.shape + (self.num_models,))
+            error_mask = (1-normalized_distances)**2 if self.error_at_goal else normalized_distances**2
+        else:
+            if self.error_at_goal:
+                error_mask = (np.linalg.norm(obs-self.goal[None, :], axis=1) < self.error_range_around_goal).astype(np.float32)
+            else:
+                error_mask = (np.linalg.norm(obs - self.goal[None, :], axis=1) > self.error_range_around_goal).astype(
+                    np.float32)
+        error_mask = np.tile(error_mask.reshape((obs.shape[0], 1, 1)), (1, obs.shape[1],self.num_models))
 
-        delta_error = np.zeros(shape=obs.shape + (self.num_models,))
+        delta_error = np.random.normal(loc=self.model_biases, scale=self.error_std, size=obs.shape + (self.num_models,))
+
+        # mask out delta error in certain regions
+        delta_error = np.multiply(error_mask, delta_error)
 
         assert delta_error.shape == obs.shape + (self.num_models,)
         return delta_error

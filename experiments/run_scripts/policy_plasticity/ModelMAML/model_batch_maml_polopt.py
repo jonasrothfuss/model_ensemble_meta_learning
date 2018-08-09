@@ -3,6 +3,7 @@ import tensorflow as tf
 import time
 import numpy as np
 import os
+import joblib
 
 from rllab_maml.algos.base import RLAlgorithm
 from rllab_maml.sampler.stateful_pool import singleton_pool
@@ -195,7 +196,6 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
         with tf.Session(config=config) as sess:
             # Code for loading a previous policy. Somewhat hacky because needs to be in sess.
             if self.load_policy is not None:
-                import joblib
                 self.policy = joblib.load(self.load_policy)['policy']
             self.init_opt()
             self.initialize_uninitialized_variables(sess)
@@ -214,7 +214,10 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
             obs_grid_points = np.stack([x_points.flatten(), y_points.flatten()], axis=1)
             assert obs_grid_points.shape == (resolution**2, 2)
 
-            PLOT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'plots')
+            if logger._snapshot_dir:
+                DUMP_DIR = logger._snapshot_dir
+            else:
+                DUMP_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'plots')
 
             for itr in range(self.start_itr, self.n_itr):
                 itr_start_time = time.time()
@@ -298,32 +301,54 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                         [obs_grid_points for _ in range(self.meta_batch_size)])
 
                     # compute KL divergence between pre and post update policy
-                    pre_var, post_var = np.exp(agent_infos_pre['log_std'])**2, np.exp(agent_infos_post['log_std'])**2
-                    kl_pre_post = np.sum(agent_infos_post['log_std'] - agent_infos_pre['log_std'] + \
-                                        (pre_var + (agent_infos_pre['mean'] - agent_infos_post['mean'])**2) / (2*post_var) - 0.5, axis=1)
-
-                    kl_pre_post_grid = kl_pre_post.reshape((resolution**2, self.meta_batch_size)).mean(axis=1).reshape((resolution,resolution))
+                    kl_pre_post = self.policy.distribution.kl(agent_infos_pre, agent_infos_post)
+                    kl_pre_post_grid = kl_pre_post.reshape((self.meta_batch_size, resolution**2)).mean(axis=0).reshape((resolution,resolution))
 
                     model_std_grid = self.dynamics_model.predict_std(obs_grid_points, - 0.05 * obs_grid_points).mean(axis=1).reshape((resolution,resolution))
 
+                    import matplotlib
+                    matplotlib.use('agg')
                     import matplotlib.pyplot as plt
-                    img_filename = os.path.join(PLOT_DIR, 'kl_vs_model_std_plot_iter_%i'%itr)
-                    fig, (ax1, ax2) = plt.subplots(1, 2)
-                    ax1.title('KL-divergence between pre- and post-update policy')
-                    ax1.ylabel('y')
-                    ax1.xlabel('x')
-                    ax1.set_xticks(linspace)
-                    ax1.imshow(kl_pre_post_grid)
+                    plt.style.use('ggplot')
 
-                    ax2.title('Model prediction standard deviation')
-                    ax2.ylabel('y')
-                    ax2.xlabel('x')
-                    ax2.set_xticks(linspace)
-                    ax2.imshow(model_std_grid)
+                    img_filename = os.path.join(DUMP_DIR, 'kl_vs_model_std_plot_iter_%i' % itr)
+                    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
+                    fig.tight_layout(pad=3)
 
+                    ax1.set_title('KL-divergence')
+                    ax1.set_ylabel('y')
+                    ax1.set_xlabel('x')
+
+                    # determine range of plot
+                    point_env = self.env._wrapped_env._wrapped_env
+                    env_center = (point_env.init_sampling_boundaries[0] + point_env.init_sampling_boundaries[1]) / 2
+                    distance = np.abs(
+                        point_env.init_sampling_boundaries[0] - point_env.init_sampling_boundaries[1]) / 2
+                    extent = (env_center - 0.9*distance, env_center + 0.9*distance, env_center - 0.9*distance, env_center + 0.9*distance)
+
+                    im1 = ax1.imshow(kl_pre_post_grid, extent=extent)
+                    fig.colorbar(ax=ax1, mappable=im1, shrink=0.8, orientation='vertical')
+                    ax1.grid(False)
+
+                    ax2.set_title('Ensemble variance')
+                    ax2.set_ylabel('y')
+                    ax2.set_xlabel('x')
+                    im2 = ax2.imshow(model_std_grid, extent=extent)
+                    fig.colorbar(ax=ax2, mappable=im2, shrink=0.8, orientation='vertical')
+                    ax2.grid(False)
+
+                    # save plot
                     fig.savefig(img_filename)
 
+                    # save plot data
+                    plot_data={
+                        'kl': kl_pre_post_grid,
+                        'std': model_std_grid,
+                        'extent': extent
+                    }
 
+                    plot_data_file = os.path.join(DUMP_DIR, 'kl_vs_model_std_plot_iter_%i.pkl' % itr)
+                    joblib.dump(plot_data, plot_data_file)
 
 
                     ''' --------------- fit dynamics model --------------- '''

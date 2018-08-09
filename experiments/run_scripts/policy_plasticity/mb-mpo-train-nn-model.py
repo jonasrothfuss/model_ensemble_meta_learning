@@ -13,11 +13,7 @@ from experiments.helpers.run_multi_gpu import run_multi_gpu
 from experiments.run_scripts.policy_plasticity.ModelMAML.model_maml_trpo import ModelMAMLTRPO
 from experiments.run_scripts.policy_plasticity.point_env_fake_model_ensemble import PointEnvFakeModelEnsemble
 
-
-from sandbox.ours.envs.own_envs import PointEnvMAML
-from sandbox.ours.envs.mujoco import AntEnvRandParams, HalfCheetahEnvRandParams, HopperEnvRandParams, SwimmerEnvRandParams, WalkerEnvRandomParams
-from sandbox.ours.envs.mujoco import Reacher5DofEnvRandParams
-from sandbox.ours.envs.own_envs import PointEnv
+from experiments.run_scripts.policy_plasticity.envs.point_2d_env_plasticity import PointEnv
 
 import tensorflow as tf
 import sys
@@ -34,13 +30,19 @@ NUM_EC2_SUBNETS = 3
 def run_train_task(vv):
 
     env = TfEnv(normalize(vv['env'](
-        log_scale_limit=vv['log_scale_limit'],
-        target_velocity=vv['target_velocity'],
+        init_sampling_boundaries=vv['point_env_setup']['init_sampling_boundaries'],
+        goal=vv['point_env_setup']['goal']
     )))
 
-    dynamics_model = PointEnvFakeModelEnsemble(
+    dynamics_model = MLPDynamicsEnsemble(
+        name="dyn_model",
         env_spec=env.spec,
+        hidden_sizes=vv['hidden_sizes_model'],
+        weight_normalization=vv['weight_normalization_model'],
         num_models=vv['num_models'],
+        optimizer=vv['optimizer_model'],
+        valid_split_ratio=vv['valid_split_ratio'],
+        rolling_average_persitency=vv['rolling_average_persitency']
     )
 
     policy = MAMLGaussianMLPPolicy(
@@ -102,35 +104,36 @@ def run_experiment(argv):
     # -------------------- Define Variants -----------------------------------
     vg = VariantGenerator()
 
-    vg.add('seed', [23, 54, 62])
+    vg.add('seed', [23, 33])
 
     # env spec
     vg.add('env', ['PointEnv'])
-    vg.add('log_scale_limit', [0.0])
-    vg.add('target_velocity', [None])
-    vg.add('path_length_env', [100])
+    vg.add('path_length_env', [30])
+    vg.add('point_env_setup', [
+        {'init_sampling_boundaries': (-2, 2), 'goal': (0, 0)},
+    ])
 
     # Model-based MAML algo spec
-    vg.add('n_itr', [100])
+    vg.add('n_itr', [50])
     vg.add('fast_lr', [0.001])
     vg.add('meta_step_size', [0.01])
-    vg.add('meta_batch_size', [20]) # must be a multiple of num_models
+    vg.add('meta_batch_size', [40]) # must be a multiple of num_models
     vg.add('discount', [0.99])
     vg.add('entropy_bonus', [0])
 
-    vg.add('batch_size_env_samples', [50])
-    vg.add('batch_size_dynamics_samples', [50])
+    vg.add('batch_size_env_samples', [10])
+    vg.add('batch_size_dynamics_samples', [150])
     vg.add('initial_random_samples', [5000])
-    vg.add('num_maml_steps_per_iter', [10])
+    vg.add('num_maml_steps_per_iter', [30])
     vg.add('retrain_model_when_reward_decreases', [False])
     vg.add('reset_from_env_traj', [False])
     vg.add('trainable_step_size', [False])
     vg.add('num_models', [5])
 
-    # neural network configuration
+    # nn configuration
     vg.add('hidden_nonlinearity_policy', ['tanh'])
     vg.add('hidden_nonlinearity_model', ['relu'])
-    vg.add('hidden_sizes_policy', [(16, 16)])
+    vg.add('hidden_sizes_policy', [(32, 32)])
     vg.add('hidden_sizes_model', [(128, 128)])
     vg.add('weight_normalization_model', [True])
     vg.add('reset_policy_std', [False])
@@ -138,6 +141,7 @@ def run_experiment(argv):
     vg.add('optimizer_model', ['adam'])
     vg.add('policy', ['MAMLImprovedGaussianMLPPolicy'])
     vg.add('bias_transform', [False])
+    vg.add('param_noise_std', [0.0])
     vg.add('dynamic_model_max_epochs', [(500, 500)])
 
     vg.add('valid_split_ratio', [0.2])
@@ -190,7 +194,7 @@ def run_experiment(argv):
         # ----------------------- TRAINING ---------------------------------------
         exp_ids = random.sample(range(1, 1000), len(variants))
         for v, exp_id in zip(variants, exp_ids):
-            exp_name = "mb-mpo_train_env_%s_%i_%i_%i_%i_id_%i" % (v['env'], v['path_length_env'], v['num_models'],
+            exp_name = "mb-mpo_train_nn_model_env_%s_%i_%i_%i_%i_id_%i" % (v['env'], v['path_length_env'], v['num_models'],
                                                            v['batch_size_env_samples'], v['seed'], exp_id)
             v = instantiate_class_stings(v)
 
@@ -205,7 +209,7 @@ def run_experiment(argv):
                     config.ALL_REGION_AWS_SECURITY_GROUP_IDS[
                         config.AWS_REGION_NAME]
 
-            if True:
+            if False:
                 run_train_task(v)
             else:
                 run_experiment_lite(
@@ -219,6 +223,7 @@ def run_experiment(argv):
                     periodic_sync=True,
                     sync_s3_pkl=True,
                     sync_s3_log=True,
+                    sync_s3_png=True,
                     # Specifies the seed for the experiment. If this is not provided, a random seed
                     # will be used
                     seed=v["seed"],
