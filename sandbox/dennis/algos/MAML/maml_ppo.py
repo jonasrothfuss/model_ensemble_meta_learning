@@ -21,15 +21,20 @@ class MAMLPPO(BatchMAMLPolopt):
             clip_outer=True,
             target_outer_step=0.001,
             target_inner_step=0.01,
-            init_outer_kl_penalty=1e-11,
-            init_inner_kl_penalty=1e-10,
+            init_outer_kl_penalty=1e-3,
+            init_inner_kl_penalty=1e-2,
             adaptive_outer_kl_penalty=True,
             adaptive_inner_kl_penalty=True,
-            num_batches=10,
+            num_batches=1,
+            max_epochs=1,
+            tf_optimizer_args={},
+            multi_adam=False,
             **kwargs):
         if optimizer is None:
             if optimizer_args is None:
-                optimizer_args = dict(max_epochs=1, batch_size=num_batches, verbose=True)
+                optimizer_args = dict(max_epochs=max_epochs, batch_size=num_batches, tf_optimizer_args=tf_optimizer_args, verbose=True)
+            if multi_adam:
+                optimizer_args['multi_adam'] = num_batches * max_epochs
             optimizer = MAMLPPOOptimizer(**optimizer_args)
         self.optimizer = optimizer
         self.use_maml = use_maml

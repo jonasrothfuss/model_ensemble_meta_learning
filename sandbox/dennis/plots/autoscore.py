@@ -31,7 +31,7 @@ COLORS = dict(ours=colors.pop(0))
 LEGEND_ORDER = {'ppo': 0, 'trpo': 1, 'vpg': 2}
 
 ########## Add data path here #############
-data_path = "data/s3/ppo-maml-hyperparam-final"
+data_path = "data/s3/ppo-maml-hyperparam-final-2-lmao"
 ###########################################
 exps_data = core.load_exps_data([data_path], False)
 
