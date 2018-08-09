@@ -93,7 +93,8 @@ class MAMLNPO(BatchMAMLPolopt):
                         kl = dist.kl_sym(old_dist_info_vars[i], dist_info_vars)
                         kls.append(kl)
                 else:
-                    dist_info_vars, params = self.policy.updated_dist_info_sym(i, all_surr_objs[-1][i], obs_vars[i], params_dict=cur_params[i])
+                    dist_info_vars, params = self.policy.updated_dist_info_sym(i, all_surr_objs[-1][i], obs_vars[i],
+                                                                               params_dict=cur_params[i])
                 if self.entropy_bonus > 0:
                     entropy = self.entropy_bonus * tf.reduce_mean(dist.entropy_sym(dist_info_vars))
                 else:
@@ -110,7 +111,7 @@ class MAMLNPO(BatchMAMLPolopt):
                     _dist_info_vars, _ = self.policy.dist_info_sym(obs_vars[i], state_info_vars,
                                                                    all_params=self.policy.all_params_ph[i])
                     _logli = dist.log_likelihood_sym(action_vars[i], _dist_info_vars)
-                    _surr_objs_ph.append(-tf.reduce_mean(- tf.reduce_mean(_logli * adv_vars[i])))
+                    _surr_objs_ph.append(-tf.reduce_mean(_logli * adv_vars[i]))
 
             input_list += obs_vars + action_vars + adv_vars + state_info_vars_list
             if j == 0:
