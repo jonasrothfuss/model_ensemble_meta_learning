@@ -1,14 +1,14 @@
 from rllab_maml.misc import ext
 from rllab_maml.misc.overrides import overrides
 import rllab.misc.logger as logger
-from sandbox.ours.algos.MAML.batch_maml_polopt import BatchMAMLPolopt
+from experiments.run_scripts.policy_plasticity_mujoco_envs.ModelMAML.model_batch_maml_polopt import ModelBatchMAMLPolopt
 from sandbox_maml.rocky.tf.optimizers.penalty_lbfgs_optimizer import PenaltyLbfgsOptimizer
 from sandbox_maml.rocky.tf.optimizers.first_order_optimizer import FirstOrderOptimizer
 from sandbox_maml.rocky.tf.misc import tensor_utils
 import tensorflow as tf
 
 
-class MAMLNPO(BatchMAMLPolopt):
+class ModelMAMLNPO(ModelBatchMAMLPolopt):
     """
     Natural Policy Optimization.
     """
@@ -35,7 +35,7 @@ class MAMLNPO(BatchMAMLPolopt):
         self.step_size = step_size
         self.use_maml = use_maml
         self.kl_constrain_step = -1  # needs to be 0 or -1 (original pol params, or new pol params)
-        super(MAMLNPO, self).__init__(**kwargs)
+        super(ModelMAMLNPO, self).__init__(**kwargs)
 
     def make_vars(self, stepnum='0'):
         # lists over the meta_batch_size
@@ -73,8 +73,10 @@ class MAMLNPO(BatchMAMLPolopt):
         state_info_vars, state_info_vars_list = {}, []
 
         all_surr_objs, input_list = [], []
-        entropy_list = []
         new_params = None
+        entropy_list = []
+
+        # MAML inner loop
         for j in range(self.num_grad_updates):
             obs_vars, action_vars, adv_vars = self.make_vars(str(j))
             surr_objs = []
@@ -87,23 +89,20 @@ class MAMLNPO(BatchMAMLPolopt):
 
             for i in range(self.meta_batch_size):
                 if j == 0:
-                    dist_info_vars, params = self.policy.dist_info_sym(obs_vars[i], state_info_vars,
-                                                                       all_params=self.policy.all_params)
+                    dist_info_vars, params = self.policy.dist_info_sym(obs_vars[i], state_info_vars, all_params=self.policy.all_params)
                     if self.kl_constrain_step == 0:
                         kl = dist.kl_sym(old_dist_info_vars[i], dist_info_vars)
                         kls.append(kl)
                 else:
-                    dist_info_vars, params = self.policy.updated_dist_info_sym(i, all_surr_objs[-1][i], obs_vars[i],
-                                                                               params_dict=cur_params[i])
+                    dist_info_vars, params = self.policy.updated_dist_info_sym(i, all_surr_objs[-1][i], obs_vars[i], params_dict=cur_params[i])
+
+                new_params.append(params)
+                logli = dist.log_likelihood_sym(action_vars[i], dist_info_vars)
                 if self.entropy_bonus > 0:
                     entropy = self.entropy_bonus * tf.reduce_mean(dist.entropy_sym(dist_info_vars))
                 else:
                     entropy = 0
                 entropies.append(entropy)
-
-                new_params.append(params)
-                logli = dist.log_likelihood_sym(action_vars[i], dist_info_vars)
-
                 # formulate as a minimization problem
                 # The gradient of the surrogate objective is the policy gradient
                 surr_objs.append(- tf.reduce_mean(logli * adv_vars[i]))
@@ -111,7 +110,9 @@ class MAMLNPO(BatchMAMLPolopt):
                     _dist_info_vars, _ = self.policy.dist_info_sym(obs_vars[i], state_info_vars,
                                                                    all_params=self.policy.all_params_ph[i])
                     _logli = dist.log_likelihood_sym(action_vars[i], _dist_info_vars)
-                    _surr_objs_ph.append(-tf.reduce_mean(_logli * adv_vars[i]))
+                    _surr_objs_ph.append(- tf.reduce_mean(_logli * adv_vars[i]))
+
+
 
             input_list += obs_vars + action_vars + adv_vars + state_info_vars_list
             if j == 0:
@@ -122,9 +123,9 @@ class MAMLNPO(BatchMAMLPolopt):
             all_surr_objs.append(surr_objs)
             entropy_list.append(entropies)
 
-        """ TRPO-Objective """
         obs_vars, action_vars, adv_vars = self.make_vars('test')
         surr_objs = []
+        # MAML outer loop
         for i in range(self.meta_batch_size):
             dist_info_vars, _ = self.policy.updated_dist_info_sym(i, all_surr_objs[-1][i], obs_vars[i], params_dict=new_params[i])
 
@@ -133,9 +134,8 @@ class MAMLNPO(BatchMAMLPolopt):
                 kls.append(kl)
             lr = dist.likelihood_ratio_sym(action_vars[i], old_dist_info_vars[i], dist_info_vars)
             surr_objs.append(- tf.reduce_mean(lr*adv_vars[i]
-                             + sum(list(entropy_list[j][i] for j in range(self.num_grad_updates)))))
+                                              + sum(list(entropy_list[j][i] for j in range(self.num_grad_updates)))))
 
-        """ Sum over meta tasks """
         if self.use_maml:
             surr_obj = tf.reduce_mean(tf.stack(surr_objs, 0))  # mean over meta_batch_size (the diff tasks)
             input_list += obs_vars + action_vars + adv_vars + old_dist_info_vars_list
@@ -163,17 +163,7 @@ class MAMLNPO(BatchMAMLPolopt):
         return dict()
 
     @overrides
-    def optimize_policy(self, itr, all_samples_data):
-        """
-        :param itr: (int) iteration
-        :param all_samples_data: list which length corresponds to num_grad_updates+1 (contains the data collected by
-        the pre- and post-update policies.
-        Each entry of the list is a dict which number of entries corresponds to
-        the meta-batch size.
-        Each dict contains numpy arrays with actions, advantages, observations, returns, rewards & env_infos & agent_infos (i.e. log_std, mean)
-        :return:
-        """
-
+    def optimize_policy(self, itr, all_samples_data, log=True):
         assert len(all_samples_data) == self.num_grad_updates + 1  # we collected the rollouts to compute the grads and then the test!
 
         if not self.use_maml:
@@ -202,23 +192,23 @@ class MAMLNPO(BatchMAMLPolopt):
                 agent_infos = all_samples_data[self.kl_constrain_step][i]['agent_infos']
                 dist_info_list += [agent_infos[k] for k in self.policy.distribution.dist_info_keys]
             input_list += tuple(dist_info_list)
-            logger.log("Computing KL before")
+            if log: logger.log("Computing KL before")
             mean_kl_before = self.optimizer.constraint_val(input_list)
 
-        logger.log("Computing loss before")
+        if log: logger.log("Computing loss before")
         loss_before = self.optimizer.loss(input_list)
-        logger.log("Optimizing")
+        if log: logger.log("Optimizing")
         self.optimizer.optimize(input_list)
-        logger.log("Computing loss after")
+        if log: logger.log("Computing loss after")
         loss_after = self.optimizer.loss(input_list)
         if self.use_maml:
-            logger.log("Computing KL after")
+            if log: logger.log("Computing KL after")
             mean_kl = self.optimizer.constraint_val(input_list)
-            logger.record_tabular('MeanKLBefore', mean_kl_before)  # this now won't be 0!
-            logger.record_tabular('MeanKL', mean_kl)
-        logger.record_tabular('LossBefore', loss_before)
-        logger.record_tabular('LossAfter', loss_after)
-        logger.record_tabular('dLoss', loss_before - loss_after)
+            if log: logger.record_tabular('MeanKLBefore', mean_kl_before)  # this now won't be 0!
+            if log: logger.record_tabular('MeanKL', mean_kl)
+            if log: logger.record_tabular('LossBefore', loss_before)
+            if log: logger.record_tabular('LossAfter', loss_after)
+            if log: logger.record_tabular('dLoss', loss_before - loss_after)
         return dict()
 
     @overrides
@@ -226,6 +216,7 @@ class MAMLNPO(BatchMAMLPolopt):
         return dict(
             itr=itr,
             policy=self.policy,
+            dynamics_model=self.dynamics_model,
             baseline=self.baseline,
             env=self.env,
         )

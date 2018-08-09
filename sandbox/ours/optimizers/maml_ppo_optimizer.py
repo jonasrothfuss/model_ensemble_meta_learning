@@ -12,8 +12,30 @@ from functools import partial
 import pyprind
 
 class MAMLPPOOptimizer(FirstOrderOptimizer):
-    ## Right now it's just implemented one gradient step with all the data
     
+    def __init__(
+            self,
+            tf_optimizer_cls=None,
+            tf_optimizer_args=None,
+            step_size=1e-3,
+            multi_adam=1,
+            **kwargs):
+        Serializable.quick_init(self, locals())
+        super().__init__(
+                            tf_optimizer_cls=tf_optimizer_cls,
+                            tf_optimizer_args=tf_optimizer_args,
+                            step_size=step_size,
+                            **kwargs
+                        )
+        self.multi_adam = multi_adam
+        if self.multi_adam > 1:
+            if tf_optimizer_cls is None:
+                tf_optimizer_cls = tf.train.AdamOptimizer
+            if tf_optimizer_args is None:
+                tf_optimizer_args = dict(learning_rate=step_size)
+            self._tf_optimizers = [tf_optimizer_cls(**tf_optimizer_args) for _ in range(multi_adam)]
+            # No init tf optimizer right now
+        
     def update_opt(self, loss, target, inputs, inner_kl, outer_kl, extra_inputs=None, meta_batch_size=1, num_grad_updates=1, **kwargs):
         """
         :param inner_kl: Symbolic expression for inner kl
@@ -28,6 +50,15 @@ class MAMLPPOOptimizer(FirstOrderOptimizer):
             f_inner_kl=lambda: tensor_utils.compile_function(inputs + extra_inputs, inner_kl),
             f_outer_kl=lambda: tensor_utils.compile_function(inputs + extra_inputs, outer_kl),
         )
+        if self.multi_adam > 1:
+            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+            if update_ops:
+                # for batch norm
+                updates = tf.group(*update_ops)
+                with tf.control_dependencies([updates]):
+                    self._train_ops = [optimizer.minimize(loss, var_list=target.get_params(trainable=True)) for optimizer in self._tf_optimizers]
+            else:
+                self._train_ops = [optimizer.minimize(loss, var_list=target.get_params(trainable=True)) for optimizer in self._tf_optimizers]
         self.meta_batch_size = meta_batch_size
         self.num_grad_updates = num_grad_updates
 
@@ -65,12 +96,15 @@ class MAMLPPOOptimizer(FirstOrderOptimizer):
                 logger.log("Epoch %d" % (epoch))
                 progbar = pyprind.ProgBar(len(inputs[0]))
 
-            for batch in dataset.iterate(update=True):
+            for j, batch in enumerate(dataset.iterate(update=True)):
                 if self._init_train_op is not None:
                     sess.run(self._init_train_op, dict(list(zip(self._input_vars, batch))))
                     self._init_train_op = None  # only use it once
                 else:
-                    sess.run(self._train_op, dict(list(zip(self._input_vars, batch))))
+                    if self.multi_adam > 1:
+                        sess.run(self._train_ops[epoch * self._batch_size + j], dict(list(zip(self._input_vars, batch))))
+                    else:
+                        sess.run(self._train_op, dict(list(zip(self._input_vars, batch))))
 
                 if self._verbose:
                     progbar.update(len(batch[0]))

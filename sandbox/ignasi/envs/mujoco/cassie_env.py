@@ -30,7 +30,7 @@ class CassieEnv(Env, Serializable):
 
     def __init__(self, render=False, fix_pelvis=False, frame_skip=20, fixed_gains=True,
                  stability_cost_coef=1e-2, ctrl_cost_coef=1e-3, alive_bonus=0.2, impact_cost_coef=1e-5,
-                 task='running', ctrl_type='TPV'):
+                 rotation_cost_coef=1e-2, task='running', ctrl_type='TPV'):
 
         self.sim = CassieSim()
         if render:
@@ -66,6 +66,7 @@ class CassieEnv(Env, Serializable):
         self.ctrl_cost_coef = ctrl_cost_coef
         self.impact_cost_coef = impact_cost_coef
         self.alive_bonus = alive_bonus
+        self.rotation_cost_coef = rotation_cost_coef
 
         if fix_pelvis: self.sim.hold()
 
@@ -91,7 +92,6 @@ class CassieEnv(Env, Serializable):
         right_heel = _to_np(internal_state.rightFoot.heelForce)
         return np.concatenate([left_toe, left_heel, right_toe, right_heel])
 
-
     def done(self, obs):
         if obs.ndim == 1 or obs.ndim == 2:
             height = pelvis_hight_from_obs(obs)
@@ -107,19 +107,24 @@ class CassieEnv(Env, Serializable):
 
         # reward fct
         pelvis_vel = obs[self.num_qpos:self.num_qpos+3]
+        pelvis_rotation = obs[self.num_qpos+3:self.num_qpos+6]
 
         foot_forces = self.get_foot_forces(internal_state)
         motor_torques = _to_np(internal_state.motor.torque)
         forward_vel = pelvis_vel[0]
         ctrl_cost = self.ctrl_cost_coef * 0.5 * np.mean(np.square(motor_torques/self.torque_limits))
-        stability_cost = self.stability_cost_coef * 0.5 * np.mean(np.square(pelvis_vel[1:])) # quadratic velocity of pelvis in y and z direction ->
-                                                                                # enforces to hold the pelvis in same position while walking
+        stability_cost = self.stability_cost_coef * 0.5 * np.mean(np.square(pelvis_vel[1:]))  #  quadratic velocity of pelvis in y and z direction ->
+        rotation_cost = self.rotation_cost_coef * 0.5 * np.mean(np.square(pelvis_rotation))
+                                                                                              #  enforces to hold the pelvis in same position while walking
         impact_cost = self.impact_cost_coef * 0.5 * np.sum(np.square(np.clip(foot_forces, -1, 1)))
         if self.task == 'balancing':
             vel_cost = self.stability_cost_coef * forward_vel ** 2
             reward = - vel_cost - ctrl_cost - stability_cost - impact_cost + self.alive_bonus
+        elif self.task == 'fixed-vel':
+            vel_cost = self.stability_cost_coef * (1.7 - forward_vel) ** 2
+            reward = - vel_cost - ctrl_cost - stability_cost - rotation_cost - impact_cost + self.alive_bonus
         else:
-            reward = forward_vel - ctrl_cost - stability_cost - impact_cost + self.alive_bonus
+            reward = forward_vel - ctrl_cost - stability_cost - rotation_cost - impact_cost + self.alive_bonus
 
         done = self.done(obs)
         info = {'forward_vel': forward_vel, 'ctrl_cost': ctrl_cost, 'stability_cost': stability_cost}
@@ -145,7 +150,7 @@ class CassieEnv(Env, Serializable):
 
     @property
     def action_space(self):
-        return Box(low=self.act_limits_array[:,0], high=self.act_limits_array[:,1])
+        return Box(low=self.act_limits_array[:, 0], high=self.act_limits_array[:,1])
 
     @property
     def observation_space(self):

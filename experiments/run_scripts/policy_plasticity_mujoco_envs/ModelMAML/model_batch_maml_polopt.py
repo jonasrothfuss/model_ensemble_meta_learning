@@ -279,7 +279,6 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                         new_env_paths = self.obtain_env_samples(itr, reset_args=learner_env_params, log_prefix='PostPolicy-',)
                         _ = self.process_samples_for_policy(itr,  flatten_list(new_env_paths.values()), log_prefix='PostPolicy-')
 
-
                     ''' --------------- fit dynamics model --------------- '''
 
                     time_fit_start = time.time()
@@ -304,6 +303,9 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
                     times_outer_step = []
 
                     time_maml_steps_start = time.time()
+
+                    kl_pre_post = []
+                    model_std = []
 
                     for maml_itr in range(self.num_maml_steps_per_iter):
 
@@ -361,6 +363,19 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
 
                             times_inner_step.append(time.time() - time_inner_step_start)
 
+                        '''---------- Computing KL divergence ot the policies and variance of the model --------'''
+                        # self.policy.switch_to_init_dist()
+                        last_samples = all_samples_data_maml_iter[-1]
+                        for idx in range(self.meta_batch_size):
+                            _, agent_infos_pre = self.policy.get_actions(last_samples[idx]['observations'])
+                            # compute KL divergence between pre and post update policy
+                            kl_pre_post.append(
+                                self.policy.distribution.kl(agent_infos_pre, last_samples[idx]['agent_infos']).mean())
+                            model_std.append(self.dynamics_model.predict_std(last_samples[idx]['observations'],
+                                                                             last_samples[idx]['actions']).mean())
+
+                        '''------------------------------------------------------------------------------------------'''
+
                         if maml_itr == 0:
                             prev_rolling_reward_mean = mean_reward
                             rolling_reward_mean = mean_reward
@@ -394,6 +409,8 @@ class ModelBatchMAMLPolopt(RLAlgorithm):
 
 
                     ''' --------------- Logging Stuff --------------- '''
+                    logger.record_tabular("KL-pre-post", np.mean(kl_pre_post))
+                    logger.record_tabular("Variance Models", np.mean(model_std))
 
                     logger.record_tabular('Time-MAMLSteps', time.time() - time_maml_steps_start)
                     logger.record_tabular('Time-DynSampling', np.mean(times_dyn_sampling))
