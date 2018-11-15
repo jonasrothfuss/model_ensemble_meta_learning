@@ -1,7 +1,6 @@
 # Model-Based Meta-Policy Optimization (MB-MPO)
 
-This repository contains code corresponding to the paper "Model-Based Meta-Policy Optimization" which is currently under review.
-
+This repository contains code corresponding to the paper ["Model-Based Meta-Policy Optimization"](https://arxiv.org/abs/1809.05214). 
 
 ### Dependencies
 This code is based off of the [rllab](https://github.com/rll/rllab) code repository as well as the [maml_rl](https://github.com/cbfinn/maml_rl) repository and can be installed in the same way (see below).
